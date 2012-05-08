@@ -113,3 +113,17 @@ int external_odb_fetch_object(const unsigned char *sha1)
 
 	return -1;
 }
+
+int external_odb_for_each_object(each_external_object_fn fn, void *data)
+{
+	struct odb_helper *o;
+
+	external_odb_init();
+
+	for (o = helpers; o; o = o->next) {
+		int r = odb_helper_for_each_object(o, fn, data);
+		if (r)
+			return r;
+	}
+	return 0;
+}
