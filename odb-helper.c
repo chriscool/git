@@ -237,3 +237,18 @@ int odb_helper_fetch_object(struct odb_helper *o, const unsigned char *sha1,
 
 	return 0;
 }
+
+int odb_helper_for_each_object(struct odb_helper *o,
+			       each_external_object_fn fn,
+			       void *data)
+{
+	int i;
+	for (i = 0; i < o->have_nr; i++) {
+		struct odb_helper_object *obj = &o->have[i];
+		int r = fn(obj->sha1, obj->type, obj->size, data);
+		if (r)
+			return r;
+	}
+
+	return 0;
+}
