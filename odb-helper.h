@@ -25,5 +25,8 @@ int odb_helper_fetch_object(struct odb_helper *o, const unsigned char *sha1,
 			    int fd);
 int odb_helper_for_each_object(struct odb_helper *o,
 			       each_external_object_fn, void *);
+int odb_helper_write_object(struct odb_helper *o,
+			    const void *buf, unsigned long len,
+			    const char *type, unsigned char *sha1);
 
 #endif /* ODB_HELPER_H */
