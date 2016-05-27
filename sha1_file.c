@@ -1328,13 +1328,13 @@ int oid_object_info_extended(const struct object_id *oid, struct object_info *oi
 		}
 
 		/* Check if it is a missing object */
-		if (fetch_if_missing && has_external_odb() &&
+		if (fetch_if_missing && has_odb_remote() &&
 		    !already_retried) {
 			/*
-			 * TODO Investigate checking external_odb_get_direct()
+			 * TODO Investigate checking odb_remote_get_direct()
 			 * TODO return value and stopping in case of error.
 			 */
-			external_odb_get_direct(real->hash);
+			odb_remote_get_direct(real->hash);
 			already_retried = 1;
 			continue;
 		}
@@ -1731,6 +1731,8 @@ int write_object_file(const void *buf, unsigned long len, const char *type,
 	 * it out into .git/objects/??/?{38} file.
 	 */
 	write_object_file_prepare(buf, len, type, oid, hdr, &hdrlen);
+	if (!odb_remote_put_object(buf, len, type, oid->hash))
+		return 0;
 	if (freshen_packed_object(oid->hash) || freshen_loose_object(oid->hash))
 		return 0;
 	return write_loose_object(oid, hdr, hdrlen, buf, len, 0);
