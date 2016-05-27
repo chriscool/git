@@ -33,5 +33,8 @@ int odb_helper_init(struct odb_helper *o);
 int odb_helper_has_object(struct odb_helper *o, const unsigned char *sha1);
 int odb_helper_get_object(struct odb_helper *o, const unsigned char *sha1,
 			  int fd);
+int odb_helper_put_object(struct odb_helper *o,
+			  const void *buf, size_t len,
+			  const char *type, unsigned char *sha1);
 
 #endif /* ODB_HELPER_H */
