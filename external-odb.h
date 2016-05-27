@@ -10,5 +10,7 @@ typedef int (*each_external_object_fn)(const unsigned char *sha1,
 				       unsigned long size,
 				       void *data);
 int external_odb_for_each_object(each_external_object_fn, void *);
+int external_odb_write_object(const void *buf, unsigned long len,
+			      const char *type, unsigned char *sha1);
 
 #endif /* EXTERNAL_ODB_H */
