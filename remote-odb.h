@@ -17,5 +17,7 @@ extern const char *remote_odb_root(void);
 extern int remote_odb_has_object(const unsigned char *sha1);
 extern int remote_odb_get_object(const unsigned char *sha1);
 extern int remote_odb_get_direct(const struct object_id *oids, int oid_nr);
+extern int remote_odb_put_object(const void *buf, size_t len,
+				 const char *type, unsigned char *sha1);
 
 #endif /* REMOTE_ODB_H */

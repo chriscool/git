@@ -210,3 +210,18 @@ int remote_odb_get_direct(const struct object_id *oids, int oid_nr)
 
 	return -1;
 }
+
+int remote_odb_put_object(const void *buf, size_t len,
+			  const char *type, unsigned char *sha1)
+{
+	struct odb_helper *o;
+
+	remote_odb_init();
+
+	for (o = helpers; o; o = o->next) {
+		int r = odb_helper_put_object(o, buf, len, type, sha1);
+		if (r <= 0)
+			return r;
+	}
+	return 1;
+}
