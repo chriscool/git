@@ -95,13 +95,13 @@ int external_odb_has_object(const unsigned char *sha1)
 int external_odb_get_object(const unsigned char *sha1)
 {
 	struct odb_helper *o;
-	const char *path;
+	struct strbuf pathbuf = STRBUF_INIT;
 
 	if (!external_odb_has_object(sha1))
 		return -1;
 
-	path = sha1_file_name_alt(external_odb_root(), sha1);
-	safe_create_leading_directories_const(path);
+	sha1_file_name_alt(&pathbuf, external_odb_root(), sha1);
+	safe_create_leading_directories_const(pathbuf.buf);
 	prepare_external_alt_odb();
 
 	for (o = helpers; o; o = o->next) {
@@ -112,9 +112,10 @@ int external_odb_get_object(const unsigned char *sha1)
 		if (!odb_helper_has_object(o, sha1))
 			continue;
 
-		fd = create_object_tmpfile(&tmpfile, path);
+		fd = create_object_tmpfile(&tmpfile, pathbuf.buf);
 		if (fd < 0) {
 			strbuf_release(&tmpfile);
+			strbuf_release(&pathbuf);
 			return -1;
 		}
 
@@ -126,11 +127,14 @@ int external_odb_get_object(const unsigned char *sha1)
 		}
 
 		close_sha1_file(fd);
-		ret = finalize_object_file(tmpfile.buf, path);
+		ret = finalize_object_file(tmpfile.buf, pathbuf.buf);
 		strbuf_release(&tmpfile);
+		strbuf_release(&pathbuf);
 		if (!ret)
 			return 0;
 	}
+
+	strbuf_release(&pathbuf);
 
 	return -1;
 }
@@ -150,4 +154,19 @@ int external_odb_get_direct(const unsigned char *sha1)
 	}
 
 	return -1;
+}
+
+int external_odb_put_object(const void *buf, size_t len,
+			    const char *type, unsigned char *sha1)
+{
+	struct odb_helper *o;
+
+	external_odb_init();
+
+	for (o = helpers; o; o = o->next) {
+		int r = odb_helper_put_object(o, buf, len, type, sha1);
+		if (r <= 0)
+			return r;
+	}
+	return 1;
 }
