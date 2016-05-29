@@ -10,9 +10,7 @@ write_script odb-helper <<\EOF
 GIT_DIR=$ALT_SOURCE; export GIT_DIR
 case "$1" in
 have)
-	git rev-list --all --objects |
-	cut -d' ' -f1 |
-	git cat-file --batch-check |
+	git cat-file --batch-check --batch-all-objects |
 	awk '{print $1 " " $3 " " $2}'
 	;;
 get)
