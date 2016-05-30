@@ -211,6 +211,10 @@ int odb_remote_put_object(const void *buf, size_t len,
 
 	odb_remote_init();
 
+	/* For now accept only blobs */
+	if (strcmp(type, "blob"))
+		return 1;
+
 	for (o = helpers; o; o = o->next) {
 		int r = odb_helper_put_object(o, buf, len, type, sha1);
 		if (r <= 0)
