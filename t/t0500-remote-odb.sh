@@ -1,6 +1,6 @@
 #!/bin/sh
 
-test_description='basic tests for external object databases'
+test_description='basic tests for remote object databases'
 
 . ./test-lib.sh
 
@@ -67,6 +67,14 @@ test_expect_success 'helper can add objects to alt repo' '
 	git cat-file blob "$hash" | ./odb-helper put_raw_obj "$hash" "$size" blob &&
 	alt_size=$(git -C alt-repo cat-file -s "$hash") &&
 	test "$size" -eq "$alt_size"
+'
+
+test_expect_success 'commit adds objects to alt repo' '
+	test_config odb.magic.scriptCommand "$HELPER" &&
+	test_commit three &&
+	hash3=$(git ls-tree HEAD | grep three.t | cut -f1 | cut -d\  -f3) &&
+	content=$(git -C alt-repo show "$hash3") &&
+	test "$content" = "three"
 '
 
 test_done
