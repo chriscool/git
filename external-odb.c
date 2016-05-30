@@ -156,6 +156,10 @@ int external_odb_put_object(const void *buf, size_t len,
 	if (!use_external_odb)
 		return 1;
 
+	/* For now accept only blobs */
+	if (strcmp(type, "blob"))
+		return 1;
+
 	external_odb_init();
 
 	for (o = helpers; o; o = o->next) {
