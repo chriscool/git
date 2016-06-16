@@ -63,6 +63,9 @@ int external_odb_has_object(const unsigned char *sha1)
 {
 	struct odb_helper *o;
 
+	if (!use_external_odb)
+		return 0;
+
 	external_odb_init();
 
 	for (o = helpers; o; o = o->next)
@@ -132,6 +135,9 @@ int external_odb_write_object(const void *buf, unsigned long len,
 			      const char *type, unsigned char *sha1)
 {
 	struct odb_helper *o;
+
+	if (!use_external_odb)
+		return 1;
 
 	/* For now accept only blobs */
 	if (strcmp(type, "blob"))
