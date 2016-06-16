@@ -62,6 +62,9 @@ int external_odb_has_object(const unsigned char *sha1)
 {
 	struct odb_helper *o;
 
+	if (!use_external_odb)
+		return 0;
+
 	external_odb_init();
 
 	for (o = helpers; o; o = o->next)
@@ -69,4 +72,3 @@ int external_odb_has_object(const unsigned char *sha1)
 			return 1;
 	return 0;
 }
-
