@@ -680,6 +680,9 @@ void prepare_external_alt_odb(struct repository *r)
 	static int linked_external;
 	const char *path;
 
+	if (!use_odb_remote)
+		return;
+
 	if (linked_external)
 		return;
 
