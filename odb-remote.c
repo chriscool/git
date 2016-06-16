@@ -43,7 +43,7 @@ static void external_odb_init(void)
 {
 	static int initialized;
 
-	if (initialized)
+	if (initialized || !use_external_odb)
 		return;
 	initialized = 1;
 
