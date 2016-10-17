@@ -11,6 +11,7 @@ struct odb_helper {
 	const char *name;
 	const char *cmd;
 	unsigned int supported_capabilities;
+	int store_plain_objects;
 
 	struct odb_helper_object {
 		unsigned char sha1[20];
