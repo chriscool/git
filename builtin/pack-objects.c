@@ -1050,7 +1050,7 @@ static int want_object_in_pack(const struct object_id *oid,
 			return want;
 	}
 
-	if (odb_remote_has_object(oid->hash))
+	if (remote_odb_has_object(oid->hash))
 		return 0;
 
 	list_for_each(pos, get_packed_git_mru(the_repository)) {
