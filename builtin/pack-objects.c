@@ -28,6 +28,7 @@
 #include "argv-array.h"
 #include "mru.h"
 #include "packfile.h"
+#include "external-odb.h"
 
 static const char *pack_usage[] = {
 	N_("git pack-objects --stdout [<options>...] [< <ref-list> | < <object-list>]"),
@@ -1025,6 +1026,9 @@ static int want_object_in_pack(const struct object_id *oid,
 		if (want != -1)
 			return want;
 	}
+
+	if (external_odb_has_object(sha1))
+		return 0;
 
 	for (entry = packed_git_mru.head; entry; entry = entry->next) {
 		struct packed_git *p = entry->item;
