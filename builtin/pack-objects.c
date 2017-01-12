@@ -30,6 +30,7 @@
 #include "list.h"
 #include "packfile.h"
 #include "object-store.h"
+#include "odb-remote.h"
 
 static const char *pack_usage[] = {
 	N_("git pack-objects --stdout [<options>...] [< <ref-list> | < <object-list>]"),
@@ -1025,6 +1026,10 @@ static int want_object_in_pack(const struct object_id *oid,
 		if (want != -1)
 			return want;
 	}
+
+	if (odb_remote_has_object(oid->hash))
+		return 0;
+
 	list_for_each(pos, get_packed_git_mru(the_repository)) {
 		struct packed_git *p = list_entry(pos, struct packed_git, mru);
 		off_t offset;
