@@ -113,6 +113,14 @@ test_expect_success 'update other repo from the first one' '
 	 git pull origin master)
 '
 
+test_expect_success 'clone from the first repo' '
+	mkdir my-clone &&
+	(cd my-clone &&
+	 git clone .. . &&
+	 git cat-file blob "$hash1")
+'
+
+
 stop_httpd
 
 test_done
