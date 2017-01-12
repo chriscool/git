@@ -31,6 +31,7 @@
 #include "packfile.h"
 #include "object-store.h"
 #include "dir.h"
+#include "remote-odb.h"
 
 #define IN_PACK(obj) oe_in_pack(&to_pack, obj)
 #define SIZE(obj) oe_size(&to_pack, obj)
@@ -1054,6 +1055,10 @@ static int want_object_in_pack(const struct object_id *oid,
 		if (want != -1)
 			return want;
 	}
+
+	if (odb_remote_has_object(oid->hash))
+		return 0;
+
 	list_for_each(pos, get_packed_git_mru(the_repository)) {
 		struct packed_git *p = list_entry(pos, struct packed_git, mru);
 		off_t offset;
