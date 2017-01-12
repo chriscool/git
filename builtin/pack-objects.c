@@ -33,6 +33,7 @@
 #include "object-store.h"
 #include "dir.h"
 #include "midx.h"
+#include "remote-odb.h"
 
 #define IN_PACK(obj) oe_in_pack(&to_pack, obj)
 #define SIZE(obj) oe_size(&to_pack, obj)
@@ -1062,6 +1063,9 @@ static int want_object_in_pack(const struct object_id *oid,
 	struct multi_pack_index *m;
 
 	if (!exclude && local && has_loose_object_nonlocal(oid))
+		return 0;
+
+	if (remote_odb_has_object(oid->hash))
 		return 0;
 
 	/*
