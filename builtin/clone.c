@@ -847,7 +847,7 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 	const struct ref *our_head_points_at;
 	struct ref *mapped_refs;
 	const struct ref *ref;
-	struct strbuf key = STRBUF_INIT;
+	const char *config_key;
 	struct strbuf branch_top = STRBUF_INIT, reflog_msg = STRBUF_INIT;
 	struct transport *transport = NULL;
 	const char *src_ref_prefix = "refs/heads/";
@@ -994,9 +994,9 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 		strbuf_addf(&branch_top, "refs/remotes/%s/", option_origin);
 	}
 
-	strbuf_addf(&key, "remote.%s.url", option_origin);
-	git_config_set(key.buf, repo);
-	strbuf_reset(&key);
+	config_key = xstrfmt("remote.%s.url", option_origin);
+	git_config_set(config_key, repo);
+	free((char *)config_key);
 
 	if (option_required_reference.nr || option_optional_reference.nr)
 		setup_reference();
@@ -1141,7 +1141,6 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 
 	strbuf_release(&reflog_msg);
 	strbuf_release(&branch_top);
-	strbuf_release(&key);
 	junk_mode = JUNK_LEAVE_ALL;
 
 	free(refspec);
