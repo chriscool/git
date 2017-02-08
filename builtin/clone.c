@@ -55,6 +55,7 @@ static enum transport_family family;
 static struct string_list option_config = STRING_LIST_INIT_NODUP;
 static struct string_list option_required_reference = STRING_LIST_INIT_NODUP;
 static struct string_list option_optional_reference = STRING_LIST_INIT_NODUP;
+static struct string_list option_initial_refspec = STRING_LIST_INIT_NODUP;
 static int option_dissociate;
 static int max_jobs = -1;
 static struct string_list option_recurse_submodules = STRING_LIST_INIT_NODUP;
@@ -105,6 +106,8 @@ static struct option builtin_clone_options[] = {
 			N_("reference repository")),
 	OPT_STRING_LIST(0, "reference-if-able", &option_optional_reference,
 			N_("repo"), N_("reference repository")),
+	OPT_STRING_LIST(0, "initial-refspec", &option_initial_refspec,
+			N_("refspec"), N_("fetch this refspec first")),
 	OPT_BOOL(0, "dissociate", &option_dissociate,
 		 N_("use --reference only while cloning")),
 	OPT_STRING('o', "origin", &option_origin, N_("name"),
@@ -858,6 +861,45 @@ static void dissociate_from_references(void)
 	free(alternates);
 }
 
+static struct refspec *parse_initial_refspecs(void)
+{
+	const char **refspecs;
+	struct refspec *initial_refspecs;
+	struct string_list_item *rs;
+	int i = 0;
+
+	if (!option_initial_refspec.nr)
+		return NULL;
+
+	refspecs = xcalloc(option_initial_refspec.nr, sizeof(const char *));
+
+	for_each_string_list_item(rs, &option_initial_refspec)
+		refspecs[i++] = rs->string;
+
+	initial_refspecs = parse_fetch_refspec(option_initial_refspec.nr, refspecs);
+
+	free(refspecs);
+
+	return initial_refspecs;
+}
+
+static void fetch_initial_refs(struct transport *transport,
+			       const struct ref *refs,
+			       struct refspec *initial_refspecs,
+			       const char *branch_top,
+			       const char *reflog_msg,
+			       int is_local)
+{
+	int i;
+
+	for (i = 0; i < option_initial_refspec.nr; i++) {
+		struct ref *init_refs = wanted_peer_refs(refs, &initial_refspecs[i]);
+		transport_fetch_refs(transport, init_refs);
+		update_remote_refs(refs, init_refs, NULL, branch_top, reflog_msg,
+				   transport, !is_local);
+	}
+}
+
 int cmd_clone(int argc, const char **argv, const char *prefix)
 {
 	int is_bundle = 0, is_local;
@@ -880,6 +922,8 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 
 	struct refspec *refspec;
 	const char *fetch_pattern;
+
+	struct refspec *initial_refspecs;
 
 	packet_trace_identity("clone");
 	argc = parse_options(argc, argv, prefix, builtin_clone_options,
@@ -1048,6 +1092,8 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 	if (option_required_reference.nr || option_optional_reference.nr)
 		setup_reference();
 
+	initial_refspecs = parse_initial_refspecs();
+
 	fetch_pattern = xstrfmt("+%s*:%s*", src_ref_prefix, branch_top.buf);
 	refspec = parse_fetch_refspec(1, &fetch_pattern);
 	free((char *)fetch_pattern);
@@ -1103,6 +1149,9 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 	refs = transport_get_remote_refs(transport);
 
 	if (refs) {
+		fetch_initial_refs(transport, refs, initial_refspecs,
+				   branch_top.buf, reflog_msg.buf, is_local);
+
 		mapped_refs = wanted_peer_refs(refs, refspec);
 		/*
 		 * transport_get_remote_refs() may return refs with null sha-1
