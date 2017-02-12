@@ -574,7 +574,7 @@ static struct ref *wanted_peer_refs(const struct ref *refs,
 	return local_refs;
 }
 
-static void write_remote_refs(const struct ref *local_refs)
+static void write_remote_refs(const struct ref *local_refs, int initial)
 {
 	const struct ref *r;
 
@@ -593,8 +593,13 @@ static void write_remote_refs(const struct ref *local_refs)
 			die("%s", err.buf);
 	}
 
-	if (initial_ref_transaction_commit(t, &err))
-		die("%s", err.buf);
+	if (initial) {
+		if (initial_ref_transaction_commit(t, &err))
+			die("%s", err.buf);
+	} else {
+		if (ref_transaction_commit(t, &err))
+			die("%s", err.buf);
+	}
 
 	strbuf_release(&err);
 	ref_transaction_free(t);
@@ -641,7 +646,8 @@ static void update_remote_refs(const struct ref *refs,
 			       const char *branch_top,
 			       const char *msg,
 			       struct transport *transport,
-			       int check_connectivity)
+			       int check_connectivity,
+			       int initial)
 {
 	const struct ref *rm = mapped_refs;
 
@@ -656,7 +662,7 @@ static void update_remote_refs(const struct ref *refs,
 	}
 
 	if (refs) {
-		write_remote_refs(mapped_refs);
+		write_remote_refs(mapped_refs, initial);
 		if (option_single_branch && !option_no_tags)
 			write_followtags(refs, msg);
 	}
@@ -1167,7 +1173,8 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 		transport_fetch_refs(transport, mapped_refs);
 
 	update_remote_refs(refs, mapped_refs, remote_head_points_at,
-			   branch_top.buf, reflog_msg.buf, transport, !is_local);
+			   branch_top.buf, reflog_msg.buf, transport,
+			   !is_local, 0);
 
 	update_head(our_head_points_at, remote_head, reflog_msg.buf);
 
