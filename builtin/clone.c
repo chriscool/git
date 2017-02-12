@@ -885,13 +885,18 @@ static struct refspec *parse_initial_refspecs(void)
 
 static void fetch_initial_refs(struct transport *transport,
 			       const struct ref *refs,
-			       struct refspec *initial_refspecs)
+			       struct refspec *initial_refspecs,
+			       const char *branch_top,
+			       const char *reflog_msg,
+			       int is_local)
 {
 	int i;
 
 	for (i = 0; i < option_initial_refspec.nr; i++) {
 		struct ref *init_refs = wanted_peer_refs(refs, &initial_refspecs[i]);
 		transport_fetch_refs(transport, init_refs);
+		update_remote_refs(refs, init_refs, NULL, branch_top, reflog_msg,
+				   transport, !is_local);
 	}
 }
 
@@ -1144,7 +1149,8 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 	refs = transport_get_remote_refs(transport);
 
 	if (refs) {
-		fetch_initial_refs(transport, refs, initial_refspecs);
+		fetch_initial_refs(transport, refs, initial_refspecs,
+				   branch_top.buf, reflog_msg.buf, is_local);
 
 		mapped_refs = wanted_peer_refs(refs, refspec);
 		/*
