@@ -649,6 +649,14 @@ static void update_remote_refs(const struct ref *refs,
 {
 	const struct ref *rm = mapped_refs;
 
+	const struct ref *r;
+
+	for (r = rm; r; r = r->next) {
+		trace_printf("name: %s\n", r->name);
+		trace_printf("old_oid: %s\n", oid_to_hex(&r->old_oid));
+		trace_printf("new_oid: %s\n", oid_to_hex(&r->new_oid));
+	}
+
 	if (check_connectivity) {
 		struct check_connected_options opt = CHECK_CONNECTED_INIT;
 
