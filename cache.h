@@ -786,6 +786,8 @@ enum log_refs_config {
 };
 extern enum log_refs_config log_all_ref_updates;
 
+extern int core_virtualize_objects;
+
 enum branch_track {
 	BRANCH_TRACK_UNSPECIFIED = -1,
 	BRANCH_TRACK_NEVER = 0,
