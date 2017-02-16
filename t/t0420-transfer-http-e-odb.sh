@@ -140,6 +140,13 @@ test_expect_success 'no-local clone from the first repo with helper succeeds' '
 	rm -rf my-other-clone
 '
 
+test_expect_success 'no-local initial-refspec clone succeeds' '
+	mkdir my-other-clone &&
+	(cd my-other-clone &&
+	 git -c odb.magic.scriptCommand="$HELPER" \
+		clone --no-local --initial-refspec "refs/odbs/magic/*:refs/odbs/magic/*" .. .)
+'
+
 stop_httpd
 
 test_done
