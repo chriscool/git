@@ -899,7 +899,9 @@ static void fetch_initial_refs(struct transport *transport,
 	int i;
 
 	for (i = 0; i < option_initial_refspec.nr; i++) {
-		struct ref *init_refs = wanted_peer_refs(refs, &initial_refspecs[i]);
+		struct ref *init_refs = NULL;
+		struct ref **tail = &init_refs;
+		get_fetch_map(refs, &initial_refspecs[i], &tail, 0);
 		transport_fetch_refs(transport, init_refs);
 		update_remote_refs(refs, init_refs, NULL, branch_top, reflog_msg,
 				   transport, !is_local, 1);
