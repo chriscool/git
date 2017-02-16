@@ -120,10 +120,29 @@ test_expect_success 'local clone from the first repo' '
 	 git cat-file blob "$hash1")
 '
 
-test_expect_success 'no-local clone from the first repo' '
+test_expect_success 'no-local clone from the first repo fails' '
 	mkdir my-other-clone &&
 	(cd my-other-clone &&
-	 test_must_fail git clone --no-local .. .)
+	 test_must_fail git clone --no-local .. .) &&
+	rm -rf my-other-clone
+'
+
+test_expect_success 'no-local clone from the first repo with helper succeeds' '
+	mkdir my-other-clone &&
+	(cd my-other-clone &&
+	 git clone -c odb.magic.command="$HELPER" \
+		-c odb.magic.plainObjects="true" \
+		--no-local .. .) &&
+	rm -rf my-other-clone
+'
+
+test_expect_success 'no-local initial-refspec clone succeeds' '
+	mkdir my-other-clone &&
+	(cd my-other-clone &&
+	 git config odb.magic.command "$HELPER" &&
+	 git config odb.magic.plainObjects "true" &&
+	 git -c odb.magic.command="$HELPER" -c odb.magic.plainObjects="true" \
+		clone --no-local --initial-refspec "refs/odbs/magic/*:refs/odbs/magic/*" .. .)
 '
 
 stop_httpd
