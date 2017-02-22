@@ -1684,6 +1684,7 @@ unmap:
 void freshen_shared_index(char *base_sha1_hex)
 {
 	const char *shared_index = git_path("sharedindex.%s", base_sha1_hex);
+	trace_printf("freshening: %s\n", shared_index);
 	check_and_freshen_file(shared_index, 1);
 }
 
@@ -1719,6 +1720,7 @@ int read_index_from(struct index_state *istate, const char *path)
 		    base_sha1_hex, base_path,
 		    sha1_to_hex(split_index->base->sha1));
 
+	trace_printf("freshening from read_index_from: %s\n", base_sha1_hex);
 	freshen_shared_index(base_sha1_hex);
 	merge_base_index(istate);
 	post_read_index_from(istate);
@@ -2230,6 +2232,10 @@ static int can_delete_shared_index(const char *shared_index_path)
 		return 0;
 	if (stat(shared_index_path, &st))
 		return error_errno(_("could not stat '%s"), shared_index_path);
+
+	trace_printf("can_delete_shared_index: %s, mtime: %lu, expiration: %lu\n",
+		     shared_index_path, st.st_mtime, expiration);
+
 	if (st.st_mtime > expiration)
 		return 0;
 
@@ -2284,6 +2290,7 @@ static int write_shared_index(struct index_state *istate,
 			      git_path("sharedindex.%s", sha1_to_hex(si->base->sha1)));
 	if (!ret) {
 		hashcpy(si->base_sha1, si->base->sha1);
+		trace_printf("clean_shared_index_files: %s\n", sha1_to_hex(si->base->sha1));
 		clean_shared_index_files(sha1_to_hex(si->base->sha1));
 	}
 
@@ -2344,6 +2351,7 @@ int write_locked_index(struct index_state *istate, struct lock_file *lock,
 		if (ret)
 			return ret;
 	} else {
+		trace_printf("freshening from write_locked_index: %s\n", sha1_to_hex(si->base_sha1));
 		freshen_shared_index(sha1_to_hex(si->base_sha1));
 	}
 
