@@ -314,7 +314,7 @@ test_expect_success 'shared index files expire after 7 days by default' '
 	: >ten &&
 	git update-index --add ten &&
 	test $(ls .git/sharedindex.* | wc -l) -gt 2 &&
-	just_under_7_days_ago=$((1-7*86400)) &&
+	just_under_7_days_ago=$((5-7*86400)) &&
 	test-chmtime =$just_under_7_days_ago .git/sharedindex.* &&
 	: >eleven &&
 	git update-index --add eleven &&
