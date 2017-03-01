@@ -523,7 +523,7 @@ static int start_multi_file_filter_fn(struct subprocess_entry *subprocess)
 
 	err = strcmp(packet_read_line(process->out, NULL), "git-filter-server");
 	if (err) {
-		error("external filter '%s' does not support filter protocol version 2", cmd);
+		error("external filter '%s' does not support filter protocol version 2", subprocess->cmd);
 		goto done;
 	}
 	err = strcmp(packet_read_line(process->out, NULL), "version=2");
@@ -552,7 +552,7 @@ static int start_multi_file_filter_fn(struct subprocess_entry *subprocess)
 		} else {
 			warning(
 				"external filter '%s' requested unsupported filter capability '%s'",
-				cmd, cap_name
+				subprocess->cmd, cap_name
 			);
 		}
 
