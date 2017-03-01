@@ -502,7 +502,7 @@ struct cmd2process {
 	unsigned int supported_capabilities;
 };
 
-int start_multi_file_filter_fn(struct subprocess_entry *subprocess)
+static int start_multi_file_filter_fn(struct subprocess_entry *subprocess)
 {
 	int err;
 	struct cmd2process *entry = (struct cmd2process *)subprocess;
