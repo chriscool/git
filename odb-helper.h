@@ -3,10 +3,16 @@
 
 #include "external-odb.h"
 
+enum odb_helper_fetch_kind {
+	ODB_FETCH_KIND_PLAIN_OBJECT = 0,
+	ODB_FETCH_KIND_GIT_OBJECT,
+	ODB_FETCH_KIND_FAULT_IN
+};
+
 struct odb_helper {
 	const char *name;
 	const char *cmd;
-	int store_plain_objects;
+	enum odb_helper_fetch_kind fetch_kind;
 
 	struct odb_helper_object {
 		unsigned char sha1[20];
