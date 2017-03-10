@@ -20,6 +20,19 @@ static struct odb_helper *find_or_create_helper(const char *name, int len)
 	return o;
 }
 
+static enum odb_helper_fetch_kind parse_fetch_kind(const char *key,
+						   const char *value)
+{
+	if (!strcasecmp(value, "plainobject"))
+		return ODB_FETCH_KIND_PLAIN_OBJECT;
+	else if (!strcasecmp(value, "gitobject"))
+		return ODB_FETCH_KIND_GIT_OBJECT;
+	else if (!strcasecmp(value, "faultin"))
+		return ODB_FETCH_KIND_FAULT_IN;
+
+	die("unknown value for config '%s': %s", key, value);
+}
+
 static int external_odb_config(const char *var, const char *value, void *data)
 {
 	struct odb_helper *o;
@@ -36,8 +49,15 @@ static int external_odb_config(const char *var, const char *value, void *data)
 
 	if (!strcmp(key, "scriptcommand"))
 		return git_config_string(&o->cmd, var, value);
-	if (!strcmp(key, "plainobjects"))
-		o->store_plain_objects = git_config_bool(var, value);
+	if (!strcmp(key, "fetchkind")) {
+		const char *fetch_kind;
+		int ret = git_config_string(&fetch_kind, var, value);
+		if (!ret) {
+			o->fetch_kind = parse_fetch_kind(var, fetch_kind);
+			free((char *)fetch_kind);
+		}
+		return ret;
+	}
 
 	return 0;
 }
