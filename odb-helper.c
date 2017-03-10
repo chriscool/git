@@ -347,9 +347,8 @@ static int odb_helper_fetch_git_object(struct odb_helper *o,
 	return 0;
 }
 
-static int odb_helper_fetch_fault_in(struct odb_helper *o,
-				     const unsigned char *sha1,
-				     int fd)
+int odb_helper_fault_in_object(struct odb_helper *o,
+			       const unsigned char *sha1)
 {
 	struct odb_helper_object *obj;
 	struct odb_helper_cmd cmd;
@@ -377,7 +376,7 @@ int odb_helper_fetch_object(struct odb_helper *o,
 	case ODB_FETCH_KIND_GIT_OBJECT:
 		return odb_helper_fetch_git_object(o, sha1, fd);
 	case ODB_FETCH_KIND_FAULT_IN:
-		return odb_helper_fetch_fault_in(o, sha1, fd);
+		return 0;
 	default:
 		BUG("invalid fetch kind '%d'", o->fetch_kind);
 	}
