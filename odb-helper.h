@@ -33,6 +33,7 @@ int odb_helper_init(struct odb_helper *o);
 int odb_helper_has_object(struct odb_helper *o, const unsigned char *sha1);
 int odb_helper_fetch_object(struct odb_helper *o, const unsigned char *sha1,
 			    int fd);
+int odb_helper_fault_in_object(struct odb_helper *o, const unsigned char *sha1);
 int odb_helper_write_object(struct odb_helper *o,
 			    const void *buf, size_t len,
 			    const char *type, unsigned char *sha1);
