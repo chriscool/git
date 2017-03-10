@@ -97,7 +97,8 @@ HELPER2="\"$PWD\"/odb-helper2"
 test_expect_success 'setup first alternate repo' '
 	git init alt-repo1 &&
 	test_commit zero &&
-	git config odb.magic.scriptCommand "$HELPER1"
+	git config odb.magic.scriptCommand "$HELPER1" &&
+	git config odb.magic.fetchKind "gitObject"
 '
 
 test_expect_success 'setup other repo and its alternate repo' '
@@ -127,6 +128,7 @@ test_expect_success 'other repo gets the blobs from object store' '
 	 test_must_fail git cat-file blob "$hash1" &&
 	 test_must_fail git cat-file blob "$hash2" &&
 	 git config odb.magic.scriptCommand "$HELPER2" &&
+	 git config odb.magic.fetchKind "gitObject"
 	 git cat-file blob "$hash1" &&
 	 git cat-file blob "$hash2"
 	)
