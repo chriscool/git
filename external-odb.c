@@ -113,6 +113,10 @@ int external_odb_fetch_object(const unsigned char *sha1)
 		int ret;
 		int fd;
 
+		if (o->fetch_kind != ODB_FETCH_KIND_PLAIN_OBJECT &&
+		    o->fetch_kind != ODB_FETCH_KIND_GIT_OBJECT)
+			continue;
+
 		if (!odb_helper_has_object(o, sha1))
 			continue;
 
@@ -147,6 +151,8 @@ int external_odb_fault_in_object(const unsigned char *sha1)
 		return -1;
 
 	for (o = helpers; o; o = o->next) {
+		if (o->fetch_kind != ODB_FETCH_KIND_FAULT_IN)
+			continue;
 		if (!odb_helper_has_object(o, sha1))
 			continue;
 		if (odb_helper_fault_in_object(o, sha1) < 0)
