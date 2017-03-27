@@ -35,6 +35,8 @@ static int external_odb_config(const char *var, const char *value, void *data)
 
 	if (!strcmp(subkey, "promisorremote")) {
 		o->type = ODB_HELPER_GIT_REMOTE;
+		o->supported_capabilities |= ODB_HELPER_CAP_HAVE;
+		o->supported_capabilities |= ODB_HELPER_CAP_GET_DIRECT;
 		return git_config_string(&o->dealer, var, value);
 	}
 	if (!strcmp(subkey, "scriptcommand")) {
@@ -48,12 +50,16 @@ static int external_odb_config(const char *var, const char *value, void *data)
 static void external_odb_do_init(int force)
 {
 	static int initialized;
+	struct odb_helper *o;
 
 	if ((!force && initialized) || !use_external_odb)
 		return;
 	initialized = 1;
 
 	git_config(external_odb_config, NULL);
+
+	for (o = helpers; o; o = o->next)
+		odb_helper_init(o);
 }
 
 static inline void external_odb_init(void)
@@ -100,22 +106,25 @@ int external_odb_has_object(const unsigned char *sha1)
 
 	external_odb_init();
 
-	for (o = helpers; o; o = o->next)
+	for (o = helpers; o; o = o->next) {
+		if (!(o->supported_capabilities & ODB_HELPER_CAP_HAVE))
+			return 1;
 		if (odb_helper_has_object(o, sha1))
 			return 1;
+	}
 	return 0;
 }
 
 int external_odb_get_object(const unsigned char *sha1)
 {
 	struct odb_helper *o;
-	const char *path;
+	struct strbuf pathbuf = STRBUF_INIT;
 
 	if (!external_odb_has_object(sha1))
 		return -1;
 
-	path = sha1_file_name_alt(external_odb_root(), sha1);
-	safe_create_leading_directories_const(path);
+	sha1_file_name_alt(&pathbuf, external_odb_root(), sha1);
+	safe_create_leading_directories_const(pathbuf.buf);
 	prepare_external_alt_odb();
 
 	for (o = helpers; o; o = o->next) {
@@ -126,9 +135,10 @@ int external_odb_get_object(const unsigned char *sha1)
 		if (!odb_helper_has_object(o, sha1))
 			continue;
 
-		fd = create_object_tmpfile(&tmpfile, path);
+		fd = create_object_tmpfile(&tmpfile, pathbuf.buf);
 		if (fd < 0) {
 			strbuf_release(&tmpfile);
+			strbuf_release(&pathbuf);
 			return -1;
 		}
 
@@ -140,11 +150,14 @@ int external_odb_get_object(const unsigned char *sha1)
 		}
 
 		close_sha1_file(fd);
-		ret = finalize_object_file(tmpfile.buf, path);
+		ret = finalize_object_file(tmpfile.buf, pathbuf.buf);
 		strbuf_release(&tmpfile);
+		strbuf_release(&pathbuf);
 		if (!ret)
 			return 0;
 	}
+
+	strbuf_release(&pathbuf);
 
 	return -1;
 }
@@ -156,6 +169,8 @@ int external_odb_get_direct(const unsigned char *sha1)
 	external_odb_init();
 
 	for (o = helpers; o; o = o->next) {
+		if (!(o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT))
+			continue;
 		if (odb_helper_get_direct(o, sha1) < 0)
 			continue;
 		return 0;
