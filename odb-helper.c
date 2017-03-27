@@ -9,6 +9,7 @@
 #include "sigchain.h"
 
 #define CAP_GET    (1u<<0)
+#define CAP_PUT    (1u<<1)
 
 struct read_object_process {
 	struct subprocess_entry subprocess;
@@ -18,14 +19,36 @@ struct read_object_process {
 static int subprocess_map_initialized;
 static struct hashmap subprocess_map;
 
+static void parse_capabilities(char *cap_buf,
+			       unsigned int *supported_capabilities,
+			       const char *process_name)
+{
+	struct string_list cap_list = STRING_LIST_INIT_NODUP;
+
+	string_list_split_in_place(&cap_list, cap_buf, '=', 1);
+
+	if (cap_list.nr == 2 && !strcmp(cap_list.items[0].string, "capability")) {
+		const char *cap_name = cap_list.items[1].string;
+
+		if (!strcmp(cap_name, "get")) {
+			*supported_capabilities |= CAP_GET;
+		} else if (!strcmp(cap_name, "put")) {
+			*supported_capabilities |= CAP_PUT;
+		} else {
+			warning("external process '%s' requested unsupported read-object capability '%s'",
+				process_name, cap_name);
+		}
+	}
+
+	string_list_clear(&cap_list, 0);
+}
+
 static int start_read_object_fn(struct subprocess_entry *subprocess)
 {
 	int err;
 	struct read_object_process *entry = (struct read_object_process *)subprocess;
 	struct child_process *process = &subprocess->process;
-	struct string_list cap_list = STRING_LIST_INIT_NODUP;
 	char *cap_buf;
-	const char *cap_name;
 
 	sigchain_push(SIGPIPE, SIG_IGN);
 
@@ -49,28 +72,8 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 	if (err)
 		goto done;
 
-	for (;;) {
-		cap_buf = packet_read_line(process->out, NULL);
-		if (!cap_buf)
-			break;
-		string_list_split_in_place(&cap_list, cap_buf, '=', 1);
-
-		if (cap_list.nr != 2 || strcmp(cap_list.items[0].string, "capability"))
-			continue;
-
-		cap_name = cap_list.items[1].string;
-		if (!strcmp(cap_name, "get")) {
-			entry->supported_capabilities |= CAP_GET;
-		}
-		else {
-			warning(
-				"external process '%s' requested unsupported read-object capability '%s'",
-				subprocess->cmd, cap_name
-			);
-		}
-
-		string_list_clear(&cap_list, 0);
-	}
+	while ((cap_buf = packet_read_line(process->out, NULL)))
+		parse_capabilities(cap_buf, &entry->supported_capabilities, subprocess->cmd);
 
 done:
 	sigchain_pop(SIGPIPE);
