@@ -47,8 +47,14 @@ static int external_odb_config(const char *var, const char *value, void *data)
 	o = find_or_create_helper(key, dot - key);
 	key = dot + 1;
 
-	if (!strcmp(key, "scriptcommand"))
+	if (!strcmp(key, "scriptcommand")) {
+		o->script_mode = 1;
 		return git_config_string(&o->cmd, var, value);
+	}
+	if (!strcmp(key, "subprocesscommand")) {
+		o->script_mode = 0;
+		return git_config_string(&o->cmd, var, value);
+	}
 	if (!strcmp(key, "fetchkind")) {
 		const char *fetch_kind;
 		int ret = git_config_string(&fetch_kind, var, value);
