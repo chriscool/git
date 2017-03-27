@@ -8,9 +8,6 @@
 #include "pkt-line.h"
 #include "sigchain.h"
 
-#define CAP_GET    (1u<<0)
-#define CAP_PUT    (1u<<1)
-
 struct read_object_process {
 	struct subprocess_entry subprocess;
 	unsigned int supported_capabilities;
@@ -28,9 +25,9 @@ static void parse_capabilities(char *cap_buf,
 		const char *cap_name = cap_list.items[1].string;
 
 		if (!strcmp(cap_name, "get")) {
-			*supported_capabilities |= CAP_GET;
+			*supported_capabilities |= ODB_HELPER_CAP_GET;
 		} else if (!strcmp(cap_name, "put")) {
-			*supported_capabilities |= CAP_PUT;
+			*supported_capabilities |= ODB_HELPER_CAP_PUT;
 		} else {
 			warning("external process '%s' requested unsupported read-object capability '%s'",
 				process_name, cap_name);
@@ -106,7 +103,7 @@ static int read_object_process(const unsigned char *sha1)
 	}
 	process = subprocess_get_child_process(&entry->subprocess);
 
-	if (!(CAP_GET & entry->supported_capabilities))
+	if (!(ODB_HELPER_CAP_GET & entry->supported_capabilities))
 		return -1;
 
 	sigchain_push(SIGPIPE, SIG_IGN);
@@ -141,7 +138,7 @@ done:
 			* objects with the same command for the lifetime of the current
 			* Git process.
 			*/
-			entry->supported_capabilities &= ~CAP_GET;
+			entry->supported_capabilities &= ~ODB_HELPER_CAP_GET;
 		}
 		else {
 			/*
