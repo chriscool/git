@@ -28,9 +28,6 @@
 #include "mergesort.h"
 #include "quote.h"
 #include "external-odb.h"
-#include "sub-process.h"
-#include "pkt-line.h"
-#include "sigchain.h"
 
 #define SZ_FMT PRIuMAX
 static inline uintmax_t sz_fmt(size_t s) { return s; }
@@ -675,154 +672,6 @@ void prepare_alt_odb(void)
 	prepare_external_alt_odb();
 }
 
-#define CAP_GET    (1u<<0)
-
-struct read_object_process {
-	struct subprocess_entry subprocess;
-	unsigned int supported_capabilities;
-};
-
-static int start_read_object_fn(struct subprocess_entry *subprocess)
-{
-	int err;
-	struct read_object_process *entry = (struct read_object_process *)subprocess;
-	struct child_process *process;
-	struct string_list cap_list = STRING_LIST_INIT_NODUP;
-	char *cap_buf;
-	const char *cap_name;
-
-	process = subprocess_get_child_process(&entry->subprocess);
-
-	sigchain_push(SIGPIPE, SIG_IGN);
-
-	err = packet_write_list_gently(process->in, "git-read-object-client", "version=1", NULL);
-	if (err)
-		goto done;
-
-	err = strcmp(packet_read_line(process->out, NULL), "git-read-object-server");
-	if (err) {
-		error("external process '%s' does not support read-object protocol version 1", subprocess->cmd);
-		goto done;
-	}
-	err = strcmp(packet_read_line(process->out, NULL), "version=1");
-	if (err)
-		goto done;
-	err = packet_read_line(process->out, NULL) != NULL;
-	if (err)
-		goto done;
-
-	err = packet_write_list_gently(process->in, "capability=get", NULL);
-	if (err)
-		goto done;
-
-	for (;;) {
-		cap_buf = packet_read_line(process->out, NULL);
-		if (!cap_buf)
-			break;
-		string_list_split_in_place(&cap_list, cap_buf, '=', 1);
-
-		if (cap_list.nr != 2 || strcmp(cap_list.items[0].string, "capability"))
-			continue;
-
-		cap_name = cap_list.items[1].string;
-		if (!strcmp(cap_name, "get")) {
-			entry->supported_capabilities |= CAP_GET;
-		}
-		else {
-			warning(
-				"external process '%s' requested unsupported read-object capability '%s'",
-				subprocess->cmd, cap_name
-			);
-		}
-
-		string_list_clear(&cap_list, 0);
-	}
-
-done:
-	sigchain_pop(SIGPIPE);
-
-	if (err || errno == EPIPE)
-		err = err | errno << 16;
-
-	return err;
-}
-
-static int read_object_process(const unsigned char *sha1)
-{
-	int err;
-	struct read_object_process *entry;
-	struct child_process *process;
-	struct strbuf status = STRBUF_INIT;
-	const char *cmd = "read-object";
-	uint64_t start;
-
-	start = getnanotime();
-
-	entry = (struct read_object_process *)subprocess_find_entry(cmd);
-	if (!entry) {
-		entry = xmalloc(sizeof(*entry));
-		entry->supported_capabilities = 0;
-
-		if (subprocess_start(&entry->subprocess, cmd, start_read_object_fn, -1)) {
-			free(entry);
-			return -1;
-		}
-	}
-	process = subprocess_get_child_process(&entry->subprocess);
-
-	if (!(CAP_GET & entry->supported_capabilities))
-		return -1;
-
-	sigchain_push(SIGPIPE, SIG_IGN);
-
-	err = packet_write_fmt_gently(process->in, "command=get\n");
-	if (err)
-		goto done;
-
-	err = packet_write_fmt_gently(process->in, "sha1=%s\n", sha1_to_hex(sha1));
-	if (err)
-		goto done;
-
-	err = packet_flush_gently(process->in);
-	if (err)
-		goto done;
-
-	subprocess_read_status(process->out, &status);
-	err = strcmp(status.buf, "success");
-
-done:
-	sigchain_pop(SIGPIPE);
-
-	if (err || errno == EPIPE) {
-		err = err | errno << 16;
-
-		if (!strcmp(status.buf, "error")) {
-			/* The process signaled a problem with the file. */
-		}
-		else if (!strcmp(status.buf, "abort")) {
-			/*
-			* The process signaled a permanent problem. Don't try to read
-			* objects with the same command for the lifetime of the current
-			* Git process.
-			*/
-			entry->supported_capabilities &= ~CAP_GET;
-		}
-		else {
-			/*
-			* Something went wrong with the read-object process.
-			* Force shutdown and restart if needed.
-			*/
-			error("external process '%s' failed", cmd);
-			subprocess_stop((struct subprocess_entry *)entry);
-			free(entry);
-		}
-	}
-
-	trace_performance_since(start, "read_object_process");
-
-	return err;
-}
-
 /* Returns 1 if we have successfully freshened the file, 0 otherwise. */
 static int freshen_file(const char *fn)
 {
@@ -856,7 +705,7 @@ retry:
 	ret = check_and_freshen_file(sha1_file_name(sha1), freshen);
 	if (!ret && !tried_hook) {
 		tried_hook = 1;
-		if (!read_object_process(sha1))
+		if (!external_odb_fault_in_object(sha1))
 			goto retry;
 	}
 	return ret;
@@ -3192,7 +3041,7 @@ retry:
 		if (!find_pack_entry(real, &e)) {
 			if (!tried_hook) {
 				tried_hook = 1;
-				if (!read_object_process(sha1))
+				if (!external_odb_fault_in_object(sha1))
 					goto retry;
 			}
 			return -1;
@@ -3313,7 +3162,7 @@ retry:
 	buf = read_packed_sha1(sha1, type, size);
 	if (!buf && !tried_hook) {
 		tried_hook = 1;
-		if (!read_object_process(sha1))
+		if (!external_odb_fault_in_object(sha1))
 			goto retry;
 	}
 
