@@ -26,6 +26,8 @@ static void parse_capabilities(char *cap_buf,
 
 		if (!strcmp(cap_name, "get")) {
 			*supported_capabilities |= ODB_HELPER_CAP_GET;
+		} else if (!strcmp(cap_name, "have")) {
+			*supported_capabilities |= ODB_HELPER_CAP_HAVE;
 		} else {
 			warning("external process '%s' requested unsupported read-object capability '%s'",
 				process_name, cap_name);
