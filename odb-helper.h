@@ -13,6 +13,7 @@ struct odb_helper {
 	const char *name;
 	const char *cmd;
 	enum odb_helper_fetch_kind fetch_kind;
+	int script_mode;
 
 	struct odb_helper_object {
 		unsigned char sha1[20];
