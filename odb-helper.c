@@ -124,6 +124,9 @@ int odb_helper_init(struct odb_helper *o)
 	FILE *fh;
 	struct strbuf line = STRBUF_INIT;
 
+	if (o->type != ODB_HELPER_SCRIPT_CMD)
+		return 0;
+
 	if (odb_helper_start(o, &cmd, 0, "init") < 0)
 		return -1;
 
@@ -174,15 +177,11 @@ static int odb_helper_object_cmp(const void *va, const void *vb)
 	return oidcmp(&a->oid, &b->oid);
 }
 
-static void odb_helper_load_have(struct odb_helper *o)
+static void have_object_script(struct odb_helper *o)
 {
 	struct odb_helper_cmd cmd;
 	FILE *fh;
 	struct strbuf line = STRBUF_INIT;
-
-	if (o->have_valid)
-		return;
-	o->have_valid = 1;
 
 	if (odb_helper_start(o, &cmd, 0, "have") < 0)
 		return;
@@ -195,6 +194,16 @@ static void odb_helper_load_have(struct odb_helper *o)
 	strbuf_release(&line);
 	fclose(fh);
 	odb_helper_finish(o, &cmd);
+}
+
+static void odb_helper_load_have(struct odb_helper *o)
+{
+	if (o->have_valid)
+		return;
+	o->have_valid = 1;
+
+	if (o->type == ODB_HELPER_SCRIPT_CMD)
+		have_object_script(o);
 
 	qsort(o->have, o->have_nr, sizeof(*o->have), odb_helper_object_cmp);
 }
