@@ -38,8 +38,13 @@ static int external_odb_config(const char *var, const char *value, void *data)
 		o->supported_capabilities |= ODB_HELPER_CAP_HAVE;
 		o->supported_capabilities |= ODB_HELPER_CAP_GET_DIRECT;
 		return git_config_string(&o->dealer, var, value);
-	} else if (!strcmp(subkey, "scriptcommand")) {
+	}
+	if (!strcmp(subkey, "scriptcommand")) {
 		o->type = ODB_HELPER_SCRIPT_CMD;
+		return git_config_string(&o->dealer, var, value);
+	}
+	if (!strcmp(subkey, "subprocesscommand")) {
+		o->type = ODB_HELPER_SUBPROCESS_CMD;
 		return git_config_string(&o->dealer, var, value);
 	}
 
