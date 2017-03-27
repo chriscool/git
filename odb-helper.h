@@ -9,11 +9,16 @@ enum odb_helper_fetch_kind {
 	ODB_FETCH_KIND_FAULT_IN
 };
 
+#define ODB_HELPER_CAP_GET    (1u<<0)
+#define ODB_HELPER_CAP_PUT    (1u<<1)
+#define ODB_HELPER_CAP_HAVE   (1u<<2)
+
 struct odb_helper {
 	const char *name;
 	const char *cmd;
 	enum odb_helper_fetch_kind fetch_kind;
 	int script_mode;
+	unsigned int supported_capabilities;
 
 	struct odb_helper_object {
 		unsigned char sha1[20];
