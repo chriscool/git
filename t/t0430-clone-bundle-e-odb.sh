@@ -22,6 +22,10 @@ die() {
 }
 echo >&2 "odb-clone-bundle-helper args:" "$@"
 case "$1" in
+get_cap)
+	echo "capability=get"
+	echo "capability=have"
+	;;
 have)
 	ref_hash=$(git rev-parse refs/odbs/magic/bundle) ||
 	die "couldn't find refs/odbs/magic/bundle"
