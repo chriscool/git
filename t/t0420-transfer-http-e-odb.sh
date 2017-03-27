@@ -22,6 +22,10 @@ die() {
 }
 echo >&2 "odb-http-helper args:" "$@"
 case "$1" in
+get_cap)
+	echo "capability=get"
+	echo "capability=have"
+	;;
 have)
 	list_url="$HTTPD_URL/list/"
 	curl "$list_url" ||
