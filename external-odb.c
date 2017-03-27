@@ -49,6 +49,10 @@ static int external_odb_config(const char *var, const char *value, void *data)
 
 	if (!strcmp(key, "command"))
 		return git_config_string(&o->cmd, var, value);
+	if (!strcmp(key, "scriptmode")) {
+		o->script_mode = git_config_bool(var, value);
+		return 0;
+	}
 	if (!strcmp(key, "fetchkind")) {
 		const char *fetch_kind;
 		int ret = git_config_string(&fetch_kind, var, value);
