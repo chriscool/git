@@ -75,7 +75,7 @@ test_expect_success 'create an e-odb ref for this bundle' '
 test_expect_success 'clone using the e-odb helper to download and install the bundle' '
 	mkdir my-clone &&
 	(cd my-clone &&
-	 git -c odb.magic.command="$HELPER" \
+	 git -c odb.magic.command="$HELPER" -c odb.magic.fetchKind="faultin" \
 		clone --no-local --initial-refspec "refs/odbs/magic/*:refs/odbs/magic/*" .. .)
 '
 
