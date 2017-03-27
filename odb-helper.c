@@ -6,6 +6,40 @@
 #include "sha1-lookup.h"
 #include "fetch-object.h"
 
+static void parse_capabilities(char *cap_buf,
+			       unsigned int *supported_capabilities,
+			       const char *process_name)
+{
+	struct string_list cap_list = STRING_LIST_INIT_NODUP;
+
+	string_list_split_in_place(&cap_list, cap_buf, '=', 1);
+
+	if (cap_list.nr == 2 && !strcmp(cap_list.items[0].string, "capability")) {
+		const char *cap_name = cap_list.items[1].string;
+
+		if (!strcmp(cap_name, "get_git_obj")) {
+			*supported_capabilities |= ODB_HELPER_CAP_GET_GIT_OBJ;
+		} else if (!strcmp(cap_name, "get_raw_obj")) {
+			*supported_capabilities |= ODB_HELPER_CAP_GET_RAW_OBJ;
+		} else if (!strcmp(cap_name, "get_direct")) {
+			*supported_capabilities |= ODB_HELPER_CAP_GET_DIRECT;
+		} else if (!strcmp(cap_name, "put_git_obj")) {
+			*supported_capabilities |= ODB_HELPER_CAP_PUT_GIT_OBJ;
+		} else if (!strcmp(cap_name, "put_raw_obj")) {
+			*supported_capabilities |= ODB_HELPER_CAP_PUT_RAW_OBJ;
+		} else if (!strcmp(cap_name, "put_direct")) {
+			*supported_capabilities |= ODB_HELPER_CAP_PUT_DIRECT;
+		} else if (!strcmp(cap_name, "have")) {
+			*supported_capabilities |= ODB_HELPER_CAP_HAVE;
+		} else {
+			warning("external process '%s' requested unsupported read-object capability '%s'",
+				process_name, cap_name);
+		}
+	}
+
+	string_list_clear(&cap_list, 0);
+}
+
 struct odb_helper *odb_helper_new(const char *name, int namelen)
 {
 	struct odb_helper *o;
@@ -77,6 +111,30 @@ static int odb_helper_finish(struct odb_helper *o,
 		warning("odb helper '%s' reported failure", o->name);
 		return -1;
 	}
+	return 0;
+}
+
+int odb_helper_init(struct odb_helper *o)
+{
+	struct odb_helper_cmd cmd;
+	FILE *fh;
+	struct strbuf line = STRBUF_INIT;
+
+	if (o->initialized)
+		return 0;
+	o->initialized = 1;
+
+	if (odb_helper_start(o, &cmd, "init") < 0)
+		return -1;
+
+	fh = xfdopen(cmd.child.out, "r");
+	while (strbuf_getline(&line, fh) != EOF)
+		parse_capabilities(line.buf, &o->supported_capabilities, o->name);
+
+	strbuf_release(&line);
+	fclose(fh);
+	odb_helper_finish(o, &cmd);
+
 	return 0;
 }
 
