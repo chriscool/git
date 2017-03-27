@@ -42,6 +42,10 @@ static int odb_remote_config(const char *var, const char *value, void *data)
 		o->type = ODB_HELPER_SCRIPT_CMD;
 		return git_config_string(&o->dealer, var, value);
 	}
+	if (!strcmp(subkey, "subprocesscommand")) {
+		o->type = ODB_HELPER_SUBPROCESS_CMD;
+		return git_config_string(&o->dealer, var, value);
+	}
 
 	return 0;
 }
