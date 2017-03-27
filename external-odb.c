@@ -41,12 +41,16 @@ static int external_odb_config(const char *var, const char *value, void *data)
 static void external_odb_init(void)
 {
 	static int initialized;
+	struct odb_helper *o;
 
 	if (initialized)
 		return;
 	initialized = 1;
 
 	git_config(external_odb_config, NULL);
+
+	for (o = helpers; o; o = o->next)
+		odb_helper_init(o);
 }
 
 const char *external_odb_root(void)
@@ -63,9 +67,12 @@ int external_odb_has_object(const unsigned char *sha1)
 
 	external_odb_init();
 
-	for (o = helpers; o; o = o->next)
+	for (o = helpers; o; o = o->next) {
+		if (!(o->supported_capabilities & ODB_HELPER_CAP_HAVE))
+			return 1;
 		if (odb_helper_has_object(o, sha1))
 			return 1;
+	}
 	return 0;
 }
 
