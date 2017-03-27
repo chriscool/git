@@ -53,6 +53,7 @@ HELPER="\"$PWD\"/odb-http-helper"
 test_expect_success 'setup repo with a root commit and the helper' '
 	test_commit zero &&
 	git config odb.magic.command "$HELPER" &&
+	git config odb.magic.scriptMode true &&
 	git config odb.magic.fetchKind "plainObject"
 '
 
@@ -108,6 +109,7 @@ test_expect_success 'update other repo from the first one' '
 	 git fetch origin "refs/odbs/magic/*:refs/odbs/magic/*" &&
 	 test_must_fail git cat-file blob "$hash1" &&
 	 git config odb.magic.command "$HELPER" &&
+	 git config odb.magic.scriptMode true &&
 	 git config odb.magic.fetchKind "plainObject" &&
 	 git cat-file blob "$hash1" &&
 	 git pull origin master)
@@ -131,6 +133,7 @@ test_expect_success 'no-local clone from the first repo with helper succeeds' '
 	mkdir my-other-clone &&
 	(cd my-other-clone &&
 	 git clone -c odb.magic.command="$HELPER" \
+		-c odb.magic.scriptMode="true" \
 		-c odb.magic.plainObjects="true" \
 		--no-local .. .) &&
 	rm -rf my-other-clone
@@ -141,7 +144,9 @@ test_expect_success 'no-local initial-refspec clone succeeds' '
 	(cd my-other-clone &&
 	 git config odb.magic.command "$HELPER" &&
 	 git config odb.magic.fetchKind "plainObject" &&
-	 git -c odb.magic.command="$HELPER" -c odb.magic.plainObjects="true" \
+	 git -c odb.magic.command="$HELPER" \
+		-c odb.magic.plainObjects="true" \
+		-c odb.magic.scriptMode="true" \
 		clone --no-local --initial-refspec "refs/odbs/magic/*:refs/odbs/magic/*" .. .)
 '
 
