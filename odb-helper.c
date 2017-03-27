@@ -58,8 +58,9 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 		cap_name = cap_list.items[1].string;
 		if (!strcmp(cap_name, "get")) {
 			entry->supported_capabilities |= ODB_HELPER_CAP_GET;
-		}
-		else {
+		} else if (!strcmp(cap_name, "have")) {
+			entry->supported_capabilities |= ODB_HELPER_CAP_HAVE;
+		} else {
 			warning(
 				"external process '%s' requested unsupported read-object capability '%s'",
 				subprocess->cmd, cap_name
