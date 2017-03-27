@@ -13,6 +13,10 @@ die() {
 }
 GIT_DIR=$ALT_SOURCE; export GIT_DIR
 case "$1" in
+get_cap)
+	echo "capability=get"
+	echo "capability=have"
+	;;
 have)
 	git cat-file --batch-check --batch-all-objects |
 	awk '{print $1 " " $3 " " $2}'
