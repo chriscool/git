@@ -1,6 +1,8 @@
 #ifndef ODB_HELPER_H
 #define ODB_HELPER_H
 
+#include "external-odb.h"
+
 enum odb_helper_type {
 	ODB_HELPER_NONE = 0,
 	ODB_HELPER_GIT_REMOTE,
@@ -9,10 +11,19 @@ enum odb_helper_type {
 	OBJ_HELPER_MAX
 };
 
+#define ODB_HELPER_CAP_GET_GIT_OBJ    (1u<<0)
+#define ODB_HELPER_CAP_GET_RAW_OBJ    (1u<<1)
+#define ODB_HELPER_CAP_GET_DIRECT     (1u<<2)
+#define ODB_HELPER_CAP_PUT_GIT_OBJ    (1u<<3)
+#define ODB_HELPER_CAP_PUT_RAW_OBJ    (1u<<4)
+#define ODB_HELPER_CAP_PUT_DIRECT     (1u<<5)
+#define ODB_HELPER_CAP_HAVE           (1u<<6)
+
 struct odb_helper {
 	const char *name;
 	const char *cmd;
 	enum odb_helper_type type;
+	unsigned int supported_capabilities;
 
 	struct odb_helper_object {
 		unsigned char sha1[20];
@@ -27,6 +38,7 @@ struct odb_helper {
 };
 
 extern struct odb_helper *odb_helper_new(const char *name, int namelen);
+extern int odb_helper_init(struct odb_helper *o);
 extern int odb_helper_has_object(struct odb_helper *o,
 				 const unsigned char *sha1);
 extern int odb_helper_get_object(struct odb_helper *o,
