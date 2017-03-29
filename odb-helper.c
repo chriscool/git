@@ -832,6 +832,12 @@ static int odb_helper_fetch_git_object(struct odb_helper *o,
 int odb_helper_fault_in_object(struct odb_helper *o,
 			       const unsigned char *sha1)
 {
+	if (o->supported_capabilities & ODB_HELPER_CAP_HAVE) {
+		struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
+		if (!obj)
+			return -1;
+	}
+
 	if (o->script_mode) {
 		struct odb_helper_cmd cmd;
 		struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
