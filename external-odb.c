@@ -134,9 +134,6 @@ int external_odb_fetch_object(const unsigned char *sha1)
 		    o->fetch_kind != ODB_FETCH_KIND_GIT_OBJECT)
 			continue;
 
-		if (!odb_helper_has_object(o, sha1))
-			continue;
-
 		fd = create_object_tmpfile(&tmpfile, path);
 		if (fd < 0) {
 			strbuf_release(&tmpfile);
@@ -169,8 +166,6 @@ int external_odb_fault_in_object(const unsigned char *sha1)
 
 	for (o = helpers; o; o = o->next) {
 		if (o->fetch_kind != ODB_FETCH_KIND_FAULT_IN)
-			continue;
-		if (!odb_helper_has_object(o, sha1))
 			continue;
 		if (odb_helper_fault_in_object(o, sha1) < 0)
 			continue;
