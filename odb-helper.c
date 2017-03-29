@@ -194,13 +194,13 @@ done:
 	return err;
 }
 
-static int read_object_process(const unsigned char *sha1)
+static int read_object_process(struct odb_helper *o, const unsigned char *sha1, int fd)
 {
 	int err;
 	struct read_object_process *entry;
 	struct child_process *process;
 	struct strbuf status = STRBUF_INIT;
-	const char *cmd = "read-object";
+	const char *cmd = o->cmd;
 	const char *instruction;
 	unsigned int cur_get_cap;
 	uint64_t start;
@@ -211,6 +211,7 @@ static int read_object_process(const unsigned char *sha1)
 	if (!entry)
 		return error("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
+	o->supported_capabilities = entry->supported_capabilities;
 
 	if (entry->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ) {
 		cur_get_cap = ODB_HELPER_CAP_GET_GIT_OBJ;
@@ -237,6 +238,13 @@ static int read_object_process(const unsigned char *sha1)
 	err = packet_flush_gently(process->in);
 	if (err)
 		goto done;
+
+	if (!(entry->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)) {
+		struct strbuf buf;
+		read_packetized_to_strbuf(process->out, &buf);
+		if (err)
+			goto done;
+	}
 
 	subprocess_read_status(process->out, &status);
 	err = strcmp(status.buf, "success");
@@ -624,6 +632,12 @@ static int odb_helper_fetch_git_object(struct odb_helper *o,
 int odb_helper_fault_in_object(struct odb_helper *o,
 			       const unsigned char *sha1)
 {
+	if (o->supported_capabilities & ODB_HELPER_CAP_HAVE) {
+		struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
+		if (!obj)
+			return -1;
+	}
+
 	if (o->script_mode) {
 		struct odb_helper_cmd cmd;
 		struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
@@ -637,7 +651,7 @@ int odb_helper_fault_in_object(struct odb_helper *o,
 			return -1;
 		return 0;
 	} else {
-		return read_object_process(sha1);
+		return read_object_process(o, sha1, -1);
 	}
 }
 
