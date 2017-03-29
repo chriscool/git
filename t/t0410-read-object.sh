@@ -11,9 +11,14 @@ test_expect_success 'setup host repo with a root commit' '
 	hash1=$(git ls-tree HEAD | grep zero.t | cut -f1 | cut -d\  -f3)
 '
 
+HELPER="read-object"
+
 test_expect_success 'blobs can be retrieved from the host repo' '
 	git init guest-repo &&
 	(cd guest-repo &&
+	 git config odb.magic.command "$HELPER" &&
+	 git config odb.magic.scriptMode false &&
+	 git config odb.magic.fetchKind "faultin" &&
 	 git config core.virtualizeobjects true &&
 	 git cat-file blob "$hash1")
 '
