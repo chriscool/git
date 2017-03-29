@@ -118,6 +118,8 @@ int external_odb_fetch_object(const unsigned char *sha1)
 	struct odb_helper *o;
 	const char *path;
 
+	trace_printf("external_odb_fetch_object\n");
+
 	if (!external_odb_has_object(sha1))
 		return -1;
 
@@ -160,6 +162,8 @@ int external_odb_fetch_object(const unsigned char *sha1)
 int external_odb_fault_in_object(const unsigned char *sha1)
 {
 	struct odb_helper *o;
+
+	trace_printf("external_odb_fault_in_object\n");
 
 	if (!external_odb_has_object(sha1))
 		return -1;
