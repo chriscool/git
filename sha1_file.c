@@ -854,7 +854,7 @@ static int check_and_freshen_local(const unsigned char *sha1, int freshen)
 
 retry:
 	ret = check_and_freshen_file(sha1_file_name(sha1), freshen);
-	if (!ret && core_virtualize_objects && !tried_hook) {
+	if (!ret && !tried_hook) {
 		tried_hook = 1;
 		if (!read_object_process(sha1))
 			goto retry;
@@ -3190,7 +3190,7 @@ retry:
 		/* Not a loose object; someone else may have just packed it. */
 		reprepare_packed_git();
 		if (!find_pack_entry(real, &e)) {
-			if (core_virtualize_objects && !tried_hook) {
+			if (!tried_hook) {
 				tried_hook = 1;
 				if (!read_object_process(sha1))
 					goto retry;
@@ -3311,7 +3311,7 @@ retry:
 	}
 	reprepare_packed_git();
 	buf = read_packed_sha1(sha1, type, size);
-	if (!buf && core_virtualize_objects && !tried_hook) {
+	if (!buf && !tried_hook) {
 		tried_hook = 1;
 		if (!read_object_process(sha1))
 			goto retry;
