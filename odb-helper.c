@@ -241,6 +241,9 @@ int odb_helper_get_capabilities(struct odb_helper *o)
 	FILE *fh;
 	struct strbuf line = STRBUF_INIT;
 
+	if (!o->script_mode)
+		return 0;
+
 	if (odb_helper_start(o, &cmd, 0, "get_cap") < 0)
 		return -1;
 
