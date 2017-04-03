@@ -941,6 +941,7 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 
 	struct refspec *initial_refspecs;
 	int is_initial;
+	int saved_use_external_odb;
 
 	packet_trace_identity("clone");
 	argc = parse_options(argc, argv, prefix, builtin_clone_options,
@@ -1086,6 +1087,12 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 
 	git_config(git_default_config, NULL);
 
+	trace_printf("clone after git_config()\n");
+
+	/* Temporarily disable external ODB before initial clone */
+	saved_use_external_odb = use_external_odb;
+	use_external_odb = 0;
+
 	if (option_bare) {
 		if (option_mirror)
 			src_ref_prefix = "refs/";
@@ -1166,8 +1173,14 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 	refs = transport_get_remote_refs(transport);
 
 	if (refs) {
+		trace_printf("clone: before fetch_initial_refs()\n");
+
 		fetch_initial_refs(transport, refs, initial_refspecs,
 				   branch_top.buf, reflog_msg.buf, is_local);
+
+		use_external_odb = saved_use_external_odb;
+
+		trace_printf("clone: after fetch_initial_refs()\n");
 
 		mapped_refs = wanted_peer_refs(refs, refspec);
 		/*
@@ -1210,6 +1223,9 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 					option_branch, option_origin);
 
 		warning(_("You appear to have cloned an empty repository."));
+
+		use_external_odb = saved_use_external_odb;
+
 		mapped_refs = NULL;
 		our_head_points_at = NULL;
 		remote_head_points_at = NULL;
