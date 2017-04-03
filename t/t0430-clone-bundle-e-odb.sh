@@ -29,13 +29,13 @@ get_cap)
 have)
 	ref_hash=$(git rev-parse refs/odbs/magic/bundle) ||
 	die "couldn't find refs/odbs/magic/bundle"
-	git cat-file blob "$ref_hash" >bundle_info ||
+	GIT_NO_EXTERNAL_ODB=1 git cat-file blob "$ref_hash" >bundle_info ||
 	die "couldn't get blob $ref_hash"
 	bundle_url=$(sed -e 's/bundle url: //' bundle_info)
 	echo >&2 "bundle_url: '$bundle_url'"
 	curl "$bundle_url" -o bundle_file ||
 	die "curl '$bundle_url' failed"
-	git bundle unbundle bundle_file ||
+	GIT_NO_EXTERNAL_ODB=1 git bundle unbundle bundle_file >unbundling_info ||
 	die "unbundling 'bundle_file' failed"
 	;;
 get)
@@ -79,10 +79,11 @@ test_expect_success 'create an e-odb ref for this bundle' '
 test_expect_success 'clone using the e-odb helper to download and install the bundle' '
 	mkdir my-clone &&
 	(cd my-clone &&
-	 git -c odb.magic.command="$HELPER" \
+	 git clone --no-local \
+		-c odb.magic.command="$HELPER" \
 		-c odb.magic.fetchKind="faultin" \
 		-c odb.magic.scriptMode="true" \
-		clone --no-local --initial-refspec "refs/odbs/magic/*:refs/odbs/magic/*" .. .)
+		--initial-refspec "refs/odbs/magic/*:refs/odbs/magic/*" .. .)
 '
 
 stop_httpd
