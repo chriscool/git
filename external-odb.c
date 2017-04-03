@@ -38,6 +38,8 @@ static int external_odb_config(const char *var, const char *value, void *data)
 	struct odb_helper *o;
 	const char *key, *dot;
 
+	trace_printf("external_odb_config\n");
+
 	if (!skip_prefix(var, "odb.", &key))
 		return 0;
 	dot = strrchr(key, '.');
@@ -70,6 +72,8 @@ static void external_odb_get_capabilities(void)
 {
 	struct odb_helper *o;
 
+	trace_printf("external_odb_get_capabilities\n");
+
 	for (o = helpers; o; o = o->next)
 		odb_helper_get_capabilities(o);
 }
@@ -101,6 +105,8 @@ int external_odb_has_object(const unsigned char *sha1)
 
 	if (!use_external_odb)
 		return 0;
+
+	trace_printf("external_odb_has_object\n");
 
 	external_odb_init();
 
@@ -183,6 +189,8 @@ int external_odb_for_each_object(each_external_object_fn fn, void *data)
 {
 	struct odb_helper *o;
 
+	trace_printf("external_odb_for_each_object\n");
+
 	external_odb_init();
 
 	for (o = helpers; o; o = o->next) {
@@ -200,6 +208,8 @@ int external_odb_write_object(const void *buf, unsigned long len,
 
 	if (!use_external_odb)
 		return 1;
+
+	trace_printf("external_odb_write_object\n");
 
 	/* For now accept only blobs */
 	if (strcmp(type, "blob"))
