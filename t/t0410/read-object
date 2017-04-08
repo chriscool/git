@@ -105,7 +105,7 @@ while (1) {
 		my ($sha1) = packet_txt_read() =~ /^sha1=([0-9a-f]{40})$/;
 		packet_bin_read();
 
-		system ('git --git-dir="' . $DIR . '" cat-file blob ' . $sha1 . ' | GIT_NO_EXTERNAL_ODB=1 git -c core.virtualizeobjects=false hash-object -w --stdin >/dev/null 2>&1');
+		system ('git --git-dir="' . $DIR . '" cat-file blob ' . $sha1 . ' | GIT_NO_EXTERNAL_ODB=1 git hash-object -w --stdin >/dev/null 2>&1');
 		packet_txt_write(($?) ? "status=error" : "status=success");
 		packet_flush();
 	} else {
