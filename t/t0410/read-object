@@ -35,14 +35,7 @@ use Git::Packet;
 #
 my $DIR = "../.git/";
 
-
-( packet_txt_read() eq ( 0, "git-read-object-client" ) ) || die "bad initialize";
-( packet_txt_read() eq ( 0, "version=1" ) )				 || die "bad version";
-( packet_bin_read() eq ( 1, "" ) )                       || die "bad version end";
-
-packet_txt_write("git-read-object-server");
-packet_txt_write("version=1");
-packet_flush();
+packet_initialize("git-read-object", 1);
 
 ( packet_txt_read() eq ( 0, "capability=get" ) )    || die "bad capability";
 ( packet_bin_read() eq ( 1, "" ) )                  || die "bad capability end";
