@@ -571,15 +571,19 @@ int odb_helper_fetch_object(struct odb_helper *o,
 			    const unsigned char *sha1,
 			    int fd)
 {
-	switch(o->fetch_kind) {
-	case ODB_FETCH_KIND_PLAIN_OBJECT:
-		return odb_helper_fetch_plain_object(o, sha1, fd);
-	case ODB_FETCH_KIND_GIT_OBJECT:
-		return odb_helper_fetch_git_object(o, sha1, fd);
-	case ODB_FETCH_KIND_FAULT_IN:
-		return 0;
-	default:
-		BUG("invalid fetch kind '%d'", o->fetch_kind);
+	if (o->script_mode) {
+		switch(o->fetch_kind) {
+		case ODB_FETCH_KIND_PLAIN_OBJECT:
+			return odb_helper_fetch_plain_object(o, sha1, fd);
+		case ODB_FETCH_KIND_GIT_OBJECT:
+			return odb_helper_fetch_git_object(o, sha1, fd);
+		case ODB_FETCH_KIND_FAULT_IN:
+			return 0;
+		default:
+			BUG("invalid fetch kind '%d'", o->fetch_kind);
+		}
+	} else {
+		return read_object_process(o, sha1, fd);
 	}
 }
 
