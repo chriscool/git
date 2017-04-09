@@ -53,6 +53,7 @@ test_expect_success 'alt objects are missing' '
 
 test_expect_success 'helper can retrieve alt objects' '
 	test_config odb.magic.command "$HELPER" &&
+	test_config odb.magic.scriptMode true &&
 	test_config odb.magic.fetchKind "gitObject" &&
 	cat >expect <<-\EOF &&
 	two
