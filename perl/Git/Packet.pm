@@ -19,6 +19,7 @@ our @EXPORT = qw(
 			packet_bin_write
 			packet_txt_write
 			packet_flush
+			packet_initialize
 		);
 our @EXPORT_OK = @EXPORT;
 
@@ -75,3 +76,14 @@ sub packet_flush {
 	STDOUT->flush();
 }
 
+sub packet_initialize {
+	my ($name, $version) = @_;
+
+	( packet_txt_read() eq ( 0, $name . "-client" ) )		|| die "bad initialize";
+	( packet_txt_read() eq ( 0, "version=" . $version ) )	|| die "bad version";
+	( packet_bin_read() eq ( 1, "" ) )				|| die "bad version end";
+
+	packet_txt_write( $name . "-server" );
+	packet_txt_write( "version=" . $version );
+	packet_flush();
+}
