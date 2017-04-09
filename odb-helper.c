@@ -80,7 +80,7 @@ done:
 	return err;
 }
 
-static int read_object_process(struct odb_helper *o, const unsigned char *sha1)
+static int read_object_process(struct odb_helper *o, const unsigned char *sha1, int fd)
 {
 	int err;
 	struct read_object_process *entry;
@@ -129,6 +129,13 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1)
 	err = packet_flush_gently(process->in);
 	if (err)
 		goto done;
+
+	if (o->fetch_kind != ODB_FETCH_KIND_FAULT_IN) {
+		struct strbuf buf;
+		read_packetized_to_strbuf(process->out, &buf);
+		if (err)
+			goto done;
+	}
 
 	subprocess_read_status(process->out, &status);
 	err = strcmp(status.buf, "success");
@@ -547,7 +554,7 @@ int odb_helper_fault_in_object(struct odb_helper *o,
 			return -1;
 		return 0;
 	} else {
-		return read_object_process(o, sha1);
+		return read_object_process(o, sha1, -1);
 	}
 }
 
@@ -567,7 +574,7 @@ int odb_helper_fetch_object(struct odb_helper *o,
 			BUG("invalid fetch kind '%d'", o->fetch_kind);
 		}
 	} else {
-		return read_object_process(o, sha1);
+		return read_object_process(o, sha1, fd);
 	}
 }
 
