@@ -860,16 +860,20 @@ int odb_helper_fetch_object(struct odb_helper *o,
 			    const unsigned char *sha1,
 			    int fd)
 {
-	if (o->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
-		return odb_helper_fetch_git_object(o, sha1, fd);
-	if (o->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ)
-		return odb_helper_fetch_plain_object(o, sha1, fd);
-	if (o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)
-		return 0;
+	if (o->script_mode) {
+		if (o->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
+			return odb_helper_fetch_git_object(o, sha1, fd);
+		if (o->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ)
+			return odb_helper_fetch_plain_object(o, sha1, fd);
+		if (o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)
+			return 0;
 
-	// TODO maybe use
-	//	BUG("invalid fetch kind '%d'", o->fetch_kind);
-	return -1;
+		// TODO maybe use
+		//	BUG("invalid fetch kind '%d'", o->fetch_kind);
+		return -1;
+	} else {
+		return read_object_process(o, sha1, fd);
+	}
 }
 
 int odb_helper_for_each_object(struct odb_helper *o,
