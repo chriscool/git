@@ -42,14 +42,9 @@ $debug->flush();
 
 packet_initialize("git-filter", 2);
 
-( packet_txt_read() eq ( 0, "capability=clean" ) )  || die "bad capability";
-( packet_txt_read() eq ( 0, "capability=smudge" ) ) || die "bad capability";
-( packet_bin_read() eq ( 1, "" ) )                  || die "bad capability end";
+packet_read_and_check_capabilities("clean", "smudge");
+packet_write_capabilities(@capabilities);
 
-foreach (@capabilities) {
-	packet_txt_write( "capability=" . $_ );
-}
-packet_flush();
 print $debug "init handshake complete\n";
 $debug->flush();
 
