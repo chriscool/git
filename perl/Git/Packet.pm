@@ -20,6 +20,9 @@ our @EXPORT = qw(
 			packet_txt_write
 			packet_flush
 			packet_initialize
+			packet_read_capabilities
+			packet_write_capabilities
+			packet_read_and_check_capabilities
 		);
 our @EXPORT_OK = @EXPORT;
 
@@ -85,5 +88,32 @@ sub packet_initialize {
 
 	packet_txt_write( $name . "-server" );
 	packet_txt_write( "version=" . $version );
+	packet_flush();
+}
+
+sub packet_read_capabilities {
+	my @cap;
+	while (1) {
+		my ( $res, $buf ) = packet_bin_read();
+		return @cap if ( $res == 1 );
+		unless ( $buf =~ s/\n$// ) {
+			die "A non-binary line MUST be terminated by an LF.\n"
+			    . "Received: '$buf'";
+		}
+		die "bad capability res: '$res' (buf: '$buf')" unless ( $res eq 0 );
+		die "bad capability buf: '$buf'" unless ( $buf =~ s/capability=// );
+		push @cap, $buf;
+	}
+}
+
+sub packet_read_and_check_capabilities {
+	my %caps = map { $_ => 1 } packet_read_capabilities();
+	foreach (@_) {
+	    die "'$_' capability not available" unless (exists($caps{$_}));
+	}
+}
+
+sub packet_write_capabilities {
+	packet_txt_write( "capability=" . $_ ) foreach (@_);
 	packet_flush();
 }
