@@ -20,6 +20,8 @@ our @EXPORT = qw(
 			packet_txt_write
 			packet_flush
 			packet_initialize
+			packet_read_capability
+			packet_write_capability
 		);
 our @EXPORT_OK = @EXPORT;
 
@@ -85,5 +87,17 @@ sub packet_initialize {
 
 	packet_txt_write( $name . "-server" );
 	packet_txt_write( "version=" . $version );
+	packet_flush();
+}
+
+sub packet_read_capability {
+	my $cap = shift;
+	( packet_txt_read() eq ( 0, "capability=" . $cap ) )	|| die "bad capability";
+	( packet_bin_read() eq ( 1, "" ) )			|| die "bad capability end";
+}
+
+sub packet_write_capability {
+	my $cap = shift;
+	packet_txt_write( "capability=" . $cap );
 	packet_flush();
 }
