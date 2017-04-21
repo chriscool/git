@@ -351,6 +351,7 @@ fi
 
 exec 5>&1
 exec 6<&0
+exec 7>&2
 if test "$verbose_log" = "t"
 then
 	exec 3>>"$GIT_TEST_TEE_OUTPUT_FILE" 4>&3

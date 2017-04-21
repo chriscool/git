@@ -173,9 +173,6 @@ struct cache_entry {
 	unsigned int ce_flags;
 	unsigned int ce_namelen;
 	unsigned int index;	/* for link extension */
-	unsigned int precompute_hash_state;
-	unsigned int precompute_hash_name;
-	unsigned int precompute_hash_dir;
 	struct object_id oid;
 	char name[FLEX_ARRAY]; /* more */
 };
@@ -231,19 +228,6 @@ struct cache_entry {
 #if CE_EXTENDED_FLAGS & 0x803FFFFF
 #error "CE_EXTENDED_FLAGS out of range"
 #endif
-
-/*
- * Bit set if preload-index precomputed the hash value(s)
- * for this cache-entry.
- */ 
-#define CE_PRECOMPUTE_HASH_STATE__SET   (1 << 0)
-/*
- * Bit set if precompute-index also precomputed the hash value
- * for the parent directory.
- */ 
-#define CE_PRECOMPUTE_HASH_STATE__DIR   (1 << 1)
-
-void precompute_istate_hashes(struct cache_entry *ce);
 
 /* Forward structure decls */
 struct pathspec;
@@ -359,6 +343,7 @@ struct index_state {
 extern struct index_state the_index;
 
 /* Name hashing */
+extern int test_lazy_init_name_hash(struct index_state *istate, int try_threaded);
 extern void add_name_hash(struct index_state *istate, struct cache_entry *ce);
 extern void remove_name_hash(struct index_state *istate, struct cache_entry *ce);
 extern void free_name_hash(struct index_state *istate);
@@ -1055,9 +1040,6 @@ static inline int is_empty_tree_oid(const struct object_id *oid)
 	return !hashcmp(oid->hash, EMPTY_TREE_SHA1_BIN);
 }
 
-
-int git_mkstemp(char *path, size_t n, const char *template);
-
 /* set default permissions by passing mode arguments to open(2) */
 int git_mkstemps_mode(char *pattern, int suffix_len, int mode);
 int git_mkstemp_mode(char *pattern, int mode);
@@ -1119,7 +1101,7 @@ char *strbuf_realpath(struct strbuf *resolved, const char *path,
 		      int die_on_error);
 const char *real_path(const char *path);
 const char *real_path_if_valid(const char *path);
-char *real_pathdup(const char *path);
+char *real_pathdup(const char *path, int die_on_error);
 const char *absolute_path(const char *path);
 char *absolute_pathdup(const char *path);
 const char *remove_leading_path(const char *in, const char *prefix);
@@ -1329,7 +1311,37 @@ extern char *oid_to_hex_r(char *out, const struct object_id *oid);
 extern char *sha1_to_hex(const unsigned char *sha1);	/* static buffer result! */
 extern char *oid_to_hex(const struct object_id *oid);	/* same static buffer as sha1_to_hex */
 
-extern int interpret_branch_name(const char *str, int len, struct strbuf *);
+/*
+ * This reads short-hand syntax that not only evaluates to a commit
+ * object name, but also can act as if the end user spelled the name
+ * of the branch from the command line.
+ *
+ * - "@{-N}" finds the name of the Nth previous branch we were on, and
+ *   places the name of the branch in the given buf and returns the
+ *   number of characters parsed if successful.
+ *
+ * - "<branch>@{upstream}" finds the name of the other ref that
+ *   <branch> is configured to merge with (missing <branch> defaults
+ *   to the current branch), and places the name of the branch in the
+ *   given buf and returns the number of characters parsed if
+ *   successful.
+ *
+ * If the input is not of the accepted format, it returns a negative
+ * number to signal an error.
+ *
+ * If the input was ok but there are not N branch switches in the
+ * reflog, it returns 0.
+ *
+ * If "allowed" is non-zero, it is a treated as a bitfield of allowable
+ * expansions: local branches ("refs/heads/"), remote branches
+ * ("refs/remotes/"), or "HEAD". If no "allowed" bits are set, any expansion is
+ * allowed, even ones to refs outside of those namespaces.
+ */
+#define INTERPRET_BRANCH_LOCAL (1<<0)
+#define INTERPRET_BRANCH_REMOTE (1<<1)
+#define INTERPRET_BRANCH_HEAD (1<<2)
+extern int interpret_branch_name(const char *str, int len, struct strbuf *,
+				 unsigned allowed);
 extern int get_oid_mb(const char *str, struct object_id *oid);
 
 extern int validate_headref(const char *ref);
@@ -1572,6 +1584,27 @@ extern struct packed_git *find_sha1_pack(const unsigned char *sha1,
 					 struct packed_git *packs);
 
 extern void pack_report(void);
+
+/*
+ * Create a temporary file rooted in the object database directory.
+ */
+extern int odb_mkstemp(char *template, size_t limit, const char *pattern);
+
+/*
+ * Generate the filename to be used for a pack file with checksum "sha1" and
+ * extension "ext". The result is written into the strbuf "buf", overwriting
+ * any existing contents. A pointer to buf->buf is returned as a convenience.
+ *
+ * Example: odb_pack_name(out, sha1, "idx") => ".git/objects/pack/pack-1234..idx"
+ */
+extern char *odb_pack_name(struct strbuf *buf, const unsigned char *sha1, const char *ext);
+
+/*
+ * Create a pack .keep file named "name" (which should generally be the output
+ * of odb_pack_name). Returns a file descriptor opened for writing, or -1 on
+ * error.
+ */
+extern int odb_pack_keep(const char *name);
 
 /*
  * mmap the index file for the specified packfile (if it is not
@@ -1829,8 +1862,11 @@ extern int git_config_include(const char *name, const char *value, void *data);
  *
  * (i.e., what gets handed to a config_fn_t). The caller provides the section;
  * we return -1 if it does not match, 0 otherwise. The subsection and key
- * out-parameters are filled by the function (and subsection is NULL if it is
+ * out-parameters are filled by the function (and *subsection is NULL if it is
  * missing).
+ *
+ * If the subsection pointer-to-pointer passed in is NULL, returns 0 only if
+ * there is no subsection at all.
  */
 extern int parse_config_key(const char *var,
 			    const char *section,

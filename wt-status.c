@@ -1730,12 +1730,14 @@ static void wt_shortstatus_print_tracking(struct wt_status *s)
 		return;
 	branch_name = s->branch;
 
+#define LABEL(string) (s->no_gettext ? (string) : _(string))
+
 	if (s->is_initial)
-		color_fprintf(s->fp, header_color, _("Initial commit on "));
+		color_fprintf(s->fp, header_color, LABEL(N_("Initial commit on ")));
 
 	if (!strcmp(s->branch, "HEAD")) {
 		color_fprintf(s->fp, color(WT_STATUS_NOBRANCH, s), "%s",
-			      _("HEAD (no branch)"));
+			      LABEL(N_("HEAD (no branch)")));
 		goto conclude;
 	}
 
@@ -1760,8 +1762,6 @@ static void wt_shortstatus_print_tracking(struct wt_status *s)
 	if (!upstream_is_gone && !num_ours && !num_theirs)
 		goto conclude;
 
-#define LABEL(string) (s->no_gettext ? (string) : _(string))
-
 	color_fprintf(s->fp, header_color, " [");
 	if (upstream_is_gone) {
 		color_fprintf(s->fp, header_color, LABEL(N_("gone")));
@@ -1785,34 +1785,24 @@ static void wt_shortstatus_print_tracking(struct wt_status *s)
 
 static void wt_shortstatus_print(struct wt_status *s)
 {
-	int i;
+	struct string_list_item *it;
 
 	if (s->show_branch)
 		wt_shortstatus_print_tracking(s);
 
-	for (i = 0; i < s->change.nr; i++) {
-		struct wt_status_change_data *d;
-		struct string_list_item *it;
+	for_each_string_list_item(it, &s->change) {
+		struct wt_status_change_data *d = it->util;
 
-		it = &(s->change.items[i]);
-		d = it->util;
 		if (d->stagemask)
 			wt_shortstatus_unmerged(it, s);
 		else
 			wt_shortstatus_status(it, s);
 	}
-	for (i = 0; i < s->untracked.nr; i++) {
-		struct string_list_item *it;
-
-		it = &(s->untracked.items[i]);
+	for_each_string_list_item(it, &s->untracked)
 		wt_shortstatus_other(it, s, "??");
-	}
-	for (i = 0; i < s->ignored.nr; i++) {
-		struct string_list_item *it;
 
-		it = &(s->ignored.items[i]);
+	for_each_string_list_item(it, &s->ignored)
 		wt_shortstatus_other(it, s, "!!");
-	}
 }
 
 static void wt_porcelain_print(struct wt_status *s)

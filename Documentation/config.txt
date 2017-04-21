@@ -670,13 +670,13 @@ alternative to having an `init.templateDir` where you've changed
 default hooks.
 
 core.editor::
-	Commands such as `commit` and `tag` that lets you edit
-	messages by launching an editor uses the value of this
+	Commands such as `commit` and `tag` that let you edit
+	messages by launching an editor use the value of this
 	variable when it is set, and the environment variable
 	`GIT_EDITOR` is not set.  See linkgit:git-var[1].
 
 core.commentChar::
-	Commands such as `commit` and `tag` that lets you edit
+	Commands such as `commit` and `tag` that let you edit
 	messages consider a line that begins with this character
 	commented, and removes them after the editor returns
 	(default '#').
@@ -1422,6 +1422,12 @@ gc.autoPackLimit::
 gc.autoDetach::
 	Make `git gc --auto` return immediately and run in background
 	if the system supports it. Default is true.
+
+gc.logExpiry::
+	If the file gc.log exists, then `git gc --auto` won't run
+	unless that file is more than 'gc.logExpiry' old.  Default is
+	"1.day".  See `gc.pruneExpire` for more ways to specify its
+	value.
 
 gc.packRefs::
 	Running `git pack-refs` in a repository renders it
@@ -2463,6 +2469,8 @@ push.default::
   called `@{upstream}`).  This mode only makes sense if you are
   pushing to the same repository you would normally pull from
   (i.e. central workflow).
+
+* `tracking` - This is a deprecated synonym for `upstream`.
 
 * `simple` - in centralized workflow, work like `upstream` with an
   added safety to refuse to push if the upstream branch's name is

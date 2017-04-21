@@ -203,31 +203,26 @@ static const char *alt_sha1_path(struct alternate_object_database *alt,
 	return buf->buf;
 }
 
-/*
- * Return the name of the pack or index file with the specified sha1
- * in its filename.  *base and *name are scratch space that must be
- * provided by the caller.  which should be "pack" or "idx".
- */
-static char *sha1_get_pack_name(const unsigned char *sha1,
-				struct strbuf *buf,
-				const char *which)
+ char *odb_pack_name(struct strbuf *buf,
+		     const unsigned char *sha1,
+		     const char *ext)
 {
 	strbuf_reset(buf);
 	strbuf_addf(buf, "%s/pack/pack-%s.%s", get_object_directory(),
-		    sha1_to_hex(sha1), which);
+		    sha1_to_hex(sha1), ext);
 	return buf->buf;
 }
 
 char *sha1_pack_name(const unsigned char *sha1)
 {
 	static struct strbuf buf = STRBUF_INIT;
-	return sha1_get_pack_name(sha1, &buf, "pack");
+	return odb_pack_name(&buf, sha1, "pack");
 }
 
 char *sha1_pack_index_name(const unsigned char *sha1)
 {
 	static struct strbuf buf = STRBUF_INIT;
-	return sha1_get_pack_name(sha1, &buf, "idx");
+	return odb_pack_name(&buf, sha1, "idx");
 }
 
 struct alternate_object_database *alt_odb_list;
@@ -2532,6 +2527,7 @@ void *unpack_entry(struct packed_git *p, off_t obj_offset,
 	while (delta_stack_nr) {
 		void *delta_data;
 		void *base = data;
+		void *external_base = NULL;
 		unsigned long delta_size, base_size = size;
 		int i;
 
@@ -2558,6 +2554,7 @@ void *unpack_entry(struct packed_git *p, off_t obj_offset,
 				      p->pack_name);
 				mark_bad_packed_object(p, base_sha1);
 				base = read_object(base_sha1, &type, &base_size);
+				external_base = base;
 			}
 		}
 
@@ -2576,6 +2573,7 @@ void *unpack_entry(struct packed_git *p, off_t obj_offset,
 			      "at offset %"PRIuMAX" from %s",
 			      (uintmax_t)curpos, p->pack_name);
 			data = NULL;
+			free(external_base);
 			continue;
 		}
 
@@ -2595,6 +2593,7 @@ void *unpack_entry(struct packed_git *p, off_t obj_offset,
 			error("failed to apply delta");
 
 		free(delta_data);
+		free(external_base);
 	}
 
 	*final_type = type;

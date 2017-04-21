@@ -31,7 +31,6 @@ endif
 ifeq ($(uname_S),Linux)
 	HAVE_ALLOCA_H = YesPlease
 	NO_STRLCPY = YesPlease
-	NO_MKSTEMPS = YesPlease
 	HAVE_PATHS_H = YesPlease
 	LIBC_CONTAINS_LIBINTL = YesPlease
 	HAVE_DEV_TTY = YesPlease
@@ -45,7 +44,6 @@ endif
 ifeq ($(uname_S),GNU/kFreeBSD)
 	HAVE_ALLOCA_H = YesPlease
 	NO_STRLCPY = YesPlease
-	NO_MKSTEMPS = YesPlease
 	HAVE_PATHS_H = YesPlease
 	DIR_HAS_BSD_GROUP_SEMANTICS = YesPlease
 	LIBC_CONTAINS_LIBINTL = YesPlease
@@ -59,7 +57,6 @@ ifeq ($(uname_S),UnixWare)
 	SHELL_PATH = /usr/local/bin/bash
 	NO_IPV6 = YesPlease
 	NO_HSTRERROR = YesPlease
-	NO_MKSTEMPS = YesPlease
 	BASIC_CFLAGS += -Kthread
 	BASIC_CFLAGS += -I/usr/local/include
 	BASIC_LDFLAGS += -L/usr/local/lib
@@ -83,7 +80,6 @@ ifeq ($(uname_S),SCO_SV)
 	SHELL_PATH = /usr/bin/bash
 	NO_IPV6 = YesPlease
 	NO_HSTRERROR = YesPlease
-	NO_MKSTEMPS = YesPlease
 	BASIC_CFLAGS += -I/usr/local/include
 	BASIC_LDFLAGS += -L/usr/local/lib
 	NO_STRCASESTR = YesPlease
@@ -126,7 +122,6 @@ ifeq ($(uname_S),SunOS)
 	NO_STRCASESTR = YesPlease
 	NO_MEMMEM = YesPlease
 	NO_MKDTEMP = YesPlease
-	NO_MKSTEMPS = YesPlease
 	NO_REGEX = YesPlease
 	NO_MSGFMT_EXTENDED_OPTIONS = YesPlease
 	HAVE_DEV_TTY = YesPlease
@@ -172,7 +167,6 @@ ifeq ($(uname_O),Cygwin)
 		NO_D_TYPE_IN_DIRENT = YesPlease
 		NO_STRCASESTR = YesPlease
 		NO_MEMMEM = YesPlease
-		NO_MKSTEMPS = YesPlease
 		NO_SYMLINK_HEAD = YesPlease
 		NO_IPV6 = YesPlease
 		OLD_ICONV = UnfortunatelyYes
@@ -237,7 +231,6 @@ ifeq ($(uname_S),NetBSD)
 	BASIC_CFLAGS += -I/usr/pkg/include
 	BASIC_LDFLAGS += -L/usr/pkg/lib $(CC_LD_DYNPATH)/usr/pkg/lib
 	USE_ST_TIMESPEC = YesPlease
-	NO_MKSTEMPS = YesPlease
 	HAVE_PATHS_H = YesPlease
 	HAVE_BSD_SYSCTL = YesPlease
 endif
@@ -246,7 +239,6 @@ ifeq ($(uname_S),AIX)
 	NO_STRCASESTR = YesPlease
 	NO_MEMMEM = YesPlease
 	NO_MKDTEMP = YesPlease
-	NO_MKSTEMPS = YesPlease
 	NO_STRLCPY = YesPlease
 	NO_NSEC = YesPlease
 	FREAD_READS_DIRECTORIES = UnfortunatelyYes
@@ -267,7 +259,6 @@ ifeq ($(uname_S),GNU)
 	# GNU/Hurd
 	HAVE_ALLOCA_H = YesPlease
 	NO_STRLCPY = YesPlease
-	NO_MKSTEMPS = YesPlease
 	HAVE_PATHS_H = YesPlease
 	LIBC_CONTAINS_LIBINTL = YesPlease
 endif
@@ -276,7 +267,6 @@ ifeq ($(uname_S),IRIX)
 	NO_UNSETENV = YesPlease
 	NO_STRCASESTR = YesPlease
 	NO_MEMMEM = YesPlease
-	NO_MKSTEMPS = YesPlease
 	NO_MKDTEMP = YesPlease
 	# When compiled with the MIPSpro 7.4.4m compiler, and without pthreads
 	# (i.e. NO_PTHREADS is set), and _with_ MMAP (i.e. NO_MMAP is not set),
@@ -295,7 +285,6 @@ ifeq ($(uname_S),IRIX64)
 	NO_UNSETENV = YesPlease
 	NO_STRCASESTR = YesPlease
 	NO_MEMMEM = YesPlease
-	NO_MKSTEMPS = YesPlease
 	NO_MKDTEMP = YesPlease
 	# When compiled with the MIPSpro 7.4.4m compiler, and without pthreads
 	# (i.e. NO_PTHREADS is set), and _with_ MMAP (i.e. NO_MMAP is not set),
@@ -315,7 +304,6 @@ ifeq ($(uname_S),HP-UX)
 	NO_SETENV = YesPlease
 	NO_STRCASESTR = YesPlease
 	NO_MEMMEM = YesPlease
-	NO_MKSTEMPS = YesPlease
 	NO_STRLCPY = YesPlease
 	NO_MKDTEMP = YesPlease
 	NO_UNSETENV = YesPlease
@@ -362,7 +350,6 @@ ifeq ($(uname_S),Windows)
 	NEEDS_LIBICONV = YesPlease
 	NO_STRTOUMAX = YesPlease
 	NO_MKDTEMP = YesPlease
-	NO_MKSTEMPS = YesPlease
 	NO_INTTYPES_H = YesPlease
 	# VS2015 with UCRT claims that snprintf and friends are C99 compliant,
 	# so we don't need this.
@@ -514,7 +501,6 @@ ifeq ($(uname_S),Interix)
 	NO_MKDTEMP = YesPlease
 	NO_STRTOUMAX = YesPlease
 	NO_NSEC = YesPlease
-	NO_MKSTEMPS = YesPlease
 	ifeq ($(uname_R),3.5)
 		NO_INET_NTOP = YesPlease
 		NO_INET_PTON = YesPlease
@@ -573,7 +559,6 @@ ifeq ($(uname_S),NONSTOP_KERNEL)
 	NO_SETENV = YesPlease
 	NO_UNSETENV = YesPlease
 	NO_MKDTEMP = YesPlease
-	NO_MKSTEMPS = YesPlease
 	# Currently libiconv-1.9.1.
 	OLD_ICONV = UnfortunatelyYes
 	NO_REGEX = YesPlease
@@ -615,7 +600,6 @@ ifneq (,$(findstring MINGW,$(uname_S)))
 	NEEDS_LIBICONV = YesPlease
 	NO_STRTOUMAX = YesPlease
 	NO_MKDTEMP = YesPlease
-	NO_MKSTEMPS = YesPlease
 	NO_SVN_TESTS = YesPlease
 	RUNTIME_PREFIX = YesPlease
 	NO_ST_BLOCKS_IN_STRUCT_STAT = YesPlease
@@ -703,7 +687,6 @@ ifeq ($(uname_S),QNX)
 	NO_ICONV = YesPlease
 	NO_MEMMEM = YesPlease
 	NO_MKDTEMP = YesPlease
-	NO_MKSTEMPS = YesPlease
 	NO_NSEC = YesPlease
 	NO_PTHREADS = YesPlease
 	NO_R_TO_GCC_LINKER = YesPlease
