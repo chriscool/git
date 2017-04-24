@@ -132,7 +132,7 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 
 	if (o->fetch_kind != ODB_FETCH_KIND_FAULT_IN) {
 		struct strbuf buf;
-		ssize_t size = read_packetized_to_strbuf(process->out, &buf);
+		read_packetized_to_strbuf(process->out, &buf);
 		if (err)
 			goto done;
 	}
