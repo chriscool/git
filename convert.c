@@ -585,7 +585,7 @@ static int apply_multi_file_filter(const char *path, const char *src, size_t len
 		entry = xmalloc(sizeof(*entry));
 		entry->supported_capabilities = 0;
 
-		if (subprocess_start(&entry->subprocess, cmd, start_multi_file_filter_fn)) {
+		if (subprocess_start(&entry->subprocess, cmd, start_multi_file_filter_fn, -1)) {
 			free(entry);
 			return 0;
 		}

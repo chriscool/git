@@ -26,7 +26,7 @@ static void subprocess_exit_handler(struct child_process *process)
 }
 
 int subprocess_start(struct subprocess_entry *entry, const char *cmd,
-		subprocess_start_fn startfn)
+		     subprocess_start_fn startfn, int out_fd)
 {
 	int err;
 	const char *argv[] = { cmd, NULL };
@@ -42,7 +42,7 @@ int subprocess_start(struct subprocess_entry *entry, const char *cmd,
 	entry->process.argv = argv;
 	entry->process.use_shell = 1;
 	entry->process.in = -1;
-	entry->process.out = -1;
+	entry->process.out = out_fd;
 	entry->process.clean_on_exit = 1;
 	entry->process.clean_on_exit_handler = subprocess_exit_handler;
 

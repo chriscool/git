@@ -22,7 +22,7 @@ struct subprocess_entry {
 
 typedef int(*subprocess_start_fn)(struct subprocess_entry *entry);
 int subprocess_start(struct subprocess_entry *entry, const char *cmd,
-		subprocess_start_fn startfn);
+		subprocess_start_fn startfn, int out_fd);
 
 void subprocess_stop(struct subprocess_entry *entry);
 
