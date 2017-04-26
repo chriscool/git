@@ -98,7 +98,7 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 		entry = xmalloc(sizeof(*entry));
 		entry->supported_capabilities = 0;
 
-		if (subprocess_start(&entry->subprocess, cmd, start_read_object_fn)) {
+		if (subprocess_start(&entry->subprocess, cmd, start_read_object_fn, -1)) {
 			free(entry);
 			return -1;
 		}
