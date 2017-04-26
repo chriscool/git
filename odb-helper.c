@@ -184,7 +184,8 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 
 	start = getnanotime();
 
-	trace_printf("read_object_process: cmd: %s, cap: %d\n", cmd , o->supported_capabilities);
+	trace_printf("read_object_process: cmd: %s, cap: %d, fd: %d\n",
+		     cmd , o->supported_capabilities, fd);
 
 	entry = (struct read_object_process *)subprocess_find_entry(cmd);
 	if (!entry) {
