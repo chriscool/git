@@ -80,6 +80,97 @@ done:
 	return err;
 }
 
+ssize_t read_packetized_object_to_fd(struct odb_helper *o,
+				     const unsigned char *sha1,
+				     int fd_in, int fd_out)
+{
+	int packet_len;
+
+	struct strbuf sb = STRBUF_INIT;
+	size_t orig_len = sb.len;
+	size_t orig_alloc = sb.alloc;
+
+	unsigned long total_got;
+	git_zstream stream;
+	int zret = Z_STREAM_END;
+	git_SHA_CTX hash;
+	unsigned char real_sha1[20];
+
+	memset(&stream, 0, sizeof(stream));
+	git_inflate_init(&stream);
+	git_SHA1_Init(&hash);
+	total_got = 0;
+
+	trace_printf("read_packetized_to_strbuf: fd_in: '%d'\n", fd_in);
+
+	for (;;) {
+		strbuf_grow(&sb, LARGE_PACKET_DATA_MAX);
+		packet_len = packet_read(fd_in, NULL, NULL,
+
+			/* strbuf_grow() above always allocates one extra byte to
+			 * store a '\0' at the end of the string. packet_read()
+			 * writes a '\0' extra byte at the end, too. Let it know
+			 * that there is already room for the extra byte.
+			 */
+			sb.buf + sb.len, LARGE_PACKET_DATA_MAX+1,
+			PACKET_READ_GENTLE_ON_EOF);
+
+		trace_printf("read_packetized_to_strbuf: after packet_read\n");
+
+		if (packet_len <= 0)
+			break;
+
+		write_or_die(fd_out, sb.buf + sb.len, packet_len);
+
+		stream.next_in = sb.buf + sb.len;
+		stream.avail_in = packet_len;
+		do {
+			unsigned char inflated[4096];
+			unsigned long got;
+
+			stream.next_out = inflated;
+			stream.avail_out = sizeof(inflated);
+			zret = git_inflate(&stream, Z_SYNC_FLUSH);
+			got = sizeof(inflated) - stream.avail_out;
+
+			git_SHA1_Update(&hash, inflated, got);
+			/* skip header when counting size */
+			if (!total_got) {
+				const unsigned char *p = memchr(inflated, '\0', got);
+				if (p)
+					got -= p - inflated + 1;
+				else
+					got = 0;
+			}
+			total_got += got;
+		} while (stream.avail_in && zret == Z_OK);
+
+		sb.len += packet_len;
+	}
+
+	git_inflate_end(&stream);
+	strbuf_release(&sb);
+
+	if (packet_len < 0)
+		return packet_len;
+
+	git_SHA1_Final(real_sha1, &hash);
+
+	if (zret != Z_STREAM_END) {
+		warning("bad zlib data from odb helper '%s' for %s",
+			o->name, sha1_to_hex(sha1));
+		return -1;
+	}
+	if (hashcmp(real_sha1, sha1)) {
+		warning("sha1 mismatch from odb helper '%s' for %s (got %s)",
+			o->name, sha1_to_hex(sha1), sha1_to_hex(real_sha1));
+		return -1;
+	}
+
+	return sb.len - orig_len;
+}
+
+
 static int read_object_process(struct odb_helper *o, const unsigned char *sha1, int fd)
 {
 	int err;
@@ -130,11 +221,15 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 		goto done;
 
 	if (o->fetch_kind != ODB_FETCH_KIND_FAULT_IN) {
-		struct strbuf buf;
-		read_packetized_to_strbuf(process->out, &buf);
+		struct strbuf buf = STRBUF_INIT;
+		trace_printf("read_object_process: reading packetized\n");
+		err = read_packetized_object_to_fd(o, sha1, process->out, fd) < 0;
+		trace_printf("read_object_process: buf read: '%s'\n", buf.buf);
 		if (err)
 			goto done;
+
 	}
+	trace_printf("read_object_process: after reading packetized: err: '%d'\n", err);
 
 	subprocess_read_status(process->out, &status);
 	err = strcmp(status.buf, "success");
