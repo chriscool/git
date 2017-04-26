@@ -299,10 +299,18 @@ int packet_read(int fd, char **src_buf, size_t *src_len,
 	int len, ret;
 	char linelen[4];
 
+	trace_printf("packet_read: fd: '%d', buffer: '%p'\n", fd, buffer);
+
 	ret = get_packet_data(fd, src_buf, src_len, linelen, 4, options);
+
+	trace_printf("packet_read: after get_packet_data\n");
+
 	if (ret < 0)
 		return ret;
 	len = packet_length(linelen);
+
+	trace_printf("packet_read: len: '%d'\n", len);
+
 	if (len < 0)
 		die("protocol error: bad line length character: %.4s", linelen);
 	if (!len) {
@@ -366,9 +374,12 @@ ssize_t read_packetized_to_strbuf(int fd_in, struct strbuf *sb_out)
 	size_t orig_len = sb_out->len;
 	size_t orig_alloc = sb_out->alloc;
 
+	trace_printf("read_packetized_to_strbuf: fd_in: '%d'\n", fd_in);
+
 	for (;;) {
 		strbuf_grow(sb_out, LARGE_PACKET_DATA_MAX);
 		packet_len = packet_read(fd_in, NULL, NULL,
+
 			/* strbuf_grow() above always allocates one extra byte to
 			 * store a '\0' at the end of the string. packet_read()
 			 * writes a '\0' extra byte at the end, too. Let it know
@@ -376,6 +387,9 @@ ssize_t read_packetized_to_strbuf(int fd_in, struct strbuf *sb_out)
 			 */
 			sb_out->buf + sb_out->len, LARGE_PACKET_DATA_MAX+1,
 			PACKET_READ_GENTLE_ON_EOF);
+
+		trace_printf("read_packetized_to_strbuf: after packet_read\n");
+
 		if (packet_len <= 0)
 			break;
 		sb_out->len += packet_len;
