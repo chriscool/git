@@ -106,7 +106,7 @@ ssize_t read_packetized_object_to_fd(struct odb_helper *o,
 			buf, LARGE_PACKET_DATA_MAX + 1,
 			PACKET_READ_GENTLE_ON_EOF);
 
-		trace_printf("read_packetized_to_strbuf: after packet_read\n");
+		trace_printf("read_packetized_object_to_fd: after packet_read\n");
 
 		if (packet_len <= 0)
 			break;
