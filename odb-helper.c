@@ -84,13 +84,9 @@ ssize_t read_packetized_object_to_fd(struct odb_helper *o,
 				     const unsigned char *sha1,
 				     int fd_in, int fd_out)
 {
+	ssize_t total_read = 0;
+	unsigned long total_got = 0;
 	int packet_len;
-
-	struct strbuf sb = STRBUF_INIT;
-	size_t orig_len = sb.len;
-	size_t orig_alloc = sb.alloc;
-
-	unsigned long total_got;
 	git_zstream stream;
 	int zret = Z_STREAM_END;
 	git_SHA_CTX hash;
@@ -99,26 +95,21 @@ ssize_t read_packetized_object_to_fd(struct odb_helper *o,
 	memset(&stream, 0, sizeof(stream));
 	git_inflate_init(&stream);
 	git_SHA1_Init(&hash);
-	total_got = 0;
 
 	for (;;) {
-		strbuf_grow(&sb, LARGE_PACKET_DATA_MAX);
-		packet_len = packet_read(fd_in, NULL, NULL,
+		/* packet_read() writes a '\0' extra byte at the end */
+		char buf[LARGE_PACKET_DATA_MAX + 1];
 
-			/* strbuf_grow() above always allocates one extra byte to
-			 * store a '\0' at the end of the string. packet_read()
-			 * writes a '\0' extra byte at the end, too. Let it know
-			 * that there is already room for the extra byte.
-			 */
-			sb.buf + sb.len, LARGE_PACKET_DATA_MAX+1,
+		packet_len = packet_read(fd_in, NULL, NULL,
+			buf, LARGE_PACKET_DATA_MAX + 1,
 			PACKET_READ_GENTLE_ON_EOF);
 
 		if (packet_len <= 0)
 			break;
 
-		write_or_die(fd_out, sb.buf + sb.len, packet_len);
+		write_or_die(fd_out, buf, packet_len);
 
-		stream.next_in = sb.buf + sb.len;
+		stream.next_in = (unsigned char *)buf;
 		stream.avail_in = packet_len;
 		do {
 			unsigned char inflated[4096];
@@ -141,11 +132,10 @@ ssize_t read_packetized_object_to_fd(struct odb_helper *o,
 			total_got += got;
 		} while (stream.avail_in && zret == Z_OK);
 
-		sb.len += packet_len;
+		total_read += packet_len;
 	}
 
 	git_inflate_end(&stream);
-	strbuf_release(&sb);
 
 	if (packet_len < 0)
 		return packet_len;
@@ -163,7 +153,7 @@ ssize_t read_packetized_object_to_fd(struct odb_helper *o,
 		return -1;
 	}
 
-	return sb.len - orig_len;
+	return total_read;
 }
 
 
