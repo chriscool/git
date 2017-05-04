@@ -211,10 +211,9 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 		goto done;
 
 	if (o->fetch_kind != ODB_FETCH_KIND_FAULT_IN) {
-		struct strbuf buf = STRBUF_INIT;
-		trace_printf("read_object_process: reading packetized\n");
+		trace_printf("read_object_process: before reading packetized\n");
 		err = read_packetized_object_to_fd(o, sha1, process->out, fd) < 0;
-		trace_printf("read_object_process: buf read: '%s'\n", buf.buf);
+		trace_printf("read_object_process: after reading packetized\n");
 		if (err)
 			goto done;
 
