@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+#
+
+use 5.008;
+use lib (split(/:/, $ENV{GITPERLLIB}));
+use strict;
+use warnings;
+use Git::Packet;
+
+
+packet_initialize("git-read-object", 1);
+
+packet_read_capability("get");
+packet_write_capability("get");
+
+my $http_url = $ENV{HTTPD_URL};
+
+sub get_list {
+    my $get_url = $http_url . "/list/";
+    my $contents = qx{curl --silent $get_url};
+    die "get_list content: " . $contents;
+}
+
+get_list();
+
+while (1) {
+	my ($command) = packet_txt_read() =~ /^command=([^=]+)$/;
+
+	if ( $command eq "get" ) {
+		my ($sha1) = packet_txt_read() =~ /^sha1=([0-9a-f]{40})$/;
+		packet_bin_read();
+
+		my $get_url = $http_url . "/list/?sha1=" . $sha1;
+		my $contents = qx{curl --silent $get_url};
+
+		packet_bin_write($contents);
+		packet_flush();
+		packet_txt_write("status=success");
+		packet_flush();
+	} elsif ( $command eq "put" ) {
+		my ($sha1) = packet_txt_read() =~ /^sha1=([0-9a-f]{40})$/;
+		my ($size) = packet_txt_read() =~ /^size=([0-9]+)$/;
+		my ($kind) = packet_txt_read() =~ /^kind=(\w+)$/;
+		packet_bin_read();
+
+		# We must read the content we are sent and send it to the right url
+		my ($res, $buf) = packet_bin_read();
+		die "bad packet_bin_read res ($res)" unless ($res eq 0);
+		( packet_bin_read() eq ( 1, "" ) ) || die "bad send end";		
+
+		my $upload_url = $http_url . "/upload/?sha1=" . $sha1 . "&size=" . $size . "&type=blob";
+
+		my $pid = open(WRITEME, "| curl --data-binary @- --include $upload_url") or die "Couldn't fork: $!\n";
+		print WRITEME $buf;
+		close(WRITEME)                              or die "Couldn't close: $!\n";
+
+		packet_txt_write("status=success");
+		packet_flush();
+	} else {
+		die "bad command '$command'";
+	}
+}
