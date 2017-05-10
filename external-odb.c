@@ -140,6 +140,8 @@ int external_odb_fetch_object(const unsigned char *sha1)
 			return -1;
 		}
 
+		trace_printf("external_odb_fetch_object: calling odb_helper_fetch_object()\n");
+
 		if (odb_helper_fetch_object(o, sha1, fd) < 0) {
 			close(fd);
 			unlink(tmpfile.buf);
@@ -189,7 +191,7 @@ int external_odb_for_each_object(each_external_object_fn fn, void *data)
 	return 0;
 }
 
-int external_odb_write_object(const void *buf, unsigned long len,
+int external_odb_write_object(const void *buf, size_t len,
 			      const char *type, unsigned char *sha1)
 {
 	struct odb_helper *o;

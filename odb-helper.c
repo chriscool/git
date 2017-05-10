@@ -103,6 +103,8 @@ ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
 	off_t size;
 	enum object_type type;
 
+	trace_printf("read_packetized_plain_object_to_fd: start\n");
+
 	/* Get size and object kind first */
 	if (ODB_HELPER_CAP_GET & o->supported_capabilities) {
 		struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
@@ -115,15 +117,22 @@ ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
 		type = obj->type;
 	} else {
 		const char *s;
+		trace_printf("read_packetized_plain_object_to_fd: getting size\n");
 		if (!skip_prefix(packet_read_line(fd_in, NULL), "size=", &s)) {
 			error("odb helper '%s' did not send size of plain object", o->name);
 			return -1;
 		}
+		trace_printf("read_packetized_plain_object_to_fd: size: '%s'\n", s);
 		size = strtoumax(s, NULL, 10);
-		if (!skip_prefix(packet_read_line(fd_in, NULL), "type=", &s)) {
-			error("odb helper '%s' did not send type of plain object", o->name);
+		trace_printf("read_packetized_plain_object_to_fd: getting type\n");
+		if (!skip_prefix(packet_read_line(fd_in, NULL), "kind=", &s)) {
+			error("odb helper '%s' did not send kind of plain object", o->name);
 			return -1;
 		}
+		trace_printf("read_packetized_plain_object_to_fd: kind: '%s'\n", s);
+		/* Check if the object is not available */
+		if (!strcmp(s, "none"))
+			return 0;
 		type = type_from_string_gently(s, strlen(s), 1);
 		if (type < 0) {
 			error("odb helper '%s' sent bad type '%s'", o->name, s);
@@ -382,6 +391,106 @@ done:
 	}
 
 	trace_performance_since(start, "read_object_process");
+
+	return err;
+}
+
+static int write_object_process(struct odb_helper *o,
+				const void *buf, size_t len,
+				const char *type, unsigned char *sha1)
+{
+	int err;
+	struct read_object_process *entry;
+	struct child_process *process;
+	struct strbuf status = STRBUF_INIT;
+	const char *cmd = o->cmd;
+	uint64_t start;
+
+	start = getnanotime();
+
+	trace_printf("write_object_process: cmd: %s, cap: %d, len: %"PRIuMAX", type: %s\n",
+		     cmd, o->supported_capabilities, (uintmax_t)len, type);
+
+	if (!subprocess_map_initialized) {
+		subprocess_map_initialized = 1;
+		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
+		entry = NULL;
+	} else {
+		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
+	}
+
+	fflush(NULL);
+
+	if (!entry) {
+		entry = xmalloc(sizeof(*entry));
+		entry->supported_capabilities = 0;
+
+		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
+			free(entry);
+			return 0;
+		}
+	}
+	process = &entry->subprocess.process;
+
+	if (!(ODB_HELPER_CAP_PUT & entry->supported_capabilities))
+		return -1;
+
+	sigchain_push(SIGPIPE, SIG_IGN);
+
+	err = packet_write_fmt_gently(process->in, "command=put\n");
+	if (err)
+		goto done;
+
+	err = packet_write_fmt_gently(process->in, "sha1=%s\n", sha1_to_hex(sha1));
+	if (err)
+		goto done;
+
+	err = packet_write_fmt_gently(process->in, "size=%"PRIuMAX"\n", len);
+	if (err)
+		goto done;
+
+	err = packet_write_fmt_gently(process->in, "kind=blob\n");
+	if (err)
+		goto done;
+
+	err = packet_flush_gently(process->in);
+	if (err)
+		goto done;
+
+	trace_printf("write_object_process: before writing packetized plain object\n");
+	err = write_packetized_from_buf(buf, len, process->in);
+	trace_printf("write_object_process: after writing packetized plain object\n");
+	if (err)
+		goto done;
+
+	subprocess_read_status(process->out, &status);
+	err = strcmp(status.buf, "success");
+
+done:
+	sigchain_pop(SIGPIPE);
+
+	if (err) {
+		if (!strcmp(status.buf, "error")) {
+			/* The process signaled a problem with the file. */
+		} else if (!strcmp(status.buf, "abort")) {
+			/*
+			* The process signaled a permanent problem. Don't try to read
+			* objects with the same command for the lifetime of the current
+			* Git process.
+			*/
+			entry->supported_capabilities &= ~ODB_HELPER_CAP_PUT;
+		} else {
+			/*
+			* Something went wrong with the read-object process.
+			* Force shutdown and restart if needed.
+			*/
+			error("external process '%s' failed", cmd);
+			subprocess_stop(&subprocess_map, &entry->subprocess);
+			free(entry);
+		}
+	}
+
+	trace_performance_since(start, "write_object_process");
 
 	return err;
 }
@@ -807,14 +916,14 @@ int odb_helper_for_each_object(struct odb_helper *o,
 	return 0;
 }
 
-int odb_helper_write_object(struct odb_helper *o,
-			    const void *buf, unsigned long len,
-			    const char *type, unsigned char *sha1)
+int odb_helper_write_plain_object(struct odb_helper *o,
+				  const void *buf, size_t len,
+				  const char *type, unsigned char *sha1)
 {
 	struct odb_helper_cmd cmd;
 
-	if (odb_helper_start(o, &cmd, 1, "put %s %lu %s",
-			     sha1_to_hex(sha1), len, type) < 0)
+	if (odb_helper_start(o, &cmd, 1, "put %s %"PRIuMAX" %s",
+			     sha1_to_hex(sha1), (uintmax_t)len, type) < 0)
 		return -1;
 
 	do {
@@ -834,4 +943,17 @@ int odb_helper_write_object(struct odb_helper *o,
 	close(cmd.child.out);
 	odb_helper_finish(o, &cmd);
 	return 0;
+}
+
+int odb_helper_write_object(struct odb_helper *o,
+			    const void *buf, size_t len,
+			    const char *type, unsigned char *sha1)
+{
+	trace_printf("odb_helper_write_object: before starting\n");
+
+	if (o->script_mode) {
+		return odb_helper_write_plain_object(o, buf, len, type, sha1);
+	} else {
+		return write_object_process(o, buf, len, type, sha1);
+	}
 }
