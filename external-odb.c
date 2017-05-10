@@ -189,7 +189,7 @@ int external_odb_for_each_object(each_external_object_fn fn, void *data)
 	return 0;
 }
 
-int external_odb_write_object(const void *buf, unsigned long len,
+int external_odb_write_object(const void *buf, size_t len,
 			      const char *type, unsigned char *sha1)
 {
 	struct odb_helper *o;
