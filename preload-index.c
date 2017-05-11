@@ -4,6 +4,7 @@
 #include "cache.h"
 #include "pathspec.h"
 #include "dir.h"
+#include "fsmonitor.h"
 
 #ifdef NO_PTHREADS
 void preload_index(struct index_state *index, const struct pathspec *pathspec)
@@ -58,10 +59,12 @@ static void *preload_thread(void *_data)
 			continue;
 		if (threaded_has_symlink_leading_path(&cache, ce->name, ce_namelen(ce)))
 			continue;
-		if (lstat(ce->name, &st))
-			continue;
-		if (ie_match_stat(index, ce, &st, CE_MATCH_RACY_IS_DIRTY))
-			continue;
+		if (!(ce->ce_flags & CE_FSMONITOR_CLEAN)) {
+			if (lstat(ce->name, &st))
+				continue;
+			if (ie_match_stat(index, ce, &st, CE_MATCH_RACY_IS_DIRTY))
+				continue;
+		}
 		ce_mark_uptodate(ce);
 	} while (--nr > 0);
 	cache_def_clear(&cache);
@@ -73,7 +76,7 @@ void preload_index(struct index_state *index, const struct pathspec *pathspec)
 	int threads, i, work, offset;
 	struct thread_data data[MAX_PARALLEL];
 
-	if (!core_preload_index)
+	if (!core_preload_index && !core_fsmonitor)
 		return;
 
 	threads = index->cache_nr / THREAD_COST;

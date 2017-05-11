@@ -221,6 +221,7 @@ finish:
 			lstat(ce->name, &st);
 		fill_stat_cache_info(ce, &st);
 		ce->ce_flags |= CE_UPDATE_IN_BASE;
+		ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
 		state->istate->cache_changed |= CE_ENTRY_CHANGED;
 	}
 	return 0;
