@@ -630,7 +630,7 @@ struct refspec *parse_fetch_refspec(int nr_refspec, const char **refspec)
 	return parse_refspec_internal(nr_refspec, refspec, 1, 0);
 }
 
-static struct refspec *parse_push_refspec(int nr_refspec, const char **refspec)
+struct refspec *parse_push_refspec(int nr_refspec, const char **refspec)
 {
 	return parse_refspec_internal(nr_refspec, refspec, 0, 0);
 }
@@ -1191,9 +1191,10 @@ static int match_explicit(struct ref *src, struct ref *dst,
 		else if (is_null_oid(&matched_src->new_oid))
 			error("unable to delete '%s': remote ref does not exist",
 			      dst_value);
-		else if ((dst_guess = guess_ref(dst_value, matched_src)))
+		else if ((dst_guess = guess_ref(dst_value, matched_src))) {
 			matched_dst = make_linked_ref(dst_guess, dst_tail);
-		else
+			free(dst_guess);
+		} else
 			error("unable to push to unqualified destination: %s\n"
 			      "The destination refspec neither matches an "
 			      "existing ref on the remote nor\n"
@@ -2279,7 +2280,7 @@ static struct push_cas *add_cas_entry(struct push_cas_option *cas,
 	return entry;
 }
 
-int parse_push_cas_option(struct push_cas_option *cas, const char *arg, int unset)
+static int parse_push_cas_option(struct push_cas_option *cas, const char *arg, int unset)
 {
 	const char *colon;
 	struct push_cas *entry;

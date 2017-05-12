@@ -21,11 +21,30 @@
 #include "submodule-config.h"
 #include "submodule.h"
 
+static int recurse_submodules = RECURSE_SUBMODULES_DEFAULT;
+
 static const char * const checkout_usage[] = {
 	N_("git checkout [<options>] <branch>"),
 	N_("git checkout [<options>] [<branch>] -- <file>..."),
 	NULL,
 };
+
+static int option_parse_recurse_submodules(const struct option *opt,
+					   const char *arg, int unset)
+{
+	if (unset) {
+		recurse_submodules = RECURSE_SUBMODULES_OFF;
+		return 0;
+	}
+	if (arg)
+		recurse_submodules =
+			parse_update_recurse_submodules_arg(opt->long_name,
+							    arg);
+	else
+		recurse_submodules = RECURSE_SUBMODULES_ON;
+
+	return 0;
+}
 
 struct checkout_opts {
 	int patch_mode;
@@ -216,22 +235,24 @@ static int checkout_merged(int pos, const struct checkout *state)
 	/*
 	 * NEEDSWORK:
 	 * There is absolutely no reason to write this as a blob object
-	 * and create a phony cache entry just to leak.  This hack is
-	 * primarily to get to the write_entry() machinery that massages
-	 * the contents to work-tree format and writes out which only
-	 * allows it for a cache entry.  The code in write_entry() needs
-	 * to be refactored to allow us to feed a <buffer, size, mode>
-	 * instead of a cache entry.  Such a refactoring would help
-	 * merge_recursive as well (it also writes the merge result to the
-	 * object database even when it may contain conflicts).
+	 * and create a phony cache entry.  This hack is primarily to get
+	 * to the write_entry() machinery that massages the contents to
+	 * work-tree format and writes out which only allows it for a
+	 * cache entry.  The code in write_entry() needs to be refactored
+	 * to allow us to feed a <buffer, size, mode> instead of a cache
+	 * entry.  Such a refactoring would help merge_recursive as well
+	 * (it also writes the merge result to the object database even
+	 * when it may contain conflicts).
 	 */
 	if (write_sha1_file(result_buf.ptr, result_buf.size,
 			    blob_type, oid.hash))
 		die(_("Unable to add merge result for '%s'"), path);
+	free(result_buf.ptr);
 	ce = make_cache_entry(mode, oid.hash, path, 2, 0);
 	if (!ce)
 		die(_("make_cache_entry failed for path '%s'"), path);
 	status = checkout_entry(ce, state, NULL);
+	free(ce);
 	return status;
 }
 
@@ -889,11 +910,10 @@ static int check_tracking_name(struct remote *remote, void *cb_data)
 static const char *unique_tracking_name(const char *name, struct object_id *oid)
 {
 	struct tracking_name_data cb_data = { NULL, NULL, NULL, 1 };
-	char src_ref[PATH_MAX];
-	snprintf(src_ref, PATH_MAX, "refs/heads/%s", name);
-	cb_data.src_ref = src_ref;
+	cb_data.src_ref = xstrfmt("refs/heads/%s", name);
 	cb_data.dst_oid = oid;
 	for_each_remote(check_tracking_name, &cb_data);
+	free(cb_data.src_ref);
 	if (cb_data.unique)
 		return cb_data.dst_ref;
 	free(cb_data.dst_ref);
@@ -1163,6 +1183,9 @@ int cmd_checkout(int argc, const char **argv, const char *prefix)
 				N_("second guess 'git checkout <no-such-branch>'")),
 		OPT_BOOL(0, "ignore-other-worktrees", &opts.ignore_other_worktrees,
 			 N_("do not check if another worktree is holding the given ref")),
+		{ OPTION_CALLBACK, 0, "recurse-submodules", &recurse_submodules,
+			    "checkout", "control recursive updating of submodules",
+			    PARSE_OPT_OPTARG, option_parse_recurse_submodules },
 		OPT_BOOL(0, "progress", &opts.show_progress, N_("force progress reporting")),
 		OPT_END(),
 	};
@@ -1191,6 +1214,12 @@ int cmd_checkout(int argc, const char **argv, const char *prefix)
 	if (conflict_style) {
 		opts.merge = 1; /* implied */
 		git_xmerge_config("merge.conflictstyle", conflict_style, NULL);
+	}
+
+	if (recurse_submodules != RECURSE_SUBMODULES_OFF) {
+		git_config(submodule_config, NULL);
+		if (recurse_submodules != RECURSE_SUBMODULES_DEFAULT)
+			set_config_update_recurse_submodules(recurse_submodules);
 	}
 
 	if ((!!opts.new_branch + !!opts.new_branch_force + !!opts.new_orphan_branch) > 1)

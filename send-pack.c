@@ -60,7 +60,7 @@ static void feed_object(const unsigned char *sha1, FILE *fh, int negative)
 /*
  * Make a pack stream and spit it out into file descriptor fd
  */
-static int pack_objects(int fd, struct ref *refs, struct sha1_array *extra, struct send_pack_args *args)
+static int pack_objects(int fd, struct ref *refs, struct oid_array *extra, struct send_pack_args *args)
 {
 	/*
 	 * The child becomes pack-objects --revs; we feed
@@ -108,7 +108,7 @@ static int pack_objects(int fd, struct ref *refs, struct sha1_array *extra, stru
 	 */
 	po_in = xfdopen(po.in, "w");
 	for (i = 0; i < extra->nr; i++)
-		feed_object(extra->sha1[i], po_in, 1);
+		feed_object(extra->oid[i].hash, po_in, 1);
 
 	while (refs) {
 		if (!is_null_oid(&refs->old_oid))
@@ -386,7 +386,7 @@ static void reject_invalid_nonce(const char *nonce, int len)
 int send_pack(struct send_pack_args *args,
 	      int fd[], struct child_process *conn,
 	      struct ref *remote_refs,
-	      struct sha1_array *extra_have)
+	      struct oid_array *extra_have)
 {
 	int in = fd[0];
 	int out = fd[1];
@@ -544,6 +544,14 @@ int send_pack(struct send_pack_args *args,
 		}
 	}
 
+	if (use_push_options) {
+		struct string_list_item *item;
+
+		packet_buf_flush(&req_buf);
+		for_each_string_list_item(item, args->push_options)
+			packet_buf_write(&req_buf, "%s", item->string);
+	}
+
 	if (args->stateless_rpc) {
 		if (!args->dry_run && (cmds_sent || is_repository_shallow())) {
 			packet_buf_flush(&req_buf);
@@ -555,18 +563,6 @@ int send_pack(struct send_pack_args *args,
 	}
 	strbuf_release(&req_buf);
 	strbuf_release(&cap_buf);
-
-	if (use_push_options) {
-		struct string_list_item *item;
-		struct strbuf sb = STRBUF_INIT;
-
-		for_each_string_list_item(item, args->push_options)
-			packet_buf_write(&sb, "%s", item->string);
-
-		write_or_die(out, sb.buf, sb.len);
-		packet_flush(out);
-		strbuf_release(&sb);
-	}
 
 	if (use_sideband && cmds_sent) {
 		memset(&demux, 0, sizeof(demux));

@@ -111,8 +111,8 @@ static void annotate_refs_with_symref_info(struct ref *ref)
  */
 struct ref **get_remote_heads(int in, char *src_buf, size_t src_len,
 			      struct ref **list, unsigned int flags,
-			      struct sha1_array *extra_have,
-			      struct sha1_array *shallow_points)
+			      struct oid_array *extra_have,
+			      struct oid_array *shallow_points)
 {
 	struct ref **orig_list = list;
 
@@ -153,7 +153,7 @@ struct ref **get_remote_heads(int in, char *src_buf, size_t src_len,
 				die("protocol error: expected shallow sha-1, got '%s'", arg);
 			if (!shallow_points)
 				die("repository on the other end cannot be shallow");
-			sha1_array_append(shallow_points, old_oid.hash);
+			oid_array_append(shallow_points, &old_oid);
 			continue;
 		}
 
@@ -169,7 +169,7 @@ struct ref **get_remote_heads(int in, char *src_buf, size_t src_len,
 		}
 
 		if (extra_have && !strcmp(name, ".have")) {
-			sha1_array_append(extra_have, old_oid.hash);
+			oid_array_append(extra_have, &old_oid);
 			continue;
 		}
 
@@ -691,24 +691,46 @@ static const char *get_ssh_command(void)
 	return NULL;
 }
 
-static int handle_ssh_variant(const char *ssh_command, int is_cmdline,
-			      int *port_option, int *needs_batch)
+static int override_ssh_variant(int *port_option, int *needs_batch)
 {
-	const char *variant = getenv("GIT_SSH_VARIANT");
+	char *variant;
+
+	variant = xstrdup_or_null(getenv("GIT_SSH_VARIANT"));
+	if (!variant &&
+	    git_config_get_string("ssh.variant", &variant))
+		return 0;
+
+	if (!strcmp(variant, "plink") || !strcmp(variant, "putty")) {
+		*port_option = 'P';
+		*needs_batch = 0;
+	} else if (!strcmp(variant, "tortoiseplink")) {
+		*port_option = 'P';
+		*needs_batch = 1;
+	} else {
+		*port_option = 'p';
+		*needs_batch = 0;
+	}
+	free(variant);
+	return 1;
+}
+
+static void handle_ssh_variant(const char *ssh_command, int is_cmdline,
+			       int *port_option, int *needs_batch)
+{
+	const char *variant;
 	char *p = NULL;
 
-	if (variant)
-		; /* okay, fall through */
-	else if (!git_config_get_string("ssh.variant", &p))
-		variant = p;
-	else if (!is_cmdline) {
+	if (override_ssh_variant(port_option, needs_batch))
+		return;
+
+	if (!is_cmdline) {
 		p = xstrdup(ssh_command);
 		variant = basename(p);
 	} else {
 		const char **ssh_argv;
 
 		p = xstrdup(ssh_command);
-		if (split_cmdline(p, &ssh_argv)) {
+		if (split_cmdline(p, &ssh_argv) > 0) {
 			variant = basename((char *)ssh_argv[0]);
 			/*
 			 * At this point, variant points into the buffer
@@ -716,13 +738,14 @@ static int handle_ssh_variant(const char *ssh_command, int is_cmdline,
 			 * any longer.
 			 */
 			free(ssh_argv);
-		} else
-			return 0;
+		} else {
+			free(p);
+			return;
+		}
 	}
 
 	if (!strcasecmp(variant, "plink") ||
-	    !strcasecmp(variant, "plink.exe") ||
-	    !strcasecmp(variant, "putty"))
+	    !strcasecmp(variant, "plink.exe"))
 		*port_option = 'P';
 	else if (!strcasecmp(variant, "tortoiseplink") ||
 		 !strcasecmp(variant, "tortoiseplink.exe")) {
@@ -730,8 +753,6 @@ static int handle_ssh_variant(const char *ssh_command, int is_cmdline,
 		*needs_batch = 1;
 	}
 	free(p);
-
-	return 1;
 }
 
 /*

@@ -15,6 +15,7 @@
 #include "string-list.h"
 #include "pathspec.h"
 #include "run-command.h"
+#include "submodule.h"
 
 static int abbrev;
 static int show_deleted;
@@ -30,7 +31,7 @@ static int line_terminator = '\n';
 static int debug_mode;
 static int show_eol;
 static int recurse_submodules;
-static struct argv_array submodules_options = ARGV_ARRAY_INIT;
+static struct argv_array submodule_options = ARGV_ARRAY_INIT;
 
 static const char *prefix;
 static const char *super_prefix;
@@ -172,20 +173,27 @@ static void show_killed_files(struct dir_struct *dir)
 /*
  * Compile an argv_array with all of the options supported by --recurse_submodules
  */
-static void compile_submodule_options(const struct dir_struct *dir, int show_tag)
+static void compile_submodule_options(const char **argv,
+				      const struct dir_struct *dir,
+				      int show_tag)
 {
 	if (line_terminator == '\0')
-		argv_array_push(&submodules_options, "-z");
+		argv_array_push(&submodule_options, "-z");
 	if (show_tag)
-		argv_array_push(&submodules_options, "-t");
+		argv_array_push(&submodule_options, "-t");
 	if (show_valid_bit)
-		argv_array_push(&submodules_options, "-v");
+		argv_array_push(&submodule_options, "-v");
 	if (show_cached)
-		argv_array_push(&submodules_options, "--cached");
+		argv_array_push(&submodule_options, "--cached");
 	if (show_eol)
-		argv_array_push(&submodules_options, "--eol");
+		argv_array_push(&submodule_options, "--eol");
 	if (debug_mode)
-		argv_array_push(&submodules_options, "--debug");
+		argv_array_push(&submodule_options, "--debug");
+
+	/* Add Pathspecs */
+	argv_array_push(&submodule_options, "--");
+	for (; *argv; argv++)
+		argv_array_push(&submodule_options, *argv);
 }
 
 /**
@@ -195,8 +203,15 @@ static void show_gitlink(const struct cache_entry *ce)
 {
 	struct child_process cp = CHILD_PROCESS_INIT;
 	int status;
-	int i;
+	char *dir;
 
+	prepare_submodule_repo_env(&cp.env_array);
+	argv_array_push(&cp.env_array, GIT_DIR_ENVIRONMENT);
+
+	if (prefix_len)
+		argv_array_pushf(&cp.env_array, "%s=%s",
+				 GIT_TOPLEVEL_PREFIX_ENVIRONMENT,
+				 prefix);
 	argv_array_pushf(&cp.args, "--super-prefix=%s%s/",
 			 super_prefix ? super_prefix : "",
 			 ce->name);
@@ -204,20 +219,13 @@ static void show_gitlink(const struct cache_entry *ce)
 	argv_array_push(&cp.args, "--recurse-submodules");
 
 	/* add supported options */
-	argv_array_pushv(&cp.args, submodules_options.argv);
-
-	/*
-	 * Pass in the original pathspec args.  The submodule will be
-	 * responsible for prepending the 'submodule_prefix' prior to comparing
-	 * against the pathspec for matches.
-	 */
-	argv_array_push(&cp.args, "--");
-	for (i = 0; i < pathspec.nr; i++)
-		argv_array_push(&cp.args, pathspec.items[i].original);
+	argv_array_pushv(&cp.args, submodule_options.argv);
 
 	cp.git_cmd = 1;
-	cp.dir = ce->name;
+	dir = mkpathdup("%s/%s", get_git_work_tree(), ce->name);
+	cp.dir = dir;
 	status = run_command(&cp);
+	free(dir);
 	if (status)
 		exit(status);
 }
@@ -604,7 +612,7 @@ int cmd_ls_files(int argc, const char **argv, const char *cmd_prefix)
 		setup_work_tree();
 
 	if (recurse_submodules)
-		compile_submodule_options(&dir, show_tag);
+		compile_submodule_options(argv, &dir, show_tag);
 
 	if (recurse_submodules &&
 	    (show_stage || show_deleted || show_others || show_unmerged ||

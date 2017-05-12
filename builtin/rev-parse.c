@@ -12,6 +12,7 @@
 #include "diff.h"
 #include "revision.h"
 #include "split-index.h"
+#include "submodule.h"
 
 #define DO_REVS		1
 #define DO_NOREV	2
@@ -204,21 +205,22 @@ static int anti_reference(const char *refname, const struct object_id *oid, int 
 	return 0;
 }
 
-static int show_abbrev(const unsigned char *sha1, void *cb_data)
+static int show_abbrev(const struct object_id *oid, void *cb_data)
 {
-	show_rev(NORMAL, sha1, NULL);
+	show_rev(NORMAL, oid->hash, NULL);
 	return 0;
 }
 
 static void show_datestring(const char *flag, const char *datestr)
 {
-	static char buffer[100];
+	char *buffer;
 
 	/* date handling requires both flags and revs */
 	if ((filter & (DO_FLAGS | DO_REVS)) != (DO_FLAGS | DO_REVS))
 		return;
-	snprintf(buffer, sizeof(buffer), "%s%lu", flag, approxidate(datestr));
+	buffer = xstrfmt("%s%lu", flag, approxidate(datestr));
 	show(buffer);
+	free(buffer);
 }
 
 static int show_file(const char *arg, int output_prefix)
@@ -227,9 +229,9 @@ static int show_file(const char *arg, int output_prefix)
 	if ((filter & (DO_NONFLAGS|DO_NOREV)) == (DO_NONFLAGS|DO_NOREV)) {
 		if (output_prefix) {
 			const char *prefix = startup_info->prefix;
-			show(prefix_filename(prefix,
-					     prefix ? strlen(prefix) : 0,
-					     arg));
+			char *fname = prefix_filename(prefix, arg);
+			show(fname);
+			free(fname);
 		} else
 			show(arg);
 		return 1;
@@ -573,6 +575,7 @@ int cmd_rev_parse(int argc, const char **argv, const char *prefix)
 	unsigned int flags = 0;
 	const char *name = NULL;
 	struct object_context unused;
+	struct strbuf buf = STRBUF_INIT;
 
 	if (argc > 1 && !strcmp("--parseopt", argv[1]))
 		return cmd_parseopt(argc - 1, argv + 1, prefix);
@@ -627,7 +630,9 @@ int cmd_rev_parse(int argc, const char **argv, const char *prefix)
 		if (!strcmp(arg, "--git-path")) {
 			if (!argv[i + 1])
 				die("--git-path requires an argument");
-			puts(git_path("%s", argv[i + 1]));
+			strbuf_reset(&buf);
+			puts(relative_path(git_path("%s", argv[i + 1]),
+					   prefix, &buf));
 			i++;
 			continue;
 		}
@@ -781,6 +786,12 @@ int cmd_rev_parse(int argc, const char **argv, const char *prefix)
 					puts(work_tree);
 				continue;
 			}
+			if (!strcmp(arg, "--show-superproject-working-tree")) {
+				const char *superproject = get_superproject_working_tree();
+				if (superproject)
+					puts(superproject);
+				continue;
+			}
 			if (!strcmp(arg, "--show-prefix")) {
 				if (prefix)
 					puts(prefix);
@@ -807,17 +818,27 @@ int cmd_rev_parse(int argc, const char **argv, const char *prefix)
 				putchar('\n');
 				continue;
 			}
-			if (!strcmp(arg, "--git-dir")) {
+			if (!strcmp(arg, "--git-dir") ||
+			    !strcmp(arg, "--absolute-git-dir")) {
 				const char *gitdir = getenv(GIT_DIR_ENVIRONMENT);
 				char *cwd;
 				int len;
-				if (gitdir) {
-					puts(gitdir);
-					continue;
-				}
-				if (!prefix) {
-					puts(".git");
-					continue;
+				if (arg[2] == 'g') {	/* --git-dir */
+					if (gitdir) {
+						puts(gitdir);
+						continue;
+					}
+					if (!prefix) {
+						puts(".git");
+						continue;
+					}
+				} else {		/* --absolute-git-dir */
+					if (!gitdir && !prefix)
+						gitdir = ".git";
+					if (gitdir) {
+						puts(real_path(gitdir));
+						continue;
+					}
 				}
 				cwd = xgetcwd();
 				len = strlen(cwd);
@@ -826,8 +847,9 @@ int cmd_rev_parse(int argc, const char **argv, const char *prefix)
 				continue;
 			}
 			if (!strcmp(arg, "--git-common-dir")) {
-				const char *pfx = prefix ? prefix : "";
-				puts(prefix_filename(pfx, strlen(pfx), get_git_common_dir()));
+				strbuf_reset(&buf);
+				puts(relative_path(get_git_common_dir(),
+						   prefix, &buf));
 				continue;
 			}
 			if (!strcmp(arg, "--is-inside-git-dir")) {
@@ -850,7 +872,9 @@ int cmd_rev_parse(int argc, const char **argv, const char *prefix)
 					die(_("Could not read the index"));
 				if (the_index.split_index) {
 					const unsigned char *sha1 = the_index.split_index->base_sha1;
-					puts(git_path("sharedindex.%s", sha1_to_hex(sha1)));
+					const char *path = git_path("sharedindex.%s", sha1_to_hex(sha1));
+					strbuf_reset(&buf);
+					puts(relative_path(path, prefix, &buf));
 				}
 				continue;
 			}
@@ -902,6 +926,7 @@ int cmd_rev_parse(int argc, const char **argv, const char *prefix)
 			continue;
 		verify_filename(prefix, arg, 1);
 	}
+	strbuf_release(&buf);
 	if (verify) {
 		if (revs_count == 1) {
 			show_rev(type, sha1, name);

@@ -689,4 +689,35 @@ test_expect_success 'bogus head does not fallback to all heads' '
 	! grep $blob out
 '
 
+# Corrupt the checksum on the index.
+# Add 1 to the last byte in the SHA.
+corrupt_index_checksum () {
+    perl -w -e '
+	use Fcntl ":seek";
+	open my $fh, "+<", ".git/index" or die "open: $!";
+	binmode $fh;
+	seek $fh, -1, SEEK_END or die "seek: $!";
+	read $fh, my $in_byte, 1 or die "read: $!";
+
+	$in_value = unpack("C", $in_byte);
+	$out_value = ($in_value + 1) & 255;
+
+	$out_byte = pack("C", $out_value);
+
+	seek $fh, -1, SEEK_END or die "seek: $!";
+	print $fh $out_byte;
+	close $fh or die "close: $!";
+    '
+}
+
+# Corrupt the checksum on the index and then
+# verify that only fsck notices.
+test_expect_success 'detect corrupt index file in fsck' '
+	cp .git/index .git/index.backup &&
+	test_when_finished "mv .git/index.backup .git/index" &&
+	corrupt_index_checksum &&
+	test_must_fail git fsck --cache 2>errors &&
+	grep "bad index file" errors
+'
+
 test_done

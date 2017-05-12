@@ -412,6 +412,71 @@ test_expect_success 'patch-mode via -i prompts for files' '
 	test_cmp expect actual
 '
 
+test_expect_success 'add -p handles globs' '
+	git reset --hard &&
+
+	mkdir -p subdir &&
+	echo base >one.c &&
+	echo base >subdir/two.c &&
+	git add "*.c" &&
+	git commit -m base &&
+
+	echo change >one.c &&
+	echo change >subdir/two.c &&
+	git add -p "*.c" <<-\EOF &&
+	y
+	y
+	EOF
+
+	cat >expect <<-\EOF &&
+	one.c
+	subdir/two.c
+	EOF
+	git diff --cached --name-only >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success 'add -p handles relative paths' '
+	git reset --hard &&
+
+	echo base >relpath.c &&
+	git add "*.c" &&
+	git commit -m relpath &&
+
+	echo change >relpath.c &&
+	mkdir -p subdir &&
+	git -C subdir add -p .. 2>error <<-\EOF &&
+	y
+	EOF
+
+	test_must_be_empty error &&
+
+	cat >expect <<-\EOF &&
+	relpath.c
+	EOF
+	git diff --cached --name-only >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success 'add -p does not expand argument lists' '
+	git reset --hard &&
+
+	echo content >not-changed &&
+	git add not-changed &&
+	git commit -m "add not-changed file" &&
+
+	echo change >file &&
+	GIT_TRACE=$(pwd)/trace.out git add -p . <<-\EOF &&
+	y
+	EOF
+
+	# we know that "file" must be mentioned since we actually
+	# update it, but we want to be sure that our "." pathspec
+	# was not expanded into the argument list of any command.
+	# So look only for "not-changed".
+	! grep not-changed trace.out
+'
+
 test_expect_success EXPENSIVE 'add -i with a lot of files' '
 	git reset --hard &&
 	x160=0123456789012345678901234567890123456789 &&

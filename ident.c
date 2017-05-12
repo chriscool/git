@@ -120,9 +120,9 @@ static int canonical_name(const char *host, struct strbuf *out)
 
 static void add_domainname(struct strbuf *out, int *is_bogus)
 {
-	char buf[1024];
+	char buf[HOST_NAME_MAX + 1];
 
-	if (gethostname(buf, sizeof(buf))) {
+	if (xgethostname(buf, sizeof(buf))) {
 		warning_errno("cannot get host name");
 		strbuf_addstr(out, "(none)");
 		*is_bogus = 1;
@@ -169,9 +169,10 @@ const char *ident_default_email(void)
 			strbuf_addstr(&git_default_email, email);
 			committer_ident_explicitly_given |= IDENT_MAIL_GIVEN;
 			author_ident_explicitly_given |= IDENT_MAIL_GIVEN;
-		} else if ((email = query_user_email()) && email[0])
+		} else if ((email = query_user_email()) && email[0]) {
 			strbuf_addstr(&git_default_email, email);
-		else
+			free((char *)email);
+		} else
 			copy_email(xgetpwuid_self(&default_email_is_bogus),
 				   &git_default_email, &default_email_is_bogus);
 		strbuf_trim(&git_default_email);

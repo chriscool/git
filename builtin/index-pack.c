@@ -307,14 +307,15 @@ static const char *open_pack_file(const char *pack_name)
 	if (from_stdin) {
 		input_fd = 0;
 		if (!pack_name) {
-			static char tmp_file[PATH_MAX];
-			output_fd = odb_mkstemp(tmp_file, sizeof(tmp_file),
+			struct strbuf tmp_file = STRBUF_INIT;
+			output_fd = odb_mkstemp(&tmp_file,
 						"pack/tmp_pack_XXXXXX");
-			pack_name = xstrdup(tmp_file);
-		} else
+			pack_name = strbuf_detach(&tmp_file, NULL);
+		} else {
 			output_fd = open(pack_name, O_CREAT|O_EXCL|O_RDWR, 0600);
-		if (output_fd < 0)
-			die_errno(_("unable to create '%s'"), pack_name);
+			if (output_fd < 0)
+				die_errno(_("unable to create '%s'"), pack_name);
+		}
 		nothread_data.pack_fd = output_fd;
 	} else {
 		input_fd = open(pack_name, O_RDONLY);
@@ -809,6 +810,8 @@ static void sha1_object(const void *data, struct object_entry *obj_entry,
 		unsigned long has_size;
 		read_lock();
 		has_type = sha1_object_info(sha1, &has_size);
+		if (has_type < 0)
+			die(_("cannot read existing object info %s"), sha1_to_hex(sha1));
 		if (has_type != type || has_size != size)
 			die(_("SHA1 COLLISION FOUND WITH %s !"), sha1_to_hex(sha1));
 		has_data = read_sha1_file(sha1, &has_type, &has_size);
@@ -1442,10 +1445,11 @@ static void final(const char *final_pack_name, const char *curr_pack_name,
 	if (!from_stdin) {
 		printf("%s\n", sha1_to_hex(sha1));
 	} else {
-		char buf[48];
-		int len = snprintf(buf, sizeof(buf), "%s\t%s\n",
-				   report, sha1_to_hex(sha1));
-		write_or_die(1, buf, len);
+		struct strbuf buf = STRBUF_INIT;
+
+		strbuf_addf(&buf, "%s\t%s\n", report, sha1_to_hex(sha1));
+		write_or_die(1, buf.buf, buf.len);
+		strbuf_release(&buf);
 
 		/*
 		 * Let's just mimic git-unpack-objects here and write

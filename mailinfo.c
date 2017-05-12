@@ -757,8 +757,13 @@ static int handle_commit_msg(struct mailinfo *mi, struct strbuf *line)
 	assert(!mi->filter_stage);
 
 	if (mi->header_stage) {
-		if (!line->len || (line->len == 1 && line->buf[0] == '\n'))
+		if (!line->len || (line->len == 1 && line->buf[0] == '\n')) {
+			if (mi->inbody_header_accum.len) {
+				flush_inbody_header_accum(mi);
+				mi->header_stage = 0;
+			}
 			return 0;
+		}
 	}
 
 	if (mi->use_inbody_headers && mi->header_stage) {
@@ -877,7 +882,10 @@ static int read_one_header_line(struct strbuf *line, FILE *in)
 	for (;;) {
 		int peek;
 
-		peek = fgetc(in); ungetc(peek, in);
+		peek = fgetc(in);
+		if (peek == EOF)
+			break;
+		ungetc(peek, in);
 		if (peek != ' ' && peek != '\t')
 			break;
 		if (strbuf_getline_lf(&continuation, in))
@@ -1094,6 +1102,10 @@ int mailinfo(struct mailinfo *mi, const char *msg, const char *patch)
 
 	do {
 		peek = fgetc(mi->input);
+		if (peek == EOF) {
+			fclose(cmitmsg);
+			return error("empty patch: '%s'", patch);
+		}
 	} while (isspace(peek));
 	ungetc(peek, mi->input);
 

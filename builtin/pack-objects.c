@@ -239,7 +239,8 @@ static unsigned long write_no_reuse_object(struct sha1file *f, struct object_ent
 					   unsigned long limit, int usable_delta)
 {
 	unsigned long size, datalen;
-	unsigned char header[10], dheader[10];
+	unsigned char header[MAX_PACK_OBJECT_HEADER],
+		      dheader[MAX_PACK_OBJECT_HEADER];
 	unsigned hdrlen;
 	enum object_type type;
 	void *buf;
@@ -286,7 +287,8 @@ static unsigned long write_no_reuse_object(struct sha1file *f, struct object_ent
 	 * The object header is a byte of 'type' followed by zero or
 	 * more bytes of length.
 	 */
-	hdrlen = encode_in_pack_object_header(type, size, header);
+	hdrlen = encode_in_pack_object_header(header, sizeof(header),
+					      type, size);
 
 	if (type == OBJ_OFS_DELTA) {
 		/*
@@ -352,13 +354,15 @@ static off_t write_reuse_object(struct sha1file *f, struct object_entry *entry,
 	off_t offset;
 	enum object_type type = entry->type;
 	off_t datalen;
-	unsigned char header[10], dheader[10];
+	unsigned char header[MAX_PACK_OBJECT_HEADER],
+		      dheader[MAX_PACK_OBJECT_HEADER];
 	unsigned hdrlen;
 
 	if (entry->delta)
 		type = (allow_ofs_delta && entry->delta->idx.offset) ?
 			OBJ_OFS_DELTA : OBJ_REF_DELTA;
-	hdrlen = encode_in_pack_object_header(type, entry->size, header);
+	hdrlen = encode_in_pack_object_header(header, sizeof(header),
+					      type, entry->size);
 
 	offset = entry->in_pack_offset;
 	revidx = find_pack_revindex(p, offset);
@@ -894,24 +898,15 @@ static void write_pack_file(void)
 			written, nr_result);
 }
 
-static void setup_delta_attr_check(struct git_attr_check *check)
-{
-	static struct git_attr *attr_delta;
-
-	if (!attr_delta)
-		attr_delta = git_attr("delta");
-
-	check[0].attr = attr_delta;
-}
-
 static int no_try_delta(const char *path)
 {
-	struct git_attr_check check[1];
+	static struct attr_check *check;
 
-	setup_delta_attr_check(check);
-	if (git_check_attr(path, ARRAY_SIZE(check), check))
+	if (!check)
+		check = attr_check_initl("delta", NULL);
+	if (git_check_attr(path, check))
 		return 0;
-	if (ATTR_FALSE(check->value))
+	if (ATTR_FALSE(check->items[0].value))
 		return 1;
 	return 0;
 }
@@ -2621,17 +2616,17 @@ static void add_objects_in_unpacked_packs(struct rev_info *revs)
 	free(in_pack.array);
 }
 
-static int add_loose_object(const unsigned char *sha1, const char *path,
+static int add_loose_object(const struct object_id *oid, const char *path,
 			    void *data)
 {
-	enum object_type type = sha1_object_info(sha1, NULL);
+	enum object_type type = sha1_object_info(oid->hash, NULL);
 
 	if (type < 0) {
 		warning("loose object at %s could not be examined", path);
 		return 0;
 	}
 
-	add_object_entry(sha1, type, "", 0);
+	add_object_entry(oid->hash, type, "", 0);
 	return 0;
 }
 
@@ -2677,16 +2672,16 @@ static int has_sha1_pack_kept_or_nonlocal(const unsigned char *sha1)
  *
  * This is filled by get_object_list.
  */
-static struct sha1_array recent_objects;
+static struct oid_array recent_objects;
 
-static int loosened_object_can_be_discarded(const unsigned char *sha1,
+static int loosened_object_can_be_discarded(const struct object_id *oid,
 					    unsigned long mtime)
 {
 	if (!unpack_unreachable_expiration)
 		return 0;
 	if (mtime > unpack_unreachable_expiration)
 		return 0;
-	if (sha1_array_lookup(&recent_objects, sha1) >= 0)
+	if (oid_array_lookup(&recent_objects, oid) >= 0)
 		return 0;
 	return 1;
 }
@@ -2695,7 +2690,7 @@ static void loosen_unused_packed_objects(struct rev_info *revs)
 {
 	struct packed_git *p;
 	uint32_t i;
-	const unsigned char *sha1;
+	struct object_id oid;
 
 	for (p = packed_git; p; p = p->next) {
 		if (!p->pack_local || p->pack_keep)
@@ -2705,11 +2700,11 @@ static void loosen_unused_packed_objects(struct rev_info *revs)
 			die("cannot open pack index");
 
 		for (i = 0; i < p->num_objects; i++) {
-			sha1 = nth_packed_object_sha1(p, i);
-			if (!packlist_find(&to_pack, sha1, NULL) &&
-			    !has_sha1_pack_kept_or_nonlocal(sha1) &&
-			    !loosened_object_can_be_discarded(sha1, p->mtime))
-				if (force_object_loose(sha1, p->mtime))
+			nth_packed_object_oid(&oid, p, i);
+			if (!packlist_find(&to_pack, oid.hash, NULL) &&
+			    !has_sha1_pack_kept_or_nonlocal(oid.hash) &&
+			    !loosened_object_can_be_discarded(&oid, p->mtime))
+				if (force_object_loose(oid.hash, p->mtime))
 					die("unable to force loose object");
 		}
 	}
@@ -2748,12 +2743,12 @@ static void record_recent_object(struct object *obj,
 				 const char *name,
 				 void *data)
 {
-	sha1_array_append(&recent_objects, obj->oid.hash);
+	oid_array_append(&recent_objects, &obj->oid);
 }
 
 static void record_recent_commit(struct commit *commit, void *data)
 {
-	sha1_array_append(&recent_objects, commit->object.oid.hash);
+	oid_array_append(&recent_objects, &commit->object.oid);
 }
 
 static void get_object_list(int ac, const char **av)
@@ -2821,7 +2816,7 @@ static void get_object_list(int ac, const char **av)
 	if (unpack_unreachable)
 		loosen_unused_packed_objects(&revs);
 
-	sha1_array_clear(&recent_objects);
+	oid_array_clear(&recent_objects);
 }
 
 static int option_parse_index_version(const struct option *opt,

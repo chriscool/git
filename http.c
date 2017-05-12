@@ -19,7 +19,7 @@ long int git_curl_ipresolve;
 #endif
 int active_requests;
 int http_is_verbose;
-size_t http_post_buffer = 16 * LARGE_PACKET_MAX;
+ssize_t http_post_buffer = 16 * LARGE_PACKET_MAX;
 
 #if LIBCURL_VERSION_NUM >= 0x070a06
 #define LIBCURL_CAN_HANDLE_AUTH_ANY
@@ -331,7 +331,9 @@ static int http_options(const char *var, const char *value, void *cb)
 	}
 
 	if (!strcmp("http.postbuffer", var)) {
-		http_post_buffer = git_config_int(var, value);
+		http_post_buffer = git_config_ssize_t(var, value);
+		if (http_post_buffer < 0)
+			warning(_("negative value for http.postbuffer; defaulting to %d"), LARGE_PACKET_MAX);
 		if (http_post_buffer < LARGE_PACKET_MAX)
 			http_post_buffer = LARGE_PACKET_MAX;
 		return 0;
@@ -836,8 +838,14 @@ static CURL *get_curl_handle(void)
 		}
 	}
 
-	if (curl_http_proxy) {
-		curl_easy_setopt(result, CURLOPT_PROXY, curl_http_proxy);
+	if (curl_http_proxy && curl_http_proxy[0] == '\0') {
+		/*
+		 * Handle case with the empty http.proxy value here to keep
+		 * common code clean.
+		 * NB: empty option disables proxying at all.
+		 */
+		curl_easy_setopt(result, CURLOPT_PROXY, "");
+	} else if (curl_http_proxy) {
 #if LIBCURL_VERSION_NUM >= 0x071800
 		if (starts_with(curl_http_proxy, "socks5h"))
 			curl_easy_setopt(result,
@@ -860,6 +868,9 @@ static CURL *get_curl_handle(void)
 			credential_from_url(&proxy_auth, url.buf);
 			strbuf_release(&url);
 		}
+
+		if (!proxy_auth.host)
+			die("Invalid proxy URL '%s'", curl_http_proxy);
 
 		curl_easy_setopt(result, CURLOPT_PROXY, proxy_auth.host);
 #if LIBCURL_VERSION_NUM >= 0x071304
@@ -1366,9 +1377,9 @@ static int handle_curl_result(struct slot_results *results)
 		 * FAILONERROR it is lost, so we can give only the numeric
 		 * status code.
 		 */
-		snprintf(curl_errorstr, sizeof(curl_errorstr),
-			 "The requested URL returned error: %ld",
-			 results->http_code);
+		xsnprintf(curl_errorstr, sizeof(curl_errorstr),
+			  "The requested URL returned error: %ld",
+			  results->http_code);
 	}
 
 	if (results->curl_result == CURLE_OK) {
@@ -1410,8 +1421,8 @@ int run_one_slot(struct active_request_slot *slot,
 {
 	slot->results = results;
 	if (!start_active_slot(slot)) {
-		snprintf(curl_errorstr, sizeof(curl_errorstr),
-			 "failed to start HTTP request");
+		xsnprintf(curl_errorstr, sizeof(curl_errorstr),
+			  "failed to start HTTP request");
 		return HTTP_START_FAILED;
 	}
 

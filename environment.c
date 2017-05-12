@@ -166,8 +166,11 @@ static void setup_git_env(void)
 	const char *replace_ref_base;
 
 	git_dir = getenv(GIT_DIR_ENVIRONMENT);
-	if (!git_dir)
+	if (!git_dir) {
+		if (!startup_info->have_repository)
+			die("BUG: setup_git_env called without repository");
 		git_dir = DEFAULT_GIT_DIR_ENVIRONMENT;
+	}
 	gitfile = read_gitfile(git_dir);
 	git_dir = xstrdup(gitfile ? gitfile : git_dir);
 	if (get_common_dir(&sb, git_dir))
@@ -273,7 +276,7 @@ char *get_object_directory(void)
 	return git_object_dir;
 }
 
-int odb_mkstemp(char *template, size_t limit, const char *pattern)
+int odb_mkstemp(struct strbuf *template, const char *pattern)
 {
 	int fd;
 	/*
@@ -281,18 +284,16 @@ int odb_mkstemp(char *template, size_t limit, const char *pattern)
 	 * restrictive except to remove write permission.
 	 */
 	int mode = 0444;
-	snprintf(template, limit, "%s/%s",
-		 get_object_directory(), pattern);
-	fd = git_mkstemp_mode(template, mode);
+	git_path_buf(template, "objects/%s", pattern);
+	fd = git_mkstemp_mode(template->buf, mode);
 	if (0 <= fd)
 		return fd;
 
 	/* slow path */
 	/* some mkstemp implementations erase template on failure */
-	snprintf(template, limit, "%s/%s",
-		 get_object_directory(), pattern);
-	safe_create_leading_directories(template);
-	return xmkstemp_mode(template, mode);
+	git_path_buf(template, "objects/%s", pattern);
+	safe_create_leading_directories(template->buf);
+	return xmkstemp_mode(template->buf, mode);
 }
 
 int odb_pack_keep(const char *name)

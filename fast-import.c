@@ -890,14 +890,15 @@ static struct tree_content *dup_tree_content(struct tree_content *s)
 
 static void start_packfile(void)
 {
-	static char tmp_file[PATH_MAX];
+	struct strbuf tmp_file = STRBUF_INIT;
 	struct packed_git *p;
 	struct pack_header hdr;
 	int pack_fd;
 
-	pack_fd = odb_mkstemp(tmp_file, sizeof(tmp_file),
-			      "pack/tmp_pack_XXXXXX");
-	FLEX_ALLOC_STR(p, pack_name, tmp_file);
+	pack_fd = odb_mkstemp(&tmp_file, "pack/tmp_pack_XXXXXX");
+	FLEX_ALLOC_STR(p, pack_name, tmp_file.buf);
+	strbuf_release(&tmp_file);
+
 	p->pack_fd = pack_fd;
 	p->do_not_close = 1;
 	pack_file = sha1fd(pack_fd, p->pack_name);
@@ -1173,7 +1174,8 @@ static int store_object(
 		delta_count_by_type[type]++;
 		e->depth = last->depth + 1;
 
-		hdrlen = encode_in_pack_object_header(OBJ_OFS_DELTA, deltalen, hdr);
+		hdrlen = encode_in_pack_object_header(hdr, sizeof(hdr),
+						      OBJ_OFS_DELTA, deltalen);
 		sha1write(pack_file, hdr, hdrlen);
 		pack_size += hdrlen;
 
@@ -1184,7 +1186,8 @@ static int store_object(
 		pack_size += sizeof(hdr) - pos;
 	} else {
 		e->depth = 0;
-		hdrlen = encode_in_pack_object_header(type, dat->len, hdr);
+		hdrlen = encode_in_pack_object_header(hdr, sizeof(hdr),
+						      type, dat->len);
 		sha1write(pack_file, hdr, hdrlen);
 		pack_size += hdrlen;
 	}
@@ -1237,9 +1240,7 @@ static void stream_blob(uintmax_t len, unsigned char *sha1out, uintmax_t mark)
 	sha1file_checkpoint(pack_file, &checkpoint);
 	offset = checkpoint.offset;
 
-	hdrlen = snprintf((char *)out_buf, out_sz, "blob %" PRIuMAX, len) + 1;
-	if (out_sz <= hdrlen)
-		die("impossibly large object header");
+	hdrlen = xsnprintf((char *)out_buf, out_sz, "blob %" PRIuMAX, len) + 1;
 
 	git_SHA1_Init(&c);
 	git_SHA1_Update(&c, out_buf, hdrlen);
@@ -1248,9 +1249,7 @@ static void stream_blob(uintmax_t len, unsigned char *sha1out, uintmax_t mark)
 
 	git_deflate_init(&s, pack_compression_level);
 
-	hdrlen = encode_in_pack_object_header(OBJ_BLOB, len, out_buf);
-	if (out_sz <= hdrlen)
-		die("impossibly large object header");
+	hdrlen = encode_in_pack_object_header(out_buf, out_sz, OBJ_BLOB, len);
 
 	s.next_out = out_buf + hdrlen;
 	s.avail_out = out_sz - hdrlen;
@@ -1752,7 +1751,7 @@ static int update_branch(struct branch *b)
 
 	if (is_null_sha1(b->sha1)) {
 		if (b->delete)
-			delete_ref(b->name, NULL, 0);
+			delete_ref(NULL, b->name, NULL, 0);
 		return 0;
 	}
 	if (read_ref(b->name, old_sha1))
@@ -3003,7 +3002,7 @@ static void parse_get_mark(const char *p)
 	if (!oe)
 		die("Unknown mark: %s", command_buf.buf);
 
-	snprintf(output, sizeof(output), "%s\n", sha1_to_hex(oe->idx.sha1));
+	xsnprintf(output, sizeof(output), "%s\n", sha1_to_hex(oe->idx.sha1));
 	cat_blob_write(output, 41);
 }
 
@@ -3203,7 +3202,7 @@ static char* make_fast_import_path(const char *path)
 {
 	if (!relative_marks_paths || is_absolute_path(path))
 		return xstrdup(path);
-	return xstrdup(git_path("info/fast-import/%s", path));
+	return git_pathdup("info/fast-import/%s", path);
 }
 
 static void option_import_marks(const char *marks,
