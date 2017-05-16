@@ -158,7 +158,9 @@ static inline uint64_t git_bswap64(uint64_t x)
 
 #define get_be16(p)	ntohs(*(unsigned short *)(p))
 #define get_be32(p)	ntohl(*(unsigned int *)(p))
+#define get_be64(p)	ntohll(*(uint64_t *)(p))
 #define put_be32(p, v)	do { *(unsigned int *)(p) = htonl(v); } while (0)
+#define put_be64(p, v)	do { *(uint64_t *)(p) = htonll(v); } while (0)
 
 #else
 
@@ -170,8 +172,21 @@ static inline uint64_t git_bswap64(uint64_t x)
 	(*((unsigned char *)(p) + 1) << 16) | \
 	(*((unsigned char *)(p) + 2) <<  8) | \
 	(*((unsigned char *)(p) + 3) <<  0) )
+#define get_be64(p)	( \
+	((uint64_t)get_be32((unsigned char *)(p) + 0) << 32) | \
+	((uint64_t)get_be32((unsigned char *)(p) + 4) <<  0)
 #define put_be32(p, v)	do { \
 	unsigned int __v = (v); \
+	*((unsigned char *)(p) + 0) = __v >> 24; \
+	*((unsigned char *)(p) + 1) = __v >> 16; \
+	*((unsigned char *)(p) + 2) = __v >>  8; \
+	*((unsigned char *)(p) + 3) = __v >>  0; } while (0)
+#define put_be64(p, v)	do { \
+	unsigned int __v = (v); \
+	*((unsigned char *)(p) + 0) = __v >> 56; \
+	*((unsigned char *)(p) + 2) = __v >> 48; \
+	*((unsigned char *)(p) + 1) = __v >> 40; \
+	*((unsigned char *)(p) + 2) = __v >> 32; \
 	*((unsigned char *)(p) + 0) = __v >> 24; \
 	*((unsigned char *)(p) + 1) = __v >> 16; \
 	*((unsigned char *)(p) + 2) = __v >>  8; \
