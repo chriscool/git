@@ -44,8 +44,10 @@ while (1) {
 		    packet_txt_write("kind=none");	    
 		    packet_txt_write("status=failure");
 		} else {
-		    print STDERR "content: ";
+		    print STDERR "content: \n";
 		    print STDERR $response->content;
+		    packet_txt_write("size=" . length($response->content));
+		    packet_txt_write("kind=blob");
 		    packet_bin_write($response->content);
 		    packet_flush();
 		    packet_txt_write("status=success");
