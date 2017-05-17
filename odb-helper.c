@@ -117,8 +117,15 @@ ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
 		type = obj->type;
 	} else {
 		const char *s;
+		int pkt_size;
+		char *size_buf;
+
 		trace_printf("read_packetized_plain_object_to_fd: getting size\n");
-		if (!skip_prefix(packet_read_line(fd_in, NULL), "size=", &s)) {
+		size_buf = packet_read_line(fd_in, &pkt_size);
+		trace_printf("pkt_size: '%d', size_buf: '%p'\n", pkt_size, size_buf);
+
+		if (!skip_prefix(size_buf, "size=", &s)) {
+			trace_printf("read_packetized_plain_object_to_fd: after getting size\n");
 			error("odb helper '%s' did not send size of plain object", o->name);
 			return -1;
 		}
