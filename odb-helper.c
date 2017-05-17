@@ -115,23 +115,22 @@ ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
 		type = obj->type;
 	} else {
 		const char *s;
-		if (!skip_prefix(packet_read_line(fd_in, NULL), "size=", &s)) {
-			error("odb helper '%s' did not send size of plain object", o->name);
-			return -1;
-		}
+		int pkt_size;
+		char *size_buf;
+
+		size_buf = packet_read_line(fd_in, &pkt_size);
+
+		if (!skip_prefix(size_buf, "size=", &s))
+			return error("odb helper '%s' did not send size of plain object", o->name);
 		size = strtoumax(s, NULL, 10);
-		if (!skip_prefix(packet_read_line(fd_in, NULL), "kind=", &s)) {
-			error("odb helper '%s' did not send kind of plain object", o->name);
-			return -1;
-		}
+		if (!skip_prefix(packet_read_line(fd_in, NULL), "kind=", &s))
+			return error("odb helper '%s' did not send kind of plain object", o->name);
 		/* Check if the object is not available */
 		if (!strcmp(s, "none"))
 			return 0;
 		type = type_from_string_gently(s, strlen(s), 1);
-		if (type < 0) {
-			error("odb helper '%s' sent bad type '%s'", o->name, s);
-			return -1;
-		}
+		if (type < 0)
+			return error("odb helper '%s' sent bad type '%s'", o->name, s);
 	}
 
 	/* Set it up */
