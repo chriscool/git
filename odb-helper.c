@@ -174,7 +174,8 @@ ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
 			buf, LARGE_PACKET_DATA_MAX + 1,
 			PACKET_READ_GENTLE_ON_EOF);
 
-		trace_printf("read_packetized_plain_object_to_fd: after packet_read\n");
+		trace_printf("read_packetized_plain_object_to_fd: after content packet_read\n");
+		trace_printf("packet_len: '%d'\n", packet_len);
 
 		if (packet_len <= 0)
 			break;
