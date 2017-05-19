@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+#
+
+use 5.008;
+use lib (split(/:/, $ENV{GITPERLLIB}));
+use strict;
+use warnings;
+use Git::Packet;
+use LWP::UserAgent;
+use HTTP::Request::Common;
+
+my $http_url = $ENV{HTTPD_URL};
+
+my $sha1 = "5626abf0f72e58d7a153368ba57db4c673c0e171";
+
+my $get_url = $http_url . "/list/?sha1=" . $sha1;
+
+my $userAgent = LWP::UserAgent->new();
+
+my $response = $userAgent->get( $get_url );
+
+if ($response->is_error) {
+	print $response->error_as_HTML . "\n";
+} else {
+	print "content: ";
+	print $response->content;
+}
