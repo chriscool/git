@@ -353,7 +353,7 @@ done:
 			* Something went wrong with the read-object process.
 			* Force shutdown and restart if needed.
 			*/
-			error("external process '%s' failed", cmd);
+			error("read_object_process: external process '%s' failed", cmd);
 			subprocess_stop(&subprocess_map, &entry->subprocess);
 			free(entry);
 		}
@@ -449,7 +449,7 @@ done:
 			* Something went wrong with the read-object process.
 			* Force shutdown and restart if needed.
 			*/
-			error("external process '%s' failed", cmd);
+			error("write_object_process: external process '%s' failed", cmd);
 			subprocess_stop(&subprocess_map, &entry->subprocess);
 			free(entry);
 		}
