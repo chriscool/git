@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+#
+
+use 5.008;
+use lib (split(/:/, $ENV{GITPERLLIB}));
+use strict;
+use warnings;
+use Git::Packet;
+use LWP::UserAgent;
+use HTTP::Request::Common;
+
+my $sha1 = "5626abf0f72e58d7a153368ba57db4c673c0e171";
+my $buf = "YEA\n";
+my $size = 4;
+
+my $http_url = $ENV{HTTPD_URL};
+
+my $upload_url = $http_url . "/upload/?sha1=" . $sha1 . "&size=" . $size . "&type=blob";
+
+print STDERR "read-object-plain: upload_url: '$upload_url'\n";
+
+my $userAgent = LWP::UserAgent->new();
+my $request = POST $upload_url, Content_Type => 'multipart/form-data', Content => $buf;
+
+my $response = $userAgent->request($request);
+print $response->error_as_HTML . "\n" if $response->is_error;
+
+#my $pid = open(WRITEME, "| curl --data-binary @- --include '$upload_url'") or die "Couldn't fork: $!\n";
+#print WRITEME $buf;
+#close(WRITEME) or die "Couldn't close: $!\n";
+
