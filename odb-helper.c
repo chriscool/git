@@ -139,7 +139,7 @@ ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
 		trace_printf("read_packetized_plain_object_to_fd: kind: '%s'\n", s);
 		/* Check if the object is not available */
 		if (!strcmp(s, "none"))
-			return 0;
+			return -1;
 		type = type_from_string_gently(s, strlen(s), 1);
 		if (type < 0) {
 			error("odb helper '%s' sent bad type '%s'", o->name, s);
