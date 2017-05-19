@@ -1,0 +1,41 @@
+#!/usr/bin/perl
+#
+
+use 5.008;
+use lib (split(/:/, $ENV{GITPERLLIB}));
+use strict;
+use warnings;
+use Git::Packet;
+
+sub packet_client_initialize {
+	my ($name, $version) = @_;
+
+	packet_txt_write( $name . "-client" );
+	packet_txt_write( "version=" . $version );
+	packet_flush();
+
+	( packet_txt_read() eq ( 0, $name . "-server" ) )		|| die "bad initialize";
+	( packet_txt_read() eq ( 0, "version=" . $version ) )		|| die "bad version";
+	( packet_bin_read() eq ( 1, "" ) )				|| die "bad version end";
+}
+
+
+packet_client_initialize("git-read-object", 1);
+
+packet_write_capability("get");
+packet_read_capability("get");
+
+packet_txt_write( "command=get" );
+packet_txt_write( "sha1=26af6a865b61e9a47e24ea6214a64c4cc294c215" );
+packet_flush();
+
+( packet_txt_read() eq ( 0, "status=success" ) )		|| die "bad status";
+( packet_bin_read() eq ( 1, "" ) )				|| die "bad status end";
+
+my ($res, $buf) = packet_bin_read();
+die "bad packet_bin_read res ($res)" unless ($res eq 0);
+( packet_bin_read() eq ( 1, "" ) )				|| die "bad send end";
+
+( packet_txt_read() eq ( 0, "status=success" ) )		|| die "bad status";
+( packet_bin_read() eq ( 1, "" ) )				|| die "bad status end";
+
