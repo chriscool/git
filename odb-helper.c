@@ -855,27 +855,6 @@ static int odb_helper_fetch_git_object(struct odb_helper *o,
 	return 0;
 }
 
-int odb_helper_fault_in_object(struct odb_helper *o,
-			       const unsigned char *sha1)
-{
-	if (o->supported_capabilities & ODB_HELPER_CAP_HAVE) {
-		struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
-		if (!obj)
-			return -1;
-	}
-
-	if (o->script_mode) {
-		struct odb_helper_cmd cmd;
-		if (odb_helper_start(o, &cmd, 0, "get %s", sha1_to_hex(sha1)) < 0)
-			return -1;
-		if (odb_helper_finish(o, &cmd))
-			return -1;
-		return 0;
-	} else {
-		return read_object_process(o, sha1, -1);
-	}
-}
-
 int odb_helper_fetch_object(struct odb_helper *o,
 			    const unsigned char *sha1,
 			    int fd)
@@ -886,8 +865,6 @@ int odb_helper_fetch_object(struct odb_helper *o,
 			return odb_helper_fetch_plain_object(o, sha1, fd);
 		case ODB_FETCH_KIND_GIT_OBJECT:
 			return odb_helper_fetch_git_object(o, sha1, fd);
-		case ODB_FETCH_KIND_FAULT_IN:
-			return 0;
 		default:
 			die("BUG: invalid fetch kind '%d'", o->fetch_kind);
 		}

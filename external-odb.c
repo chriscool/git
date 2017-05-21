@@ -27,8 +27,6 @@ static enum odb_helper_fetch_kind parse_fetch_kind(const char *key,
 		return ODB_FETCH_KIND_PLAIN_OBJECT;
 	else if (!strcasecmp(value, "gitobject"))
 		return ODB_FETCH_KIND_GIT_OBJECT;
-	else if (!strcasecmp(value, "faultin"))
-		return ODB_FETCH_KIND_FAULT_IN;
 
 	die("unknown value for config '%s': %s", key, value);
 }
@@ -162,26 +160,6 @@ int external_odb_fetch_object(const unsigned char *sha1)
 		strbuf_release(&tmpfile);
 		if (!ret)
 			return 0;
-	}
-
-	return -1;
-}
-
-int external_odb_fault_in_object(const unsigned char *sha1)
-{
-	struct odb_helper *o;
-
-	trace_printf("external_odb_fault_in_object\n");
-
-	if (!external_odb_has_object(sha1))
-		return -1;
-
-	for (o = helpers; o; o = o->next) {
-		if (o->fetch_kind != ODB_FETCH_KIND_FAULT_IN)
-			continue;
-		if (odb_helper_fault_in_object(o, sha1) < 0)
-			continue;
-		return 0;
 	}
 
 	return -1;
