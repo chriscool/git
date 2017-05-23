@@ -323,12 +323,8 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 
 	if (o->fetch_kind == ODB_FETCH_KIND_PLAIN_OBJECT) {
 		err = read_packetized_plain_object_to_fd(o, sha1, process->out, fd) < 0;
-		if (err)
-			goto done;
 	} else if (o->fetch_kind == ODB_FETCH_KIND_GIT_OBJECT) {
 		err = read_packetized_git_object_to_fd(o, sha1, process->out, fd) < 0;
-		if (err)
-			goto done;
 	}
 
 	subprocess_read_status(process->out, &status);
