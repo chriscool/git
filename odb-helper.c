@@ -341,6 +341,9 @@ done:
 	if (err) {
 		if (!strcmp(status.buf, "error")) {
 			/* The process signaled a problem with the file. */
+		} else if (!strcmp(status.buf, "notfound")) {
+			/* Object was not found */
+			err = -1;
 		} else if (!strcmp(status.buf, "abort")) {
 			/*
 			* The process signaled a permanent problem. Don't try to read
