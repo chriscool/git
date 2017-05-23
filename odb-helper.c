@@ -345,14 +345,10 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 		trace_printf("read_object_process: before reading packetized plain object\n");
 		err = read_packetized_plain_object_to_fd(o, sha1, process->out, fd) < 0;
 		trace_printf("read_object_process: after reading packetized plain object\n");
-		if (err)
-			goto done;
 	} else if (o->fetch_kind == ODB_FETCH_KIND_GIT_OBJECT) {
 		trace_printf("read_object_process: before reading packetized git object\n");
 		err = read_packetized_git_object_to_fd(o, sha1, process->out, fd) < 0;
 		trace_printf("read_object_process: after reading packetized git object\n");
-		if (err)
-			goto done;
 	}
 	trace_printf("read_object_process: after reading packetized: err: '%d'\n", err);
 
