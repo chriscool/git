@@ -32,7 +32,7 @@ while (1) {
 		print STDERR "read-object-plain-have: have_url: '$have_url'\n";
 
 		my $userAgent = LWP::UserAgent->new();
-		my $response = $userAgent->get( $get_url );
+		my $response = $userAgent->get( $have_url );
 
 		if ($response->is_error) {
 		    print STDERR $response->error_as_HTML . "\n";
