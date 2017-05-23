@@ -64,9 +64,6 @@ FILES_DIR="httpd/www/files"
 
 echo "HTTPD_URL: '$HTTPD_URL'"
 
-echo "grepping for apache"
-ps auxwww | grep apach
-
 test_expect_success 'new blobs are transfered to the http server' '
 	test_commit one &&
 	hash1=$(git ls-tree HEAD | grep one.t | cut -f1 | cut -d\  -f3) &&
