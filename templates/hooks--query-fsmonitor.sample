@@ -33,5 +33,29 @@ esac
 
 # Query Watchman for all the changes since the requested time
 echo "[\"query\", \"$GIT_WORK_TREE\", {\"since\": $time_t, \"fields\":[\"name\"]}]" |
-    watchman -j |
-    perl -e 'use JSON::PP; my $o = JSON::PP->new->utf8->decode(join("", <>)); die "Watchman: $o->{'error'}.\nFalling back to scanning...\n" if defined($o->{"error"}); print(join("\0", @{$o->{"files"}}));'
+	watchman -j |
+	perl -0666 -e '
+		use strict;
+		use warnings;
+
+		my $stdin = <>;
+		die "Watchman: The watchman command returned no output, error above?\n" if $stdin eq "";
+		die "Watchman: Invalid input: $stdin\n" unless $stdin =~ /^\{/;
+
+		my $json_pkg;
+		eval {
+			require JSON::XS;
+			$json_pkg = "JSON::XS";
+			1;
+		} or do {
+			require JSON::PP;
+			$json_pkg = "JSON::PP";
+		};
+
+		my $o = $json_pkg->new->utf8->decode($stdin);
+		die "Watchman: $o->{error}.\nFalling back to scanning...\n"
+			if $o->{error};
+
+		local $, = "\0";
+		print @{$o->{files}};
+	'
