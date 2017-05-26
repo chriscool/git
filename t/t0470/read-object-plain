@@ -11,8 +11,8 @@ use HTTP::Request::Common;
 
 packet_initialize("git-read-object", 1);
 
-packet_read_and_check_capabilities("get", "put");
-packet_write_capabilities("get", "put");
+packet_read_and_check_capabilities("get_raw_obj", "put_raw_obj");
+packet_write_capabilities("get_raw_obj", "put_raw_obj");
 
 my $http_url = $ENV{HTTPD_URL};
 
@@ -30,7 +30,7 @@ while (1) {
 
 		packet_txt_write("status=success");
 		packet_flush();
-	} elsif ( $command eq "get" ) {
+	} elsif ( $command eq "get_raw_obj" ) {
 		my ($sha1) = packet_txt_read() =~ /^sha1=([0-9a-f]{40})$/;
 		packet_bin_read();
 
@@ -53,7 +53,7 @@ while (1) {
 		}
 
 		packet_flush();
-	} elsif ( $command eq "put" ) {
+	} elsif ( $command eq "put_raw_obj" ) {
 		my ($sha1) = packet_txt_read() =~ /^sha1=([0-9a-f]{40})$/;
 		my ($size) = packet_txt_read() =~ /^size=([0-9]+)$/;
 		my ($kind) = packet_txt_read() =~ /^kind=(\w+)$/;
