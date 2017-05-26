@@ -78,6 +78,8 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 			    "capability=get_git_obj",
 			    "capability=get_raw_obj",
 			    "capability=get_direct",
+			    "capability=put_raw_obj",
+			    "capability=have",
 			    NULL);
 	if (err)
 		goto done;
