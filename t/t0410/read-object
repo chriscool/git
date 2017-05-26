@@ -37,8 +37,8 @@ my $DIR = "../.git/";
 
 packet_initialize("git-read-object", 1);
 
-packet_read_capability("get");
-packet_write_capability("get");
+packet_read_and_check_capabilities("get");
+packet_write_capabilities("get");
 
 while (1) {
 	my ($command) = packet_txt_read() =~ /^command=([^=]+)$/;
