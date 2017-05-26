@@ -137,7 +137,7 @@ int external_odb_has_object(const unsigned char *sha1)
 
 	for (o = helpers; o; o = o->next) {
 		if (!(o->supported_capabilities & ODB_HELPER_CAP_HAVE)) {
-			if (o->fetch_kind == ODB_FETCH_KIND_FAULT_IN)
+			if (o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)
 				return 1;
 			return !external_odb_do_fetch_object(sha1);
 		}
