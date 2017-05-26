@@ -78,6 +78,8 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 			    "capability=get_git_obj",
 			    "capability=get_raw_obj",
 			    "capability=get_direct",
+			    "capability=put_raw_obj",
+			    "capability=have",
 			    NULL);
 	if (err)
 		goto done;
@@ -467,7 +469,7 @@ static int send_write_packets(struct child_process *process,
 			      size_t len,
 			      struct strbuf *status)
 {
-	int err = packet_write_fmt_gently(process->in, "command=put\n");
+	int err = packet_write_fmt_gently(process->in, "command=put_raw_obj\n");
 	if (err)
 		return err;
 
