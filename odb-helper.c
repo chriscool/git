@@ -79,6 +79,8 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 			    "capability=get_git_obj",
 			    "capability=get_raw_obj",
 			    "capability=get_direct",
+			    "capability=put_raw_obj",
+			    "capability=have",
 			    NULL);
 	if (err)
 		goto done;
@@ -465,12 +467,12 @@ static int write_object_process(struct odb_helper *o,
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
-	if (!(ODB_HELPER_CAP_PUT & entry->supported_capabilities))
+	if (!(ODB_HELPER_CAP_PUT_RAW_OBJ & entry->supported_capabilities))
 		return -1;
 
 	sigchain_push(SIGPIPE, SIG_IGN);
 
-	err = packet_write_fmt_gently(process->in, "command=put\n");
+	err = packet_write_fmt_gently(process->in, "command=put_raw_obj\n");
 	if (err)
 		goto done;
 
@@ -500,7 +502,7 @@ static int write_object_process(struct odb_helper *o,
 done:
 	sigchain_pop(SIGPIPE);
 
-	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_PUT);
+	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_PUT_RAW_OBJ);
 
 	trace_performance_since(start, "write_object_process");
 
