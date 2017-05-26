@@ -17,7 +17,6 @@ test_expect_success 'blobs can be retrieved from the host repo' '
 	git init guest-repo &&
 	(cd guest-repo &&
 	 git config odb.magic.subprocessCommand "$HELPER" &&
-	 git config odb.magic.fetchKind "gitObject" &&
 	 git cat-file blob "$hash1" >/dev/null)
 '
 
