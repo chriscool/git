@@ -618,27 +618,106 @@ static int odb_helper_object_cmp(const void *va, const void *vb)
 	return hashcmp(a->sha1, b->sha1);
 }
 
+static int have_object_process(struct odb_helper *o)
+{
+	int err;
+	struct read_object_process *entry;
+	struct child_process *process;
+	struct strbuf status = STRBUF_INIT;
+	const char *cmd = o->cmd;
+	uint64_t start;
+	char *line;
+	int packet_len;
+	int total_got = 0;
+
+	start = getnanotime();
+
+	entry = launch_read_object_process(cmd);
+	process = &entry->subprocess.process;
+	o->supported_capabilities = entry->supported_capabilities;
+
+	if (!(ODB_HELPER_CAP_HAVE & entry->supported_capabilities))
+		return -1;
+
+	sigchain_push(SIGPIPE, SIG_IGN);
+
+	err = packet_write_fmt_gently(process->in, "command=have\n");
+	if (err)
+		goto done;
+
+	err = packet_flush_gently(process->in);
+	if (err)
+		goto done;
+
+	for (;;) {
+		/* packet_read() writes a '\0' extra byte at the end */
+		char buf[LARGE_PACKET_DATA_MAX + 1];
+		char *p = buf;
+		int more;
+
+		packet_len = packet_read(process->out, NULL, NULL,
+			buf, LARGE_PACKET_DATA_MAX + 1,
+			PACKET_READ_GENTLE_ON_EOF);
+
+		if (packet_len <= 0)
+			break;
+
+		total_got += packet_len;
+
+		do {
+			char *eol = strchrnul(p, '\n');
+			more = (*eol == '\n');
+			*eol = '\0';
+			if (add_have_entry(o, p))
+				break;
+			p = eol + 1;
+		} while (more);
+	}
+
+	if (packet_len < 0) {
+		err = packet_len;
+		goto done;
+	}
+
+	subprocess_read_status(process->out, &status);
+	err = strcmp(status.buf, "success");
+
+done:
+	sigchain_pop(SIGPIPE);
+
+	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_HAVE);
+
+	trace_performance_since(start, "have_object_process");
+
+	return err;
+}
+
 static void odb_helper_load_have(struct odb_helper *o)
 {
-	struct odb_helper_cmd cmd;
-	FILE *fh;
-	struct strbuf line = STRBUF_INIT;
 
 	if (o->have_valid)
 		return;
 	o->have_valid = 1;
 
-	if (odb_helper_start(o, &cmd, 0, "have") < 0)
-		return;
+	if (o->script_mode) {
+		struct odb_helper_cmd cmd;
+		FILE *fh;
+		struct strbuf line = STRBUF_INIT;
 
-	fh = xfdopen(cmd.child.out, "r");
-	while (strbuf_getline(&line, fh) != EOF)
-		if (add_have_entry(o, line.buf))
-			break;
+		if (odb_helper_start(o, &cmd, 0, "have") < 0)
+			return;
 
-	strbuf_release(&line);
-	fclose(fh);
-	odb_helper_finish(o, &cmd);
+		fh = xfdopen(cmd.child.out, "r");
+		while (strbuf_getline(&line, fh) != EOF)
+			if (add_have_entry(o, line.buf))
+				break;
+
+		strbuf_release(&line);
+		fclose(fh);
+		odb_helper_finish(o, &cmd);
+	} else {
+		have_object_process(o);
+	}
 
 	qsort(o->have, o->have_nr, sizeof(*o->have), odb_helper_object_cmp);
 }
