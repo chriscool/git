@@ -10,7 +10,8 @@ enum odb_helper_fetch_kind {
 };
 
 #define ODB_HELPER_CAP_GET    (1u<<0)
-#define ODB_HELPER_CAP_HAVE   (1u<<1)
+#define ODB_HELPER_CAP_PUT    (1u<<1)
+#define ODB_HELPER_CAP_HAVE   (1u<<2)
 
 struct odb_helper {
 	const char *name;
