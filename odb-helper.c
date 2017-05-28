@@ -619,27 +619,117 @@ static int odb_helper_object_cmp(const void *va, const void *vb)
 	return hashcmp(a->sha1, b->sha1);
 }
 
+static int have_object_process(struct odb_helper *o)
+{
+	int err;
+	struct read_object_process *entry;
+	struct child_process *process;
+	struct strbuf status = STRBUF_INIT;
+	const char *cmd = o->cmd;
+	uint64_t start;
+	char *line;
+
+	start = getnanotime();
+
+	trace_printf("have_object_process: cmd: %s, cap: %d\n",
+		     cmd, o->supported_capabilities);
+
+	if (!subprocess_map_initialized) {
+		subprocess_map_initialized = 1;
+		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
+		entry = NULL;
+	} else {
+		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
+	}
+
+	fflush(NULL);
+
+	if (!entry) {
+		entry = xmalloc(sizeof(*entry));
+		entry->supported_capabilities = 0;
+
+		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
+			free(entry);
+			return 0;
+		}
+	}
+	process = &entry->subprocess.process;
+
+	if (!(ODB_HELPER_CAP_HAVE & entry->supported_capabilities))
+		return -1;
+
+	sigchain_push(SIGPIPE, SIG_IGN);
+
+	err = packet_write_fmt_gently(process->in, "command=have\n");
+	if (err)
+		goto done;
+
+	err = packet_flush_gently(process->in);
+	if (err)
+		goto done;
+
+	while ((line = packet_read_line(process->out, NULL)))
+		if (add_have_entry(o, line))
+			break;
+
+	subprocess_read_status(process->out, &status);
+	err = strcmp(status.buf, "success");
+
+done:
+	sigchain_pop(SIGPIPE);
+
+	if (err) {
+		if (!strcmp(status.buf, "error")) {
+			/* The process signaled a problem with the file. */
+		} else if (!strcmp(status.buf, "abort")) {
+			/*
+			* The process signaled a permanent problem. Don't try to read
+			* objects with the same command for the lifetime of the current
+			* Git process.
+			*/
+			entry->supported_capabilities &= ~ODB_HELPER_CAP_HAVE;
+		} else {
+			/*
+			* Something went wrong with the read-object process.
+			* Force shutdown and restart if needed.
+			*/
+			error("have_object_process: external process '%s' failed", cmd);
+			subprocess_stop(&subprocess_map, &entry->subprocess);
+			free(entry);
+		}
+	}
+
+	trace_performance_since(start, "have_object_process");
+
+	return err;
+}
+
 static void odb_helper_load_have(struct odb_helper *o)
 {
-	struct odb_helper_cmd cmd;
-	FILE *fh;
-	struct strbuf line = STRBUF_INIT;
 
 	if (o->have_valid)
 		return;
 	o->have_valid = 1;
 
-	if (odb_helper_start(o, &cmd, 0, "have") < 0)
-		return;
+	if (o->script_mode) {
+		struct odb_helper_cmd cmd;
+		FILE *fh;
+		struct strbuf line = STRBUF_INIT;
 
-	fh = xfdopen(cmd.child.out, "r");
-	while (strbuf_getline(&line, fh) != EOF)
-		if (add_have_entry(o, line.buf))
-			break;
+		if (odb_helper_start(o, &cmd, 0, "have") < 0)
+			return;
 
-	strbuf_release(&line);
-	fclose(fh);
-	odb_helper_finish(o, &cmd);
+		fh = xfdopen(cmd.child.out, "r");
+		while (strbuf_getline(&line, fh) != EOF)
+			if (add_have_entry(o, line.buf))
+				break;
+
+		strbuf_release(&line);
+		fclose(fh);
+		odb_helper_finish(o, &cmd);
+	} else {
+		have_object_process(o);
+	}
 
 	qsort(o->have, o->have_nr, sizeof(*o->have), odb_helper_object_cmp);
 }
