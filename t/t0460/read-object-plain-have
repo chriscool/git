@@ -15,8 +15,8 @@ packet_initialize("git-read-object", 1);
 
 print STDERR "read-object-plain-have: after init\n";
 
-packet_read_and_check_capabilities("get", "have");
-packet_write_capabilities("get", "have");
+packet_read_and_check_capabilities("get", "put", "have");
+packet_write_capabilities("get", "put", "have");
 
 print STDERR "read-object-plain-have: after reading and writing get and have capabilities\n";
 
