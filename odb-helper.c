@@ -64,7 +64,11 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 	if (err)
 		goto done;
 
-	err = packet_write_list_gently(process->in, "capability=get", "capability=have", NULL);
+	err = packet_write_list_gently(process->in,
+				       "capability=get",
+				       "capability=put",
+				       "capability=have",
+				       NULL);
 	if (err)
 		goto done;
 
