@@ -26,6 +26,8 @@ static void parse_capabilities(char *cap_buf,
 
 		if (!strcmp(cap_name, "get")) {
 			*supported_capabilities |= ODB_HELPER_CAP_GET;
+		} else if (!strcmp(cap_name, "put")) {
+			*supported_capabilities |= ODB_HELPER_CAP_PUT;
 		} else if (!strcmp(cap_name, "have")) {
 			*supported_capabilities |= ODB_HELPER_CAP_HAVE;
 		} else {
