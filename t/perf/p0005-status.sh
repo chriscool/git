@@ -41,8 +41,11 @@ test_expect_success "setup repo" '
 	nr_files=$(git ls-files | wc -l)
 '
 
-test_perf "read-tree status br_ballast ($nr_files)" '
-	git read-tree HEAD &&
+test_perf "read-tree ($nr_files files)" '
+	git read-tree HEAD
+'
+
+test_perf "status ($nr_files files)" '
 	git status
 '
 
@@ -60,8 +63,11 @@ test_expect_success "setup untracked cache" '
 	git config core.untrackedcache true
 '
 
-test_perf "read-tree status br_ballast ($nr_files)" '
-	git read-tree HEAD &&
+test_perf "read-tree with untracked cache ($nr_files files)" '
+	git read-tree HEAD
+'
+
+test_perf "status with untracked cache ($nr_files files)" '
 	git status
 '
 
@@ -84,8 +90,11 @@ test_expect_success "setup watchman and the query-fsmonitor hook" '
 	git config core.untrackedcache false
 '
 
-test_perf "read-tree status br_ballast ($nr_files)" '
-	git read-tree HEAD &&
+test_perf "read-tree with watchman ($nr_files files)" '
+	git read-tree HEAD
+'
+
+test_perf "status with watchman ($nr_files files)" '
 	git status
 '
 
@@ -93,8 +102,11 @@ test_expect_success "setup untracked cache on top of watchman" '
 	git config core.untrackedcache true
 '
 
-test_perf "read-tree status br_ballast ($nr_files)" '
-	git read-tree HEAD &&
+test_perf "read-tree with watchman and untracked cache ($nr_files files)" '
+	git read-tree HEAD
+'
+
+test_perf "status with watchman and untracked cache ($nr_files files)" '
 	git status
 '
 
