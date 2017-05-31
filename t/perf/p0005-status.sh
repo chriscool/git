@@ -46,4 +46,56 @@ test_perf "read-tree status br_ballast ($nr_files)" '
 	git status
 '
 
+test_lazy_prereq UNTRACKED_CACHE '
+	{ git update-index --test-untracked-cache; ret=$?; } &&
+	test $ret -ne 1
+'
+
+if ! test_have_prereq UNTRACKED_CACHE; then
+	skip_all='This system does not support untracked cache'
+	test_done
+fi
+
+test_expect_success "setup untracked cache" '
+	git config core.untrackedcache true
+'
+
+test_perf "read-tree status br_ballast ($nr_files)" '
+	git read-tree HEAD &&
+	git status
+'
+
+test_lazy_prereq WATCHMAN '
+	type watchman
+'
+
+if ! test_have_prereq WATCHMAN; then
+	skip_all='This system does not have watchman installed'
+	test_done
+fi
+
+test_expect_success "setup watchman and the query-fsmonitor hook" '
+	watchman watch "$PWD" &&
+	test_when_finished watchman watch-del "$PWD" &&
+	git init --template=../templates &&
+	mkdir .git/hooks &&
+	cp .git/hooks-disabled/query-fsmonitor.sample .git/hooks/query-fsmonitor &&
+	git config core.fsmonitor true &&
+	git config core.untrackedcache false
+'
+
+test_perf "read-tree status br_ballast ($nr_files)" '
+	git read-tree HEAD &&
+	git status
+'
+
+test_expect_success "setup untracked cache on top of watchman" '
+	git config core.untrackedcache true
+'
+
+test_perf "read-tree status br_ballast ($nr_files)" '
+	git read-tree HEAD &&
+	git status
+'
+
 test_done
