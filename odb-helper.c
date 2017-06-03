@@ -13,6 +13,9 @@ struct read_object_process {
 	unsigned int supported_capabilities;
 };
 
+static int subprocess_map_initialized;
+static struct hashmap subprocess_map;
+
 static void parse_capabilities(char *cap_buf,
 			       unsigned int *supported_capabilities,
 			       const char *process_name)
@@ -327,17 +330,24 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 	trace_printf("read_object_process: cmd: %s, cap: %d, fd: %d\n",
 		     cmd, o->supported_capabilities, fd);
 
-	entry = (struct read_object_process *)subprocess_find_entry(cmd);
+	if (!subprocess_map_initialized) {
+		subprocess_map_initialized = 1;
+		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
+		entry = NULL;
+	} else {
+		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
+	}
+
 	if (!entry) {
 		entry = xmalloc(sizeof(*entry));
 		entry->supported_capabilities = 0;
 
-		if (subprocess_start(&entry->subprocess, cmd, start_read_object_fn, -1)) {
+		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
 			free(entry);
 			return -1;
 		}
 	}
-	process = subprocess_get_child_process(&entry->subprocess);
+	process = &entry->subprocess.process;
 
 	if (!(ODB_HELPER_CAP_GET & entry->supported_capabilities))
 		return -1;
@@ -397,7 +407,7 @@ done:
 			* Force shutdown and restart if needed.
 			*/
 			error("read_object_process: external process '%s' failed", cmd);
-			subprocess_stop((struct subprocess_entry *)entry);
+			subprocess_stop(&subprocess_map, &entry->subprocess);
 			free(entry);
 		}
 	}
@@ -423,17 +433,24 @@ static int write_object_process(struct odb_helper *o,
 	trace_printf("write_object_process: cmd: %s, cap: %d, len: %"PRIuMAX", type: %s\n",
 		     cmd, o->supported_capabilities, (uintmax_t)len, type);
 
-	entry = (struct read_object_process *)subprocess_find_entry(cmd);
+	if (!subprocess_map_initialized) {
+		subprocess_map_initialized = 1;
+		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
+		entry = NULL;
+	} else {
+		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
+	}
+
 	if (!entry) {
 		entry = xmalloc(sizeof(*entry));
 		entry->supported_capabilities = 0;
 
-		if (subprocess_start(&entry->subprocess, cmd, start_read_object_fn, -1)) {
+		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
 			free(entry);
 			return -1;
 		}
 	}
-	process = subprocess_get_child_process(&entry->subprocess);
+	process = &entry->subprocess.process;
 
 	if (!(ODB_HELPER_CAP_PUT & entry->supported_capabilities))
 		return -1;
@@ -492,7 +509,7 @@ done:
 			* Force shutdown and restart if needed.
 			*/
 			error("write_object_process: external process '%s' failed", cmd);
-			subprocess_stop((struct subprocess_entry *)entry);
+			subprocess_stop(&subprocess_map, &entry->subprocess);
 			free(entry);
 		}
 	}
@@ -651,17 +668,24 @@ static int have_object_process(struct odb_helper *o)
 	trace_printf("have_object_process: cmd: %s, cap: %d\n",
 		     cmd, o->supported_capabilities);
 
-	entry = (struct read_object_process *)subprocess_find_entry(cmd);
+	if (!subprocess_map_initialized) {
+		subprocess_map_initialized = 1;
+		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
+		entry = NULL;
+	} else {
+		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
+	}
+
 	if (!entry) {
 		entry = xmalloc(sizeof(*entry));
 		entry->supported_capabilities = 0;
 
-		if (subprocess_start(&entry->subprocess, cmd, start_read_object_fn, -1)) {
+		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
 			free(entry);
 			return -1;
 		}
 	}
-	process = subprocess_get_child_process(&entry->subprocess);
+	process = &entry->subprocess.process;
 
 	if (!(ODB_HELPER_CAP_HAVE & entry->supported_capabilities))
 		return -1;
@@ -706,7 +730,7 @@ done:
 			* Force shutdown and restart if needed.
 			*/
 			error("have_object_process: external process '%s' failed", cmd);
-			subprocess_stop((struct subprocess_entry *)entry);
+			subprocess_stop(&subprocess_map, &entry->subprocess);
 			free(entry);
 		}
 	}
