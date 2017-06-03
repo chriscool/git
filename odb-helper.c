@@ -733,7 +733,7 @@ done:
 			* Force shutdown and restart if needed.
 			*/
 			error("have_object_process: external process '%s' failed", cmd);
-			subprocess_stop((struct subprocess_entry *)entry);
+			subprocess_stop(&subprocess_map, &entry->subprocess);
 			free(entry);
 		}
 	}
