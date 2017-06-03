@@ -480,21 +480,17 @@ static int write_object_process(struct odb_helper *o,
 done:
 	sigchain_pop(SIGPIPE);
 
-	if (err || errno == EPIPE) {
-		err = err | errno << 16;
-
+	if (err) {
 		if (!strcmp(status.buf, "error")) {
 			/* The process signaled a problem with the file. */
-		}
-		else if (!strcmp(status.buf, "abort")) {
+		} else if (!strcmp(status.buf, "abort")) {
 			/*
 			* The process signaled a permanent problem. Don't try to read
 			* objects with the same command for the lifetime of the current
 			* Git process.
 			*/
 			entry->supported_capabilities &= ~ODB_HELPER_CAP_PUT;
-		}
-		else {
+		} else {
 			/*
 			* Something went wrong with the read-object process.
 			* Force shutdown and restart if needed.
@@ -703,21 +699,17 @@ static int have_object_process(struct odb_helper *o)
 done:
 	sigchain_pop(SIGPIPE);
 
-	if (err || errno == EPIPE) {
-		err = err | errno << 16;
-
+	if (err) {
 		if (!strcmp(status.buf, "error")) {
 			/* The process signaled a problem with the file. */
-		}
-		else if (!strcmp(status.buf, "abort")) {
+		} else if (!strcmp(status.buf, "abort")) {
 			/*
 			* The process signaled a permanent problem. Don't try to read
 			* objects with the same command for the lifetime of the current
 			* Git process.
 			*/
 			entry->supported_capabilities &= ~ODB_HELPER_CAP_GET;
-		}
-		else {
+		} else {
 			/*
 			* Something went wrong with the read-object process.
 			* Force shutdown and restart if needed.
