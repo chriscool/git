@@ -84,6 +84,33 @@ done:
 	return err;
 }
 
+static struct read_object_process *launch_read_object_process(const char *cmd)
+{
+	struct read_object_process *entry;
+
+	if (!subprocess_map_initialized) {
+		subprocess_map_initialized = 1;
+		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
+		entry = NULL;
+	} else {
+		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
+	}
+
+	fflush(NULL);
+
+	if (!entry) {
+		entry = xmalloc(sizeof(*entry));
+		entry->supported_capabilities = 0;
+
+		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
+			free(entry);
+			return 0;
+		}
+	}
+
+	return entry;
+}
+
 static struct odb_helper_object *odb_helper_lookup(struct odb_helper *o,
 						   const unsigned char *sha1);
 
@@ -287,25 +314,7 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 
 	start = getnanotime();
 
-	if (!subprocess_map_initialized) {
-		subprocess_map_initialized = 1;
-		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
-		entry = NULL;
-	} else {
-		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
-	}
-
-	fflush(NULL);
-
-	if (!entry) {
-		entry = xmalloc(sizeof(*entry));
-		entry->supported_capabilities = 0;
-
-		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
-			free(entry);
-			return 0;
-		}
-	}
+	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
 
 	if (!(ODB_HELPER_CAP_GET & entry->supported_capabilities))
@@ -379,25 +388,7 @@ static int write_object_process(struct odb_helper *o,
 
 	start = getnanotime();
 
-	if (!subprocess_map_initialized) {
-		subprocess_map_initialized = 1;
-		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
-		entry = NULL;
-	} else {
-		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
-	}
-
-	fflush(NULL);
-
-	if (!entry) {
-		entry = xmalloc(sizeof(*entry));
-		entry->supported_capabilities = 0;
-
-		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
-			free(entry);
-			return 0;
-		}
-	}
+	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
 
 	if (!(ODB_HELPER_CAP_PUT & entry->supported_capabilities))
@@ -606,25 +597,7 @@ static int have_object_process(struct odb_helper *o)
 
 	start = getnanotime();
 
-	if (!subprocess_map_initialized) {
-		subprocess_map_initialized = 1;
-		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
-		entry = NULL;
-	} else {
-		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
-	}
-
-	fflush(NULL);
-
-	if (!entry) {
-		entry = xmalloc(sizeof(*entry));
-		entry->supported_capabilities = 0;
-
-		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
-			free(entry);
-			return 0;
-		}
-	}
+	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
 
 	if (!(ODB_HELPER_CAP_HAVE & entry->supported_capabilities))
