@@ -53,7 +53,7 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 
 	sigchain_push(SIGPIPE, SIG_IGN);
 
-	err = packet_write_list_gently(process->in, "git-read-object-client", "version=1", NULL);
+	err = packet_writel(process->in, "git-read-object-client", "version=1", NULL);
 	if (err)
 		goto done;
 
@@ -69,11 +69,11 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 	if (err)
 		goto done;
 
-	err = packet_write_list_gently(process->in,
-				       "capability=get",
-				       "capability=put",
-				       "capability=have",
-				       NULL);
+	err = packet_writel(process->in,
+			    "capability=get",
+			    "capability=put",
+			    "capability=have",
+			    NULL);
 	if (err)
 		goto done;
 
