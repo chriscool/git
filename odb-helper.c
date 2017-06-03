@@ -432,17 +432,24 @@ static int write_object_process(struct odb_helper *o,
 	trace_printf("write_object_process: cmd: %s, cap: %d, len: %"PRIuMAX", type: %s\n",
 		     cmd, o->supported_capabilities, (uintmax_t)len, type);
 
-	entry = (struct read_object_process *)subprocess_find_entry(cmd);
+	if (!subprocess_map_initialized) {
+		subprocess_map_initialized = 1;
+		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
+		entry = NULL;
+	} else {
+		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
+	}
+
 	if (!entry) {
 		entry = xmalloc(sizeof(*entry));
 		entry->supported_capabilities = 0;
 
-		if (subprocess_start(&entry->subprocess, cmd, start_read_object_fn, -1)) {
+		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
 			free(entry);
 			return -1;
 		}
 	}
-	process = subprocess_get_child_process(&entry->subprocess);
+	process = &entry->subprocess.process;
 
 	if (!(ODB_HELPER_CAP_PUT & entry->supported_capabilities))
 		return -1;
@@ -501,7 +508,7 @@ done:
 			* Force shutdown and restart if needed.
 			*/
 			error("write_object_process: external process '%s' failed", cmd);
-			subprocess_stop((struct subprocess_entry *)entry);
+			subprocess_stop(&subprocess_map, &entry->subprocess);
 			free(entry);
 		}
 	}
@@ -724,7 +731,7 @@ done:
 			* Force shutdown and restart if needed.
 			*/
 			error("have_object_process: external process '%s' failed", cmd);
-			subprocess_stop((struct subprocess_entry *)entry);
+			subprocess_stop(&subprocess_map, &entry->subprocess);
 			free(entry);
 		}
 	}
