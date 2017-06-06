@@ -352,6 +352,9 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
 
+	trace_printf("read_object_process: cmd: %s, cap: %d, entry_cap: %d, fd: %d\n",
+		     cmd, o->supported_capabilities, entry->supported_capabilities, fd);
+
 	if (!(ODB_HELPER_CAP_GET & entry->supported_capabilities))
 		return -1;
 
@@ -428,11 +431,12 @@ static int write_object_process(struct odb_helper *o,
 
 	start = getnanotime();
 
-	trace_printf("write_object_process: cmd: %s, cap: %d, len: %"PRIuMAX", type: %s\n",
-		     cmd, o->supported_capabilities, (uintmax_t)len, type);
-
 	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
+
+	trace_printf("write_object_process: cmd: %s, cap: %d, entry_cap: %d, len: %"PRIuMAX", type: %s\n",
+		     cmd, o->supported_capabilities, entry->supported_capabilities,
+		     (uintmax_t)len, type);
 
 	if (!(ODB_HELPER_CAP_PUT & entry->supported_capabilities))
 		return -1;
