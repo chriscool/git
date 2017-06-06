@@ -575,25 +575,75 @@ static int odb_helper_finish(struct odb_helper *o,
 	return 0;
 }
 
+static int init_object_process(struct odb_helper *o)
+{
+	int err;
+	struct read_object_process *entry;
+	struct child_process *process;
+	struct strbuf status = STRBUF_INIT;
+	const char *cmd = o->cmd;
+	uint64_t start;
+	char *line;
+
+	start = getnanotime();
+
+	trace_printf("init_object_process: cmd: %s, cap: %d\n",
+		     cmd, o->supported_capabilities);
+
+	entry = launch_read_object_process(cmd);
+	process = &entry->subprocess.process;
+
+	sigchain_push(SIGPIPE, SIG_IGN);
+
+	err = packet_write_fmt_gently(process->in, "command=init\n");
+	if (err)
+		goto done;
+
+	err = packet_flush_gently(process->in);
+	if (err)
+		goto done;
+
+	subprocess_read_status(process->out, &status);
+	err = strcmp(status.buf, "success");
+
+done:
+	sigchain_pop(SIGPIPE);
+
+	if (err) {
+		/*
+		 * Something went wrong with the read-object process.
+		 * Force shutdown and restart if needed.
+		 */
+		error("init_object_process: external process '%s' failed", cmd);
+		subprocess_stop(&subprocess_map, &entry->subprocess);
+		free(entry);
+	}
+
+	trace_performance_since(start, "init_object_process");
+
+	return err;
+}
+
 int odb_helper_get_capabilities(struct odb_helper *o)
 {
 	struct odb_helper_cmd cmd;
 	FILE *fh;
 	struct strbuf line = STRBUF_INIT;
 
-	if (!o->script_mode)
-		return 0;
+	if (o->script_mode) {
+		if (odb_helper_start(o, &cmd, 0, "get_cap") < 0)
+			return -1;
 
-	if (odb_helper_start(o, &cmd, 0, "get_cap") < 0)
-		return -1;
+		fh = xfdopen(cmd.child.out, "r");
+		while (strbuf_getline(&line, fh) != EOF)
+			parse_capabilities(line.buf, &o->supported_capabilities, o->name);
 
-	fh = xfdopen(cmd.child.out, "r");
-	while (strbuf_getline(&line, fh) != EOF)
-		parse_capabilities(line.buf, &o->supported_capabilities, o->name);
-
-	strbuf_release(&line);
-	fclose(fh);
-	odb_helper_finish(o, &cmd);
+		strbuf_release(&line);
+		fclose(fh);
+		odb_helper_finish(o, &cmd);
+	} else {
+		return init_object_process(o);
+	}
 
 	return 0;
 }
