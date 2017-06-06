@@ -19,21 +19,19 @@ sub packet_client_initialize {
 	( packet_bin_read() eq ( 1, "" ) )				|| die "bad version end";
 }
 
-
 packet_client_initialize("git-read-object", 1);
 
-packet_write_capability("get");
-packet_read_capability("get");
+packet_write_capabilities("get", "put", "have");
+packet_read_and_check_capabilities("get", "put", "have");
 
-packet_txt_write( "command=get" );
-packet_txt_write( "sha1=26af6a865b61e9a47e24ea6214a64c4cc294c215" );
+packet_txt_write( "command=have" );
 packet_flush();
 
-( packet_txt_read() eq ( 0, "status=success" ) )		|| die "bad status";
-( packet_bin_read() eq ( 1, "" ) )				|| die "bad status end";
-
+print STDERR "receiving content by test-read-object-plain-have:\n";
 my ($res, $buf) = packet_bin_read();
 die "bad packet_bin_read res ($res)" unless ($res eq 0);
+print STDERR "content received by test-read-object-plain-have:\n";
+print STDERR $buf;
 ( packet_bin_read() eq ( 1, "" ) )				|| die "bad send end";
 
 ( packet_txt_read() eq ( 0, "status=success" ) )		|| die "bad status";
