@@ -672,6 +672,7 @@ static int have_object_process(struct odb_helper *o)
 
 		trace_printf("have_object_process: after content packet_read\n");
 		trace_printf("packet_len: '%d'\n", packet_len);
+		trace_printf("content:\n%s", buf);
 
 		if (packet_len <= 0)
 			break;
@@ -688,6 +689,8 @@ static int have_object_process(struct odb_helper *o)
 		} while (more);
 	}
 
+	trace_printf("have_object_process: before packet_len (%d) check\n", packet_len);
+
 	if (packet_len < 0) {
 		err = packet_len;
 		goto done;
@@ -698,6 +701,8 @@ static int have_object_process(struct odb_helper *o)
 
 done:
 	sigchain_pop(SIGPIPE);
+
+	trace_printf("have_object_process: status: %s\n", status.buf);
 
 	if (err) {
 		if (!strcmp(status.buf, "error")) {
