@@ -136,17 +136,7 @@ ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
 
 	trace_printf("read_packetized_plain_object_to_fd: start\n");
 
-	/* Get size and object kind first */
-	if (ODB_HELPER_CAP_HAVE & o->supported_capabilities) {
-		struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
-		if (!obj) {
-			error("odb helper '%s' lookup error: %s",
-			      o->name, strerror(errno));
-			return -1;
-		}
-		size = obj->size;
-		type = obj->type;
-	} else {
+	{
 		const char *s;
 		int pkt_size;
 		char *size_buf;
