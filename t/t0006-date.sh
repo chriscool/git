@@ -31,9 +31,18 @@ check_show () {
 	format=$1
 	time=$2
 	expect=$3
-	test_expect_success $4 "show date ($format:$time)" '
+	prereqs=$4
+	zone=$5
+	test_expect_success $prereqs "show date ($format:$time)" '
 		echo "$time -> $expect" >expect &&
-		test-date show:$format "$time" >actual &&
+		(
+			if test -n "$zone"
+			then
+				TZ=$zone
+				export $TZ
+			fi &&
+			test-date show:"$format" "$time" >actual
+		) &&
 		test_cmp expect actual
 	'
 }
@@ -50,6 +59,13 @@ check_show unix "$TIME" '1466000000'
 check_show iso-local "$TIME" '2016-06-15 14:13:20 +0000'
 check_show raw-local "$TIME" '1466000000 +0000'
 check_show unix-local "$TIME" '1466000000'
+
+check_show "format:%Y-%m-%d %H:%M:%S %z (%Z)" "$TIME" \
+	   '2016-06-15 16:13:20 +0200 ()'
+check_show format-local:"%Y-%m-%d %H:%M:%S %z (%Z)" "$TIME" \
+	   '2016-06-15 14:13:20 +0000 (UTC)'
+check_show format-local:"%Y-%m-%d %H:%M:%S %z" "$TIME" \
+	   '2016-06-15 09:13:20 -0500' '' EST5
 
 # arbitrary time absurdly far in the future
 FUTURE="5758122296 -0400"
