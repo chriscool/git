@@ -65,7 +65,7 @@ FILES_DIR="httpd/www/files"
 echo "HTTPD_URL: '$HTTPD_URL'"
 
 test_expect_success 'new blobs are transfered to the http server' '
-	GIT_TRACE=2 test_commit one &&
+	test_commit one &&
 	hash1=$(git ls-tree HEAD | grep one.t | cut -f1 | cut -d\  -f3) &&
 	echo "$hash1-4-blob" >expected &&
 	ls "$FILES_DIR" >actual &&
