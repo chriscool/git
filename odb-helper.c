@@ -613,6 +613,8 @@ static int have_object_process(struct odb_helper *o)
 	const char *cmd = o->cmd;
 	uint64_t start;
 	char *line;
+	int packet_len;
+	int total_got = 0;
 
 	start = getnanotime();
 
@@ -635,9 +637,38 @@ static int have_object_process(struct odb_helper *o)
 	if (err)
 		goto done;
 
-	while ((line = packet_read_line(process->out, NULL)))
-		if (add_have_entry(o, line))
+	for (;;) {
+		/* packet_read() writes a '\0' extra byte at the end */
+		char buf[LARGE_PACKET_DATA_MAX + 1];
+		char *p = buf;
+		int more;
+
+		packet_len = packet_read(process->out, NULL, NULL,
+			buf, LARGE_PACKET_DATA_MAX + 1,
+			PACKET_READ_GENTLE_ON_EOF);
+
+		trace_printf("have_object_process: after content packet_read\n");
+		trace_printf("packet_len: '%d'\n", packet_len);
+
+		if (packet_len <= 0)
 			break;
+
+		total_got += packet_len;
+
+		do {
+			char *eol = strchrnul(p, '\n');
+			more = (*eol == '\n');
+			*eol = '\0';
+			if (add_have_entry(o, buf))
+				break;
+			p = eol + 1;
+		} while (more);
+	}
+
+	if (packet_len < 0) {
+		err = packet_len;
+		goto done;
+	}
 
 	subprocess_read_status(process->out, &status);
 	err = strcmp(status.buf, "success");
