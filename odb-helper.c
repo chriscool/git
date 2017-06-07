@@ -103,8 +103,11 @@ ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
 	off_t size;
 	enum object_type type;
 	const char *s;
+	int pkt_size;
+	char *size_buf;
 
-	if (!skip_prefix(packet_read_line(fd_in, NULL), "size=", &s))
+	size_buf = packet_read_line(fd_in, &pkt_size);
+	if (!skip_prefix(size_buf, "size=", &s))
 		return error("odb helper '%s' did not send size of plain object", o->name);
 	size = strtoumax(s, NULL, 10);
 	if (!skip_prefix(packet_read_line(fd_in, NULL), "kind=", &s))
