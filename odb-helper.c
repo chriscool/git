@@ -351,6 +351,7 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 
 	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
+	o->supported_capabilities = entry->supported_capabilities;
 
 	trace_printf("read_object_process: cmd: %s, cap: %d, entry_cap: %d, fd: %d\n",
 		     cmd, o->supported_capabilities, entry->supported_capabilities, fd);
@@ -433,6 +434,7 @@ static int write_object_process(struct odb_helper *o,
 
 	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
+	o->supported_capabilities = entry->supported_capabilities;
 
 	trace_printf("write_object_process: cmd: %s, cap: %d, entry_cap: %d, len: %"PRIuMAX", type: %s\n",
 		     cmd, o->supported_capabilities, entry->supported_capabilities,
@@ -653,6 +655,7 @@ static int have_object_process(struct odb_helper *o)
 
 	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
+	o->supported_capabilities = entry->supported_capabilities;
 
 	if (!(ODB_HELPER_CAP_HAVE & entry->supported_capabilities))
 		return -1;
