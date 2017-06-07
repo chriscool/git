@@ -299,17 +299,11 @@ int packet_read(int fd, char **src_buf, size_t *src_len,
 	int len, ret;
 	char linelen[4];
 
-	trace_printf("packet_read: fd: '%d', buffer: '%p'\n", fd, buffer);
-
 	ret = get_packet_data(fd, src_buf, src_len, linelen, 4, options);
-
-	trace_printf("packet_read: after get_packet_data\n");
 
 	if (ret < 0)
 		return ret;
 	len = packet_length(linelen);
-
-	trace_printf("packet_read: len: '%d'\n", len);
 
 	if (len < 0)
 		die("protocol error: bad line length character: %.4s", linelen);
