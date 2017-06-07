@@ -299,17 +299,11 @@ int packet_read(int fd, char **src_buf, size_t *src_len,
 	int len, ret;
 	char linelen[4];
 
-	trace_printf("packet_read: fd: '%d', buffer: '%p'\n", fd, buffer);
-
 	ret = get_packet_data(fd, src_buf, src_len, linelen, 4, options);
-
-	trace_printf("packet_read: after 1st get_packet_data\n");
 
 	if (ret < 0)
 		return ret;
 	len = packet_length(linelen);
-
-	trace_printf("packet_read: len: '%d'\n", len);
 
 	if (len < 0)
 		die("protocol error: bad line length character: %.4s", linelen);
@@ -321,12 +315,7 @@ int packet_read(int fd, char **src_buf, size_t *src_len,
 	if (len >= size)
 		die("protocol error: bad line length %d", len);
 
-	trace_printf("packet_read: before 2nd get_packet_data\n");
-	trace_printf("src_buf: '%p', src_len: '%"PRIuMAX"'\n", src_buf, (uintmax_t)src_len);
-
 	ret = get_packet_data(fd, src_buf, src_len, buffer, len, options);
-
-	trace_printf("packet_read: after 2nd get_packet_data\n");
 
 	if (ret < 0)
 		return ret;
@@ -337,8 +326,6 @@ int packet_read(int fd, char **src_buf, size_t *src_len,
 
 	buffer[len] = 0;
 	packet_trace(buffer, len, 0);
-
-	trace_printf("packet_read: end\n");
 
 	return len;
 }
