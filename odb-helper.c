@@ -131,7 +131,8 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 		goto done;
 
 	if (o->fetch_kind != ODB_FETCH_KIND_FAULT_IN) {
-		err = write_packetized_from_fd(fd, process->in);
+		struct strbuf buf;
+		read_packetized_to_strbuf(process->out, &buf);
 		if (err)
 			goto done;
 	}
