@@ -334,6 +334,7 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 
 	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
+	o->supported_capabilities = entry->supported_capabilities;
 
 	if (!(ODB_HELPER_CAP_GET & entry->supported_capabilities))
 		return -1;
@@ -409,6 +410,7 @@ static int write_object_process(struct odb_helper *o,
 
 	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
+	o->supported_capabilities = entry->supported_capabilities;
 
 	if (!(ODB_HELPER_CAP_PUT & entry->supported_capabilities))
 		return -1;
@@ -623,6 +625,7 @@ static int have_object_process(struct odb_helper *o)
 
 	entry = launch_read_object_process(cmd);
 	process = &entry->subprocess.process;
+	o->supported_capabilities = entry->supported_capabilities;
 
 	if (!(ODB_HELPER_CAP_HAVE & entry->supported_capabilities))
 		return -1;
