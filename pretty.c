@@ -1055,15 +1055,24 @@ static size_t parse_padding_placeholder(struct strbuf *sb,
 	return 0;
 }
 
+enum format_commit_item_magic {
+	NO_MAGIC,
+	ADD_LF_BEFORE_NON_EMPTY,
+	DEL_LF_BEFORE_EMPTY,
+	ADD_SP_BEFORE_NON_EMPTY
+};
+
 static size_t format_commit_one(struct strbuf *sb, /* in UTF-8 */
 				const char *placeholder,
-				void *context)
+				void *context,
+				enum format_commit_item_magic magic)
 {
 	struct format_commit_context *c = context;
 	const struct commit *commit = c->commit;
 	const char *msg = c->message;
 	struct commit_list *p;
 	int ch;
+	int no_cache;
 
 	/* these are independent of the commit */
 	switch (placeholder[0]) {
@@ -1128,6 +1137,8 @@ static size_t format_commit_one(struct strbuf *sb, /* in UTF-8 */
 	if (!commit->object.parsed)
 		parse_object(commit->object.oid.hash);
 
+	no_cache = magic != NO_MAGIC;
+
 	switch (placeholder[0]) {
 	case 'H':		/* commit hash */
 		strbuf_addstr(sb, diff_get_color(c->auto_color, DIFF_COMMIT));
@@ -1143,7 +1154,8 @@ static size_t format_commit_one(struct strbuf *sb, /* in UTF-8 */
 		strbuf_add_unique_abbrev(sb, commit->object.oid.hash,
 					 c->pretty_ctx->abbrev);
 		strbuf_addstr(sb, diff_get_color(c->auto_color, DIFF_RESET));
-		c->abbrev_commit_hash.len = sb->len - c->abbrev_commit_hash.off;
+		if (!no_cache)
+			c->abbrev_commit_hash.len = sb->len - c->abbrev_commit_hash.off;
 		return 1;
 	case 'T':		/* tree hash */
 		strbuf_addstr(sb, oid_to_hex(&commit->tree->object.oid));
@@ -1153,7 +1165,8 @@ static size_t format_commit_one(struct strbuf *sb, /* in UTF-8 */
 			return 1;
 		strbuf_add_unique_abbrev(sb, commit->tree->object.oid.hash,
 					 c->pretty_ctx->abbrev);
-		c->abbrev_tree_hash.len = sb->len - c->abbrev_tree_hash.off;
+		if (!no_cache)
+			c->abbrev_tree_hash.len = sb->len - c->abbrev_tree_hash.off;
 		return 1;
 	case 'P':		/* parent hashes */
 		for (p = commit->parents; p; p = p->next) {
@@ -1171,8 +1184,9 @@ static size_t format_commit_one(struct strbuf *sb, /* in UTF-8 */
 			strbuf_add_unique_abbrev(sb, p->item->object.oid.hash,
 						 c->pretty_ctx->abbrev);
 		}
-		c->abbrev_parent_hashes.len = sb->len -
-		                              c->abbrev_parent_hashes.off;
+		if (!no_cache)
+			c->abbrev_parent_hashes.len =
+				sb->len - c->abbrev_parent_hashes.off;
 		return 1;
 	case 'm':		/* left/right/bottom */
 		strbuf_addstr(sb, get_revision_mark(NULL, commit));
@@ -1293,7 +1307,8 @@ static size_t format_commit_one(struct strbuf *sb, /* in UTF-8 */
 
 static size_t format_and_pad_commit(struct strbuf *sb, /* in UTF-8 */
 				    const char *placeholder,
-				    struct format_commit_context *c)
+				    struct format_commit_context *c,
+				    enum format_commit_item_magic magic)
 {
 	struct strbuf local_sb = STRBUF_INIT;
 	int total_consumed = 0, len, padding = c->padding;
@@ -1308,7 +1323,7 @@ static size_t format_and_pad_commit(struct strbuf *sb, /* in UTF-8 */
 	}
 	while (1) {
 		int modifier = *placeholder == 'C';
-		int consumed = format_commit_one(&local_sb, placeholder, c);
+		int consumed = format_commit_one(&local_sb, placeholder, c, magic);
 		total_consumed += consumed;
 
 		if (!modifier)
@@ -1399,12 +1414,7 @@ static size_t format_commit_item(struct strbuf *sb, /* in UTF-8 */
 {
 	int consumed;
 	size_t orig_len;
-	enum {
-		NO_MAGIC,
-		ADD_LF_BEFORE_NON_EMPTY,
-		DEL_LF_BEFORE_EMPTY,
-		ADD_SP_BEFORE_NON_EMPTY
-	} magic = NO_MAGIC;
+	enum format_commit_item_magic magic = NO_MAGIC;
 
 	switch (placeholder[0]) {
 	case '-':
@@ -1424,9 +1434,9 @@ static size_t format_commit_item(struct strbuf *sb, /* in UTF-8 */
 
 	orig_len = sb->len;
 	if (((struct format_commit_context *)context)->flush_type != no_flush)
-		consumed = format_and_pad_commit(sb, placeholder, context);
+		consumed = format_and_pad_commit(sb, placeholder, context, magic);
 	else
-		consumed = format_commit_one(sb, placeholder, context);
+		consumed = format_commit_one(sb, placeholder, context, magic);
 	if (magic == NO_MAGIC)
 		return consumed;
 
