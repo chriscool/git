@@ -6,6 +6,8 @@
  */
 
 #include "cache.h"
+#include "config.h"
+#include "refs.h"
 #include "builtin.h"
 #include "commit.h"
 #include "diff.h"

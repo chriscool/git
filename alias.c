@@ -1,4 +1,5 @@
 #include "cache.h"
+#include "config.h"
 
 char *alias_lookup(const char *alias)
 {
