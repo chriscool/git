@@ -2024,3 +2024,14 @@ int other_head_refs(each_ref_fn fn, void *cb_data)
 	free_worktrees(worktrees);
 	return ret;
 }
+
+int refs_copy_existing_ref(struct ref_store *refs, const char *oldref,
+		    const char *newref, const char *logmsg)
+{
+	return refs->be->copy_ref(refs, oldref, newref, logmsg);
+}
+
+int copy_existing_ref(const char *oldref, const char *newref, const char *logmsg)
+{
+	return refs_copy_existing_ref(get_main_ref_store(), oldref, newref, logmsg);
+}
