@@ -1,5 +1,6 @@
 #include "builtin.h"
 #include "cache.h"
+#include "config.h"
 #include "color.h"
 #include "parse-options.h"
 #include "urlmatch.h"
@@ -538,6 +539,8 @@ int cmd_config(int argc, const char **argv, const char *prefix)
 		config_options.respect_includes = !given_config_source.file;
 	else
 		config_options.respect_includes = respect_includes_opt;
+	if (have_git_dir())
+		config_options.git_dir = get_git_common_dir();
 
 	if (end_null) {
 		term = '\0';
