@@ -483,4 +483,16 @@ test_expect_success 'unused %G placeholders are passed through' '
 	test_cmp expect actual
 '
 
+test_expect_success 'date format "%F %T %z" is the same as iso' '
+	git log -1 --format="%ad" --date=iso >expect &&
+	git log -1 --format="%ad" --date="format:%F %T %z" >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success 'date format "%%z" expands to percent zed' '
+	echo "%z" >expect &&
+	git log -1 --format="%ad" --date="format:%%z" >actual &&
+	test_cmp expect actual
+'
+
 test_done

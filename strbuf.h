@@ -339,9 +339,14 @@ __attribute__((format (printf,2,0)))
 extern void strbuf_vaddf(struct strbuf *sb, const char *fmt, va_list ap);
 
 /**
- * Add the time specified by `tm`, as formatted by `strftime`.
+ * Add the time specified by `tm`, as formatted by `strftime`.  `tz_offset`
+ * and `tz_name` are used to expand %z and %Z internally, unless `tz_name`
+ * is NULL.  `tz_offset` is in decimal hhmm format, e.g. -600 means six
+ * hours west of Greenwich.
  */
-extern void strbuf_addftime(struct strbuf *sb, const char *fmt, const struct tm *tm);
+extern void strbuf_addftime(struct strbuf *sb, const char *fmt,
+			    const struct tm *tm, int tz_offset,
+			    const char *tz_name);
 
 /**
  * Read a given size of data from a FILE* pointer to the buffer.
