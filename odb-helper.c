@@ -442,6 +442,58 @@ static int get_object_process(struct odb_helper *o, const unsigned char *sha1, i
 					  o->command, cur_cap);
 }
 
+static int send_put_packets(struct object_process *entry,
+			    const unsigned char *sha1,
+			    const void *buf,
+			    size_t len,
+			    struct strbuf *status)
+{
+	struct child_process *process = &entry->subprocess.process;
+	int err = packet_write_fmt_gently(process->in, "command=put_raw_obj\n");
+	if (err)
+		return err;
+
+	err = packet_write_fmt_gently(process->in, "sha1=%s\n", sha1_to_hex(sha1));
+	if (err)
+		return err;
+
+	err = packet_write_fmt_gently(process->in, "size=%"PRIuMAX"\n", len);
+	if (err)
+		return err;
+
+	err = packet_write_fmt_gently(process->in, "kind=blob\n");
+	if (err)
+		return err;
+
+	err = packet_flush_gently(process->in);
+	if (err)
+		return err;
+
+	err = write_packetized_from_buf(buf, len, process->in);
+	if (err)
+		return err;
+
+	return check_object_process_status(process->out, status);
+}
+
+static int put_object_process(struct odb_helper *o,
+			      const void *buf, size_t len,
+			      const char *type, unsigned char *sha1)
+{
+	int err;
+	struct object_process *entry;
+	struct strbuf status = STRBUF_INIT;
+
+	entry = launch_object_process(o, ODB_HELPER_CAP_PUT_RAW_OBJ);
+	if (!entry)
+		return -1;
+
+	err = send_put_packets(entry, sha1, buf, len, &status);
+
+	return check_object_process_error(err, status.buf, entry, o->command,
+					  ODB_HELPER_CAP_PUT_RAW_OBJ);
+}
+
 struct odb_helper *odb_helper_new(const char *name, int namelen)
 {
 	struct odb_helper *o;
@@ -923,14 +975,11 @@ int odb_helper_get_object(struct odb_helper *o,
 	return res;
 }
 
-int odb_helper_put_object(struct odb_helper *o,
-			  const void *buf, size_t len,
-			  const char *type, unsigned char *sha1)
+static int put_raw_object_script(struct odb_helper *o,
+				 const void *buf, size_t len,
+				 const char *type, unsigned char *sha1)
 {
 	struct odb_helper_cmd cmd;
-
-	if (o->type != ODB_HELPER_SCRIPT_CMD)
-		return 1;
 
 	if (odb_helper_start(o, &cmd, 1, "put_raw_obj %s %"PRIuMAX" %s",
 			     sha1_to_hex(sha1), (uintmax_t)len, type) < 0)
@@ -953,4 +1002,21 @@ int odb_helper_put_object(struct odb_helper *o,
 	close(cmd.child.out);
 	odb_helper_finish(o, &cmd);
 	return 0;
+}
+
+int odb_helper_put_object(struct odb_helper *o,
+			  const void *buf, size_t len,
+			  const char *type, unsigned char *sha1)
+{
+	int res = 1;
+	uint64_t start = getnanotime();
+
+	if (o->type == ODB_HELPER_SCRIPT_CMD)
+		res = put_raw_object_script(o, buf, len, type, sha1);
+	else if (o->type == ODB_HELPER_SUBPROCESS_CMD)
+		res = put_object_process(o, buf, len, type, sha1);
+
+	trace_performance_since(start, "odb_helper_put_object");
+
+	return res;
 }
