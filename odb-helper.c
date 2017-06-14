@@ -630,7 +630,7 @@ static int have_object_process(struct odb_helper *o)
 			char *eol = strchrnul(p, '\n');
 			more = (*eol == '\n');
 			*eol = '\0';
-			if (add_have_entry(o, buf))
+			if (add_have_entry(o, p))
 				break;
 			p = eol + 1;
 		} while (more);
