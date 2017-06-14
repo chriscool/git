@@ -302,6 +302,40 @@ ssize_t read_packetized_git_object_to_fd(struct odb_helper *o,
 	return total_read;
 }
 
+static int check_object_process_error(int err,
+				      const char *status,
+				      struct read_object_process *entry,
+				      const char *cmd,
+				      unsigned int capability)
+{
+	if (!err)
+		return;
+
+	if (!strcmp(status, "error")) {
+		/* The process signaled a problem with the file. */
+	} else if (!strcmp(status, "notfound")) {
+		/* Object was not found */
+		err = -1;
+	} else if (!strcmp(status, "abort")) {
+		/*
+		 * The process signaled a permanent problem. Don't try to read
+		 * objects with the same command for the lifetime of the current
+		 * Git process.
+		 */
+		if (capability)
+			entry->supported_capabilities &= ~capability;
+	} else {
+		/*
+		 * Something went wrong with the read-object process.
+		 * Force shutdown and restart if needed.
+		 */
+		error("read_object_process: external process '%s' failed", cmd);
+		subprocess_stop(&subprocess_map, &entry->subprocess);
+		free(entry);
+	}
+
+	return err;
+}
 
 static int read_object_process(struct odb_helper *o, const unsigned char *sha1, int fd)
 {
@@ -347,29 +381,7 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 done:
 	sigchain_pop(SIGPIPE);
 
-	if (err) {
-		if (!strcmp(status.buf, "error")) {
-			/* The process signaled a problem with the file. */
-		} else if (!strcmp(status.buf, "notfound")) {
-			/* Object was not found */
-			err = -1;
-		} else if (!strcmp(status.buf, "abort")) {
-			/*
-			* The process signaled a permanent problem. Don't try to read
-			* objects with the same command for the lifetime of the current
-			* Git process.
-			*/
-			entry->supported_capabilities &= ~ODB_HELPER_CAP_GET;
-		} else {
-			/*
-			* Something went wrong with the read-object process.
-			* Force shutdown and restart if needed.
-			*/
-			error("read_object_process: external process '%s' failed", cmd);
-			subprocess_stop(&subprocess_map, &entry->subprocess);
-			free(entry);
-		}
-	}
+	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_GET);
 
 	trace_performance_since(start, "read_object_process");
 
@@ -428,26 +440,7 @@ static int write_object_process(struct odb_helper *o,
 done:
 	sigchain_pop(SIGPIPE);
 
-	if (err) {
-		if (!strcmp(status.buf, "error")) {
-			/* The process signaled a problem with the file. */
-		} else if (!strcmp(status.buf, "abort")) {
-			/*
-			* The process signaled a permanent problem. Don't try to read
-			* objects with the same command for the lifetime of the current
-			* Git process.
-			*/
-			entry->supported_capabilities &= ~ODB_HELPER_CAP_PUT;
-		} else {
-			/*
-			* Something went wrong with the read-object process.
-			* Force shutdown and restart if needed.
-			*/
-			error("write_object_process: external process '%s' failed", cmd);
-			subprocess_stop(&subprocess_map, &entry->subprocess);
-			free(entry);
-		}
-	}
+	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_PUT);
 
 	trace_performance_since(start, "write_object_process");
 
@@ -654,26 +647,7 @@ static int have_object_process(struct odb_helper *o)
 done:
 	sigchain_pop(SIGPIPE);
 
-	if (err) {
-		if (!strcmp(status.buf, "error")) {
-			/* The process signaled a problem with the file. */
-		} else if (!strcmp(status.buf, "abort")) {
-			/*
-			* The process signaled a permanent problem. Don't try to read
-			* objects with the same command for the lifetime of the current
-			* Git process.
-			*/
-			entry->supported_capabilities &= ~ODB_HELPER_CAP_HAVE;
-		} else {
-			/*
-			* Something went wrong with the read-object process.
-			* Force shutdown and restart if needed.
-			*/
-			error("have_object_process: external process '%s' failed", cmd);
-			subprocess_stop(&subprocess_map, &entry->subprocess);
-			free(entry);
-		}
-	}
+	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_HAVE);
 
 	trace_performance_since(start, "have_object_process");
 
