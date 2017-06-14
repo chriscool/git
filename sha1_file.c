@@ -698,7 +698,17 @@ int check_and_freshen_file(const char *fn, int freshen)
 
 static int check_and_freshen_local(const unsigned char *sha1, int freshen)
 {
-	return check_and_freshen_file(sha1_file_name(sha1), freshen);
+	int ret;
+	int tried_hook = 0;
+
+retry:
+	ret = check_and_freshen_file(sha1_file_name(sha1), freshen);
+	if (!ret && !tried_hook) {
+		tried_hook = 1;
+		if (!external_odb_fault_in_object(sha1))
+			goto retry;
+	}
+	return ret;
 }
 
 static int check_and_freshen_nonlocal(const unsigned char *sha1, int freshen)
@@ -3000,7 +3010,9 @@ int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi,
 	int rtype;
 	enum object_type real_type;
 	const unsigned char *real = lookup_replace_object_extended(sha1, flags);
+	int tried_hook = 0;
 
+retry:
 	co = find_cached_object(real);
 	if (co) {
 		if (oi->typep)
@@ -3026,8 +3038,14 @@ int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi,
 
 		/* Not a loose object; someone else may have just packed it. */
 		reprepare_packed_git();
-		if (!find_pack_entry(real, &e))
+		if (!find_pack_entry(real, &e)) {
+			if (!tried_hook) {
+				tried_hook = 1;
+				if (!external_odb_fault_in_object(sha1))
+					goto retry;
+			}
 			return -1;
+		}
 	}
 
 	/*
@@ -3121,7 +3139,9 @@ static void *read_object(const unsigned char *sha1, enum object_type *type,
 	unsigned long mapsize;
 	void *map, *buf;
 	struct cached_object *co;
+	int tried_hook = 0;
 
+retry:
 	co = find_cached_object(sha1);
 	if (co) {
 		*type = co->type;
@@ -3139,7 +3159,14 @@ static void *read_object(const unsigned char *sha1, enum object_type *type,
 		return buf;
 	}
 	reprepare_packed_git();
-	return read_packed_sha1(sha1, type, size);
+	buf = read_packed_sha1(sha1, type, size);
+	if (!buf && !tried_hook) {
+		tried_hook = 1;
+		if (!external_odb_fault_in_object(sha1))
+			goto retry;
+	}
+
+	return buf;
 }
 
 /*
