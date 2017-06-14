@@ -782,14 +782,14 @@ int odb_helper_for_each_object(struct odb_helper *o,
 	return 0;
 }
 
-int odb_helper_write_object(struct odb_helper *o,
-			    const void *buf, unsigned long len,
-			    const char *type, unsigned char *sha1)
+int odb_helper_write_plain_object(struct odb_helper *o,
+				  const void *buf, size_t len,
+				  const char *type, unsigned char *sha1)
 {
 	struct odb_helper_cmd cmd;
 
-	if (odb_helper_start(o, &cmd, 1, "put %s %lu %s",
-			     sha1_to_hex(sha1), len, type) < 0)
+	if (odb_helper_start(o, &cmd, 1, "put %s %"PRIuMAX" %s",
+			     sha1_to_hex(sha1), (uintmax_t)len, type) < 0)
 		return -1;
 
 	do {
