@@ -678,7 +678,17 @@ int check_and_freshen_file(const char *fn, int freshen)
 
 static int check_and_freshen_local(const unsigned char *sha1, int freshen)
 {
-	return check_and_freshen_file(sha1_file_name(sha1), freshen);
+	int ret;
+	int tried_hook = 0;
+
+retry:
+	ret = check_and_freshen_file(sha1_file_name(sha1), freshen);
+	if (!ret && !tried_hook) {
+		tried_hook = 1;
+		if (!external_odb_get_direct(sha1))
+			goto retry;
+	}
+	return ret;
 }
 
 static int check_and_freshen_nonlocal(const unsigned char *sha1, int freshen)
@@ -1245,7 +1255,11 @@ int try_find_packed_entry_or_loose_object(const unsigned char *real,
 		return object_info_from_pack_entry(real, oi, blank_oi, flags, e);
 
 	/* Check if it is a missing object */
-	if (fetch_if_missing && repository_format_partial_clone && retry) {
+
+	if (retry && !external_odb_get_direct(real))
+		return try_find_packed_entry_or_loose_object(real, oi, blank_oi, flags, e, 0);
+
+	if (retry && fetch_if_missing && repository_format_partial_clone) {
 		fetch_object(repository_format_partial_clone, real);
 		return try_find_packed_entry_or_loose_object(real, oi, blank_oi, flags, e, 0);
 	}
