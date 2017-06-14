@@ -37,8 +37,8 @@ my $DIR = "../.git/";
 
 packet_initialize("git-read-object", 1);
 
-packet_read_and_check_capabilities("get");
-packet_write_capabilities("get");
+packet_read_and_check_capabilities("get_direct");
+packet_write_capabilities("get_direct");
 
 while (1) {
 	my ($res, $command) = packet_txt_read();
@@ -54,7 +54,7 @@ while (1) {
 
 		packet_txt_write("status=success");
 		packet_flush();
-	} elsif ( $command eq "get" ) {
+	} elsif ( $command eq "get_direct" ) {
 		my ($sha1) = packet_txt_read() =~ /^sha1=([0-9a-f]{40})$/;
 		packet_bin_read();
 
