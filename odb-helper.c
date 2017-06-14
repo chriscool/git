@@ -4,6 +4,187 @@
 #include "odb-helper.h"
 #include "run-command.h"
 #include "sha1-lookup.h"
+#include "sub-process.h"
+#include "pkt-line.h"
+#include "sigchain.h"
+
+struct read_object_process {
+	struct subprocess_entry subprocess;
+	unsigned int supported_capabilities;
+};
+
+static int subprocess_map_initialized;
+static struct hashmap subprocess_map;
+
+static void parse_capabilities(char *cap_buf,
+			       unsigned int *supported_capabilities,
+			       const char *process_name)
+{
+	struct string_list cap_list = STRING_LIST_INIT_NODUP;
+
+	string_list_split_in_place(&cap_list, cap_buf, '=', 1);
+
+	if (cap_list.nr == 2 && !strcmp(cap_list.items[0].string, "capability")) {
+		const char *cap_name = cap_list.items[1].string;
+
+		if (!strcmp(cap_name, "get")) {
+			*supported_capabilities |= ODB_HELPER_CAP_GET;
+		} else if (!strcmp(cap_name, "put")) {
+			*supported_capabilities |= ODB_HELPER_CAP_PUT;
+		} else if (!strcmp(cap_name, "have")) {
+			*supported_capabilities |= ODB_HELPER_CAP_HAVE;
+		} else {
+			warning("external process '%s' requested unsupported read-object capability '%s'",
+				process_name, cap_name);
+		}
+	}
+
+	string_list_clear(&cap_list, 0);
+}
+
+static int start_read_object_fn(struct subprocess_entry *subprocess)
+{
+	int err;
+	struct read_object_process *entry = (struct read_object_process *)subprocess;
+	struct child_process *process = &subprocess->process;
+	char *cap_buf;
+
+	sigchain_push(SIGPIPE, SIG_IGN);
+
+	err = packet_writel(process->in, "git-read-object-client", "version=1", NULL);
+	if (err)
+		goto done;
+
+	err = strcmp(packet_read_line(process->out, NULL), "git-read-object-server");
+	if (err) {
+		error("external process '%s' does not support read-object protocol version 1", subprocess->cmd);
+		goto done;
+	}
+	err = strcmp(packet_read_line(process->out, NULL), "version=1");
+	if (err)
+		goto done;
+	err = packet_read_line(process->out, NULL) != NULL;
+	if (err)
+		goto done;
+
+	err = packet_writel(process->in, "capability=get", NULL);
+	if (err)
+		goto done;
+
+	while ((cap_buf = packet_read_line(process->out, NULL)))
+		parse_capabilities(cap_buf, &entry->supported_capabilities, subprocess->cmd);
+
+done:
+	sigchain_pop(SIGPIPE);
+
+	return err;
+}
+
+static struct read_object_process *launch_read_object_process(const char *cmd)
+{
+	struct read_object_process *entry;
+
+	if (!subprocess_map_initialized) {
+		subprocess_map_initialized = 1;
+		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
+		entry = NULL;
+	} else {
+		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
+	}
+
+	fflush(NULL);
+
+	if (!entry) {
+		entry = xmalloc(sizeof(*entry));
+		entry->supported_capabilities = 0;
+
+		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
+			free(entry);
+			return 0;
+		}
+	}
+
+	return entry;
+}
+
+static int check_object_process_error(int err,
+				      const char *status,
+				      struct read_object_process *entry,
+				      const char *cmd,
+				      unsigned int capability)
+{
+	if (!err)
+		return;
+
+	if (!strcmp(status, "error")) {
+		/* The process signaled a problem with the file. */
+	} else if (!strcmp(status, "notfound")) {
+		/* Object was not found */
+		err = -1;
+	} else if (!strcmp(status, "abort")) {
+		/*
+		 * The process signaled a permanent problem. Don't try to read
+		 * objects with the same command for the lifetime of the current
+		 * Git process.
+		 */
+		if (capability)
+			entry->supported_capabilities &= ~capability;
+	} else {
+		/*
+		 * Something went wrong with the read-object process.
+		 * Force shutdown and restart if needed.
+		 */
+		error("external object process '%s' failed", cmd);
+		subprocess_stop(&subprocess_map, &entry->subprocess);
+		free(entry);
+	}
+
+	return err;
+}
+
+static int read_object_process(const unsigned char *sha1)
+{
+	int err;
+	struct read_object_process *entry;
+	struct child_process *process;
+	struct strbuf status = STRBUF_INIT;
+	const char *cmd = "read-object";
+	uint64_t start;
+
+	start = getnanotime();
+
+	entry = launch_read_object_process(cmd);
+	process = &entry->subprocess.process;
+
+	if (!(ODB_HELPER_CAP_GET & entry->supported_capabilities))
+		return -1;
+
+	sigchain_push(SIGPIPE, SIG_IGN);
+
+	err = packet_write_fmt_gently(process->in, "command=get\n");
+	if (err)
+		goto done;
+
+	err = packet_write_fmt_gently(process->in, "sha1=%s\n", sha1_to_hex(sha1));
+	if (err)
+		goto done;
+
+	err = packet_flush_gently(process->in);
+	if (err)
+		goto done;
+
+	subprocess_read_status(process->out, &status);
+	err = strcmp(status.buf, "success");
+
+done:
+	sigchain_pop(SIGPIPE);
+
+	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_GET);
+
+	trace_performance_since(start, "read_object_process");
+
+	return err;
+}
 
 static void parse_capabilities(char *cap_buf,
 			       unsigned int *supported_capabilities,
@@ -399,20 +580,21 @@ static int odb_helper_fetch_git_object(struct odb_helper *o,
 int odb_helper_fault_in_object(struct odb_helper *o,
 			       const unsigned char *sha1)
 {
-	struct odb_helper_object *obj;
-	struct odb_helper_cmd cmd;
+	struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
 
-	obj = odb_helper_lookup(o, sha1);
 	if (!obj)
 		return -1;
 
-	if (odb_helper_start(o, &cmd, 0, "get %s", sha1_to_hex(sha1)) < 0)
-		return -1;
-
-	if (odb_helper_finish(o, &cmd))
-		return -1;
-
-	return 0;
+	if (o->script_mode) {
+		struct odb_helper_cmd cmd;
+		if (odb_helper_start(o, &cmd, 0, "get %s", sha1_to_hex(sha1)) < 0)
+			return -1;
+		if (odb_helper_finish(o, &cmd))
+			return -1;
+		return 0;
+	} else {
+		return read_object_process(sha1);
+	}
 }
 
 int odb_helper_fetch_object(struct odb_helper *o,
