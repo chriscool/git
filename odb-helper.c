@@ -110,8 +110,11 @@ ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
 	if (!skip_prefix(size_buf, "size=", &s))
 		return error("odb helper '%s' did not send size of plain object", o->name);
 	size = strtoumax(s, NULL, 10);
-	if (!skip_prefix(packet_read_line(fd_in, NULL), "type=", &s))
-		return error("odb helper '%s' did not send type of plain object", o->name);
+	if (!skip_prefix(packet_read_line(fd_in, NULL), "kind=", &s))
+		return error("odb helper '%s' did not send kind of plain object", o->name);
+	/* Check if the object is not available */
+	if (!strcmp(s, "none"))
+		return -1;
 	type = type_from_string_gently(s, strlen(s), 1);
 	if (type < 0)
 		return error("odb helper '%s' sent bad type '%s'", o->name, s);
