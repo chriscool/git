@@ -698,7 +698,17 @@ int check_and_freshen_file(const char *fn, int freshen)
 
 static int check_and_freshen_local(const unsigned char *sha1, int freshen)
 {
-	return check_and_freshen_file(sha1_file_name(sha1), freshen);
+	int ret;
+	int tried_hook = 0;
+
+retry:
+	ret = check_and_freshen_file(sha1_file_name(sha1), freshen);
+	if (!ret && !tried_hook) {
+		tried_hook = 1;
+		if (!external_odb_fault_in_object(sha1))
+			goto retry;
+	}
+	return ret;
 }
 
 static int check_and_freshen_nonlocal(const unsigned char *sha1, int freshen)
@@ -3013,16 +3023,11 @@ static int sha1_loose_object_info(const unsigned char *sha1,
 	return (status < 0) ? status : 0;
 }
 
-int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi, unsigned flags)
+static int find_cached_or_packed(const unsigned char *sha1, struct object_info *oi,
+				 unsigned flags, struct pack_entry *e, int retry)
 {
-	struct cached_object *co;
-	struct pack_entry e;
-	int rtype;
-	const unsigned char *real = (flags & OBJECT_INFO_LOOKUP_REPLACE) ?
-				    lookup_replace_object(sha1) :
-				    sha1;
+	struct cached_object *co = find_cached_object(sha1);
 
-	co = find_cached_object(real);
 	if (co) {
 		if (oi->typep)
 			*(oi->typep) = co->type;
@@ -3040,18 +3045,36 @@ int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi,
 		return 0;
 	}
 
-	if (!find_pack_entry(real, &e)) {
+	if (!find_pack_entry(sha1, e)) {
 		/* Most likely it's a loose object. */
-		if (!sha1_loose_object_info(real, oi, flags)) {
+		if (!sha1_loose_object_info(sha1, oi, flags)) {
 			oi->whence = OI_LOOSE;
 			return 0;
 		}
 
 		/* Not a loose object; someone else may have just packed it. */
 		reprepare_packed_git();
-		if (!find_pack_entry(real, &e))
+		if (!find_pack_entry(sha1, e)) {
+			if (retry && !external_odb_fault_in_object(sha1))
+				return find_cached_or_packed(sha1, oi, flags, e, 0);
 			return -1;
+		}
 	}
+	return 1;
+}
+
+int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi, unsigned flags)
+{
+	struct pack_entry e;
+	int rtype;
+	enum object_type real_type;
+	const unsigned char *real = (flags & OBJECT_INFO_LOOKUP_REPLACE) ?
+				    lookup_replace_object(sha1) :
+				    sha1;
+
+	int res = find_cached_or_packed(real, oi, flags, &e, 1);
+	if (res < 1)
+		return res;
 
 	rtype = packed_object_info(e.p, e.offset, oi);
 	if (rtype < 0) {
