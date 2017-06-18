@@ -70,7 +70,7 @@ print $debug "init handshake complete\n";
 $debug->flush();
 
 while (1) {
-	my ( $res, $command ) = packet_required_key_val_read("command");
+	my ( $res, $command ) = packet_key_val_read("command");
 	if ( $res == -1 ) {
 		print $debug "STOP\n";
 		exit();
