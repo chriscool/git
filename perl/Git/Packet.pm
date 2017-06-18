@@ -17,7 +17,7 @@ our @EXPORT = qw(
 			packet_compare_lists
 			packet_bin_read
 			packet_txt_read
-			packet_required_key_val_read
+			packet_key_val_read
 			packet_bin_write
 			packet_txt_write
 			packet_flush
@@ -83,7 +83,8 @@ sub packet_txt_read {
 	return ( $res, $buf );
 }
 
-sub packet_required_key_val_read {
+# Read a text line and check that it is in the form "key=value"
+sub packet_key_val_read {
 	my ( $key ) = @_;
 	my ( $res, $buf ) = packet_txt_read();
 	unless ( $res == -1 or ( $buf =~ s/^$key=// and $buf ne '' ) ) {
