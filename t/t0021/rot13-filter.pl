@@ -40,23 +40,20 @@ sub packet_bin_read {
 	if ( $bytes_read == 0 ) {
 		# EOF - Git stopped talking to us!
 		return ( -1, "" );
-	}
-	elsif ( $bytes_read != 4 ) {
+	} elsif ( $bytes_read != 4 ) {
 		die "invalid packet: '$buffer'";
 	}
 	my $pkt_size = hex($buffer);
 	if ( $pkt_size == 0 ) {
 		return ( 1, "" );
-	}
-	elsif ( $pkt_size > 4 ) {
+	} elsif ( $pkt_size > 4 ) {
 		my $content_size = $pkt_size - 4;
 		$bytes_read = read STDIN, $buffer, $content_size;
 		if ( $bytes_read != $content_size ) {
 			die "invalid packet ($content_size bytes expected; $bytes_read bytes read)";
 		}
 		return ( 0, $buffer );
-	}
-	else {
+	} else {
 		die "invalid packet size: $pkt_size";
 	}
 }
@@ -64,7 +61,8 @@ sub packet_bin_read {
 sub packet_txt_read {
 	my ( $res, $buf ) = packet_bin_read();
 	unless ( $res == -1 || $buf =~ s/\n$// ) {
-		die "A non-binary line MUST be terminated by an LF.";
+		die "A non-binary line MUST be terminated by an LF.\n"
+		    . "Received: '$buf'";
 	}
 	return ( $res, $buf );
 }
@@ -85,16 +83,22 @@ sub packet_flush {
 	STDOUT->flush();
 }
 
+sub packet_initialize {
+	my ($name, $version) = @_;
+
+	( packet_txt_read() eq ( 0, $name . "-client" ) )       || die "bad initialize";
+	( packet_txt_read() eq ( 0, "version=" . $version ) )   || die "bad version";
+	( packet_bin_read() eq ( 1, "" ) )                      || die "bad version end";
+
+	packet_txt_write( $name . "-server" );
+	packet_txt_write( "version=" . $version );
+	packet_flush();
+}
+
 print $debug "START\n";
 $debug->flush();
 
-( packet_txt_read() eq ( 0, "git-filter-client" ) ) || die "bad initialize";
-( packet_txt_read() eq ( 0, "version=2" ) )         || die "bad version";
-( packet_bin_read() eq ( 1, "" ) )                  || die "bad version end";
-
-packet_txt_write("git-filter-server");
-packet_txt_write("version=2");
-packet_flush();
+packet_initialize("git-filter", 2);
 
 ( packet_txt_read() eq ( 0, "capability=clean" ) )  || die "bad capability";
 ( packet_txt_read() eq ( 0, "capability=smudge" ) ) || die "bad capability";
@@ -144,14 +148,11 @@ while (1) {
 	my $output;
 	if ( $pathname eq "error.r" or $pathname eq "abort.r" ) {
 		$output = "";
-	}
-	elsif ( $command eq "clean" and grep( /^clean$/, @capabilities ) ) {
+	} elsif ( $command eq "clean" and grep( /^clean$/, @capabilities ) ) {
 		$output = rot13($input);
-	}
-	elsif ( $command eq "smudge" and grep( /^smudge$/, @capabilities ) ) {
+	} elsif ( $command eq "smudge" and grep( /^smudge$/, @capabilities ) ) {
 		$output = rot13($input);
-	}
-	else {
+	} else {
 		die "bad command '$command'";
 	}
 
@@ -163,14 +164,12 @@ while (1) {
 		$debug->flush();
 		packet_txt_write("status=error");
 		packet_flush();
-	}
-	elsif ( $pathname eq "abort.r" ) {
+	} elsif ( $pathname eq "abort.r" ) {
 		print $debug "[ABORT]\n";
 		$debug->flush();
 		packet_txt_write("status=abort");
 		packet_flush();
-	}
-	else {
+	} else {
 		packet_txt_write("status=success");
 		packet_flush();
 
@@ -187,8 +186,7 @@ while (1) {
 			print $debug ".";
 			if ( length($output) > $MAX_PACKET_CONTENT_SIZE ) {
 				$output = substr( $output, $MAX_PACKET_CONTENT_SIZE );
-			}
-			else {
+			} else {
 				$output = "";
 			}
 		}
