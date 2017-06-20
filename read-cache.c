@@ -2425,6 +2425,14 @@ static int write_shared_index(struct index_state *istate,
 		delete_tempfile(&temporary_sharedindex);
 		return ret;
 	}
+	ret = adjust_shared_perm(temporary_sharedindex.filename.buf);
+	if (ret) {
+		int save_errno = errno;
+		error("cannot fix permission bits on %s", temporary_sharedindex.filename.buf);
+		delete_tempfile(&temporary_sharedindex);
+		errno = save_errno;
+		return ret;
+	}
 	ret = rename_tempfile(&temporary_sharedindex,
 			      git_path("sharedindex.%s", sha1_to_hex(si->base->sha1)));
 	if (!ret) {
