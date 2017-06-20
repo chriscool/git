@@ -2414,7 +2414,7 @@ static int write_shared_index(struct index_state *istate,
 	struct split_index *si = istate->split_index;
 	int fd, ret;
 
-	fd = mks_tempfile(&temporary_sharedindex, git_path("sharedindex_XXXXXX"));
+	fd = create_tempfile(&temporary_sharedindex, git_path("sharedindex_XXXXXX"));
 	if (fd < 0) {
 		hashclr(si->base_sha1);
 		return do_write_locked_index(istate, lock, flags);
