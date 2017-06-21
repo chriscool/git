@@ -370,4 +370,16 @@ test_expect_success 'check splitIndex.sharedIndexExpire set to "never" and "now"
 	test $(ls .git/sharedindex.* | wc -l) -le 2
 '
 
+test_expect_success POSIXPERM 'split index respects core.sharedrepository' '
+	git config core.sharedrepository 0666 &&
+	: >seventeen &&
+	git update-index --add seventeen &&
+	echo "-rw-rw-rw-" >expect &&
+	test_modebits .git/index >actual &&
+	test_cmp expect actual &&
+	newest_shared_index=$(ls -t .git/sharedindex.* | head -1) &&
+	test_modebits "$newest_shared_index" >actual &&
+	test_cmp expect actual
+'
+
 test_done
