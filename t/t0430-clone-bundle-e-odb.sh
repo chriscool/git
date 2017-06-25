@@ -80,9 +80,8 @@ test_expect_success 'clone using the e-odb helper to download and install the bu
 	mkdir my-clone &&
 	(cd my-clone &&
 	 git clone --no-local \
-		-c odb.magic.command="$HELPER" \
+		-c odb.magic.scriptCommand="$HELPER" \
 		-c odb.magic.fetchKind="faultin" \
-		-c odb.magic.scriptMode="true" \
 		--initial-refspec "refs/odbs/magic/*:refs/odbs/magic/*" .. .)
 '
 
