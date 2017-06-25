@@ -16,7 +16,7 @@ HELPER="read-object"
 test_expect_success 'blobs can be retrieved from the host repo' '
 	git init guest-repo &&
 	(cd guest-repo &&
-	 git config odb.magic.command "$HELPER" &&
+	 git config odb.magic.subprocessCommand "$HELPER" &&
 	 git config odb.magic.fetchKind "faultin" &&
 	 git cat-file blob "$hash1")
 '
@@ -25,6 +25,5 @@ test_expect_success 'invalid blobs generate errors' '
 	cd guest-repo &&
 	test_must_fail git cat-file blob "invalid"
 '
-
 
 test_done
