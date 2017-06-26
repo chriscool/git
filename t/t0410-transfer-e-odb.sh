@@ -16,6 +16,10 @@ die() {
 }
 GIT_DIR=$ALT_SOURCE1; export GIT_DIR
 case "$1" in
+get_cap)
+	echo "capability=get"
+	echo "capability=have"
+	;;
 have)
 	git cat-file --batch-check --batch-all-objects |
 	awk '{print $1 " " $3 " " $2}'
@@ -51,6 +55,10 @@ die() {
 }
 GIT_DIR=$ALT_SOURCE2; export GIT_DIR
 case "$1" in
+init)
+	echo "capability=get"
+	echo "capability=have"
+	;;
 have)
 	GIT_DIR=$OTHER_SOURCE git for-each-ref --format='%(objectname)' refs/odbs/magic/ | GIT_DIR=$OTHER_SOURCE xargs git show
 	;;
