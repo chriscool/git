@@ -22,7 +22,7 @@ die() {
 }
 echo >&2 "odb-http-helper args:" "$@"
 case "$1" in
-get_cap)
+init)
 	echo "capability=get"
 	echo "capability=have"
 	;;
