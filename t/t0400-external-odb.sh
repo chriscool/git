@@ -13,7 +13,7 @@ die() {
 }
 GIT_DIR=$ALT_SOURCE; export GIT_DIR
 case "$1" in
-get_cap)
+init)
 	echo "capability=get"
 	echo "capability=have"
 	;;
