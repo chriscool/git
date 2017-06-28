@@ -9,43 +9,42 @@ use Git::Packet;
 use LWP::UserAgent;
 use HTTP::Request::Common;
 
-print STDERR "read-object-plain: starting\n";
-
 packet_initialize("git-read-object", 1);
-
-print STDERR "read-object-plain: after init\n";
 
 packet_read_and_check_capabilities("get", "put");
 packet_write_capabilities("get", "put");
 
-print STDERR "read-object-plain: after reading and writing get capability\n";
-
 my $http_url = $ENV{HTTPD_URL};
 
 while (1) {
-	my ($command) = packet_txt_read() =~ /^command=([^=]+)$/;
+	my ($res, $command) = packet_txt_read();
 
-	print STDERR "read-object-plain: command: '$command'\n";
+	if ( $res == -1 ) {
+		exit 0;
+	}
 
-	if ( $command eq "get" ) {
+	$command =~ s/^command=//;
+
+	if ( $command eq "init" ) {
+		packet_bin_read();
+
+		packet_txt_write("status=success");
+		packet_flush();
+	} elsif ( $command eq "get" ) {
 		my ($sha1) = packet_txt_read() =~ /^sha1=([0-9a-f]{40})$/;
 		packet_bin_read();
 
 		my $get_url = $http_url . "/list/?sha1=" . $sha1;
-		print STDERR "read-object-plain: get_url: '$get_url'\n";
 
 		my $userAgent = LWP::UserAgent->new();
 
 		my $response = $userAgent->get( $get_url );
 
 		if ($response->is_error) {
-		    print STDERR $response->error_as_HTML . "\n";
 		    packet_txt_write("size=0");
 		    packet_txt_write("kind=none");	    
 		    packet_txt_write("status=notfound");
 		} else {
-		    print STDERR "content: \n";
-		    print STDERR $response->content;
 		    packet_txt_write("size=" . length($response->content));
 		    packet_txt_write("kind=blob");
 		    packet_bin_write($response->content);
@@ -56,14 +55,8 @@ while (1) {
 		packet_flush();
 	} elsif ( $command eq "put" ) {
 		my ($sha1) = packet_txt_read() =~ /^sha1=([0-9a-f]{40})$/;
-		print STDERR "read-object-plain: put sha1: '$sha1'\n";
-
 		my ($size) = packet_txt_read() =~ /^size=([0-9]+)$/;
-		print STDERR "read-object-plain: put size: '$size'\n";
-
 		my ($kind) = packet_txt_read() =~ /^kind=(\w+)$/;
-		print STDERR "read-object-plain: put kind: '$kind'\n";
-
 		packet_bin_read();
 
 		# We must read the content we are sent and send it to the right url
@@ -72,8 +65,6 @@ while (1) {
 		( packet_bin_read() eq ( 1, "" ) ) || die "bad send end";		
 
 		my $upload_url = $http_url . "/upload/?sha1=" . $sha1 . "&size=" . $size . "&type=blob";
-		print STDERR "read-object-plain: upload_url: '$upload_url'\n";
-		print STDERR "read-object-plain: upload buffer: '$buf'\n";
 
 		my $userAgent = LWP::UserAgent->new();
 		my $request = POST $upload_url, Content_Type => 'multipart/form-data', Content => $buf;
@@ -81,7 +72,6 @@ while (1) {
 		my $response = $userAgent->request($request);
 
 		if ($response->is_error) {
-			print STDERR $response->error_as_HTML . "\n";
 			packet_txt_write("status=failure");
 		} else {
 			packet_txt_write("status=success");
