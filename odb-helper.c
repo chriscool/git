@@ -337,6 +337,44 @@ static ssize_t read_packetized_git_object_to_fd(struct odb_helper *o,
 	return total_read;
 }
 
+static int init_object_process(struct odb_helper *o)
+{
+	int err;
+	struct read_object_process *entry;
+	struct child_process *process;
+	struct strbuf status = STRBUF_INIT;
+	const char *cmd = o->cmd;
+	uint64_t start;
+
+	start = getnanotime();
+
+	entry = launch_read_object_process(cmd);
+	process = &entry->subprocess.process;
+	o->supported_capabilities = entry->supported_capabilities;
+
+	sigchain_push(SIGPIPE, SIG_IGN);
+
+	err = packet_write_fmt_gently(process->in, "command=init\n");
+	if (err)
+		goto done;
+
+	err = packet_flush_gently(process->in);
+	if (err)
+		goto done;
+
+	subprocess_read_status(process->out, &status);
+	err = strcmp(status.buf, "success");
+
+done:
+	sigchain_pop(SIGPIPE);
+
+	err = check_object_process_error(err, status.buf, entry, cmd, 0);
+
+	trace_performance_since(start, "init_object_process");
+
+	return err;
+}
+
 static int read_object_process(struct odb_helper *o, const unsigned char *sha1, int fd)
 {
 	int err;
@@ -526,19 +564,20 @@ int odb_helper_init(struct odb_helper *o)
 	FILE *fh;
 	struct strbuf line = STRBUF_INIT;
 
-	if (!o->script_mode)
-		return 0;
+	if (o->script_mode) {
+		if (odb_helper_start(o, &cmd, 0, "init") < 0)
+			return -1;
 
-	if (odb_helper_start(o, &cmd, 0, "init") < 0)
-		return -1;
+		fh = xfdopen(cmd.child.out, "r");
+		while (strbuf_getline(&line, fh) != EOF)
+			parse_capabilities(line.buf, &o->supported_capabilities, o->name);
 
-	fh = xfdopen(cmd.child.out, "r");
-	while (strbuf_getline(&line, fh) != EOF)
-		parse_capabilities(line.buf, &o->supported_capabilities, o->name);
-
-	strbuf_release(&line);
-	fclose(fh);
-	odb_helper_finish(o, &cmd);
+		strbuf_release(&line);
+		fclose(fh);
+		odb_helper_finish(o, &cmd);
+	} else {
+		return init_object_process(o);
+	}
 
 	return 0;
 }
