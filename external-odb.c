@@ -36,26 +36,24 @@ static enum odb_helper_fetch_kind parse_fetch_kind(const char *key,
 static int external_odb_config(const char *var, const char *value, void *data)
 {
 	struct odb_helper *o;
-	const char *key, *dot;
+	const char *name;
+	int namelen;
+	const char *subkey;
 
-	if (!skip_prefix(var, "odb.", &key))
+	if (parse_config_key(var, "odb", &name, &namelen, &subkey) < 0)
 		return 0;
-	dot = strrchr(key, '.');
-	if (!dot)
-		return 0;
 
-	o = find_or_create_helper(key, dot - key);
-	key = dot + 1;
+	o = find_or_create_helper(name, namelen);
 
-	if (!strcmp(key, "scriptcommand")) {
+	if (!strcmp(subkey, "scriptcommand")) {
 		o->script_mode = 1;
 		return git_config_string(&o->cmd, var, value);
 	}
-	if (!strcmp(key, "subprocesscommand")) {
+	if (!strcmp(subkey, "subprocesscommand")) {
 		o->script_mode = 0;
 		return git_config_string(&o->cmd, var, value);
 	}
-	if (!strcmp(key, "fetchkind")) {
+	if (!strcmp(subkey, "fetchkind")) {
 		const char *fetch_kind;
 		int ret = git_config_string(&fetch_kind, var, value);
 		if (!ret) {
