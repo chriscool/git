@@ -14,14 +14,14 @@ die() {
 GIT_DIR=$ALT_SOURCE; export GIT_DIR
 case "$1" in
 init)
-	echo "capability=get"
+	echo "capability=get_git_obj"
 	echo "capability=have"
 	;;
 have)
 	git cat-file --batch-check --batch-all-objects |
 	awk '{print $1 " " $3 " " $2}'
 	;;
-get)
+get_git_obj)
 	cat "$GIT_DIR"/objects/$(echo $2 | sed 's#..#&/#')
 	;;
 put)
@@ -53,6 +53,7 @@ test_expect_success 'alt objects are missing' '
 
 test_expect_success 'helper can retrieve alt objects' '
 	test_config odb.magic.scriptCommand "$HELPER" &&
+	test_config odb.magic.fetchKind "gitObject" &&
 	cat >expect <<-\EOF &&
 	two
 	one
@@ -72,6 +73,7 @@ test_expect_success 'helper can add objects to alt repo' '
 
 test_expect_success 'commit adds objects to alt repo' '
 	test_config odb.magic.scriptCommand "$HELPER" &&
+	test_config odb.magic.fetchKind "gitObject" &&
 	test_commit three &&
 	hash3=$(git ls-tree HEAD | grep three.t | cut -f1 | cut -d\  -f3) &&
 	content=$(cd alt-repo && git show "$hash3") &&
