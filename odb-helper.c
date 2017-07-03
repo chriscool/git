@@ -340,8 +340,22 @@ int odb_helper_get_direct(struct odb_helper *o,
 	int res = 0;
 	uint64_t start = getnanotime();
 
-	if (o->type == ODB_HELPER_GIT_REMOTE)
+	if (o->type == ODB_HELPER_GIT_REMOTE) {
 		res = fetch_objects(o->remote, oids, oid_nr);
+	} else {
+		struct odb_helper_object *obj;
+		struct odb_helper_cmd cmd;
+
+		obj = odb_helper_lookup(o, oids[0].hash);
+		if (!obj)
+			return -1;
+
+		if (odb_helper_start(o, &cmd, "get_direct %s", oid_to_hex(&oids[0])) < 0)
+			return -1;
+
+		if (odb_helper_finish(o, &cmd))
+			return -1;
+	}
 
 	trace_performance_since(start, "odb_helper_get_direct");
 
