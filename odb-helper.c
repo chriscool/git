@@ -336,10 +336,25 @@ int odb_helper_get_object(struct odb_helper *o, const unsigned char *sha1,
 int odb_helper_get_direct(struct odb_helper *o,
 			  const unsigned char *sha1)
 {
-	int res;
+	int res = 0;
 	uint64_t start = getnanotime();
 
-	res = fetch_object(o->dealer, sha1);
+	if (o->type == ODB_HELPER_GIT_REMOTE) {
+		res = fetch_object(o->dealer, sha1);
+	} else {
+		struct odb_helper_object *obj;
+		struct odb_helper_cmd cmd;
+
+		obj = odb_helper_lookup(o, sha1);
+		if (!obj)
+			return -1;
+
+		if (odb_helper_start(o, &cmd, "get_direct %s", sha1_to_hex(sha1)) < 0)
+			return -1;
+
+		if (odb_helper_finish(o, &cmd))
+			return -1;
+	}
 
 	trace_performance_since(start, "odb_helper_get_direct");
 
