@@ -14,7 +14,7 @@ die() {
 GIT_DIR=$ALT_SOURCE; export GIT_DIR
 case "$1" in
 init)
-	echo "capability=get_raw_obj"
+	echo "capability=get_git_obj"
 	echo "capability=put_raw_obj"
 	echo "capability=have"
 	;;
@@ -54,6 +54,7 @@ test_expect_success 'alt objects are missing' '
 
 test_expect_success 'helper can retrieve alt objects' '
 	test_config odb.magic.scriptCommand "$HELPER" &&
+	test_config odb.magic.fetchKind "gitObject" &&
 	cat >expect <<-\EOF &&
 	two
 	one
@@ -73,6 +74,7 @@ test_expect_success 'helper can add objects to alt repo' '
 
 test_expect_success 'commit adds objects to alt repo' '
 	test_config odb.magic.scriptCommand "$HELPER" &&
+	test_config odb.magic.fetchKind "gitObject" &&
 	test_commit three &&
 	hash3=$(git ls-tree HEAD | grep three.t | cut -f1 | cut -d\  -f3) &&
 	content=$(cd alt-repo && git show "$hash3") &&
