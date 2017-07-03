@@ -46,8 +46,7 @@ extern int odb_helper_get_object(struct odb_helper *o,
 				 const unsigned char *sha1,
 				 int fd);
 extern int odb_helper_get_direct(struct odb_helper *o,
-				 const unsigned char *sha1,
-				 int fd);
+				 const unsigned char *sha1);
 extern int odb_helper_put_object(struct odb_helper *o,
 				 const void *buf, size_t len,
 				 const char *type, unsigned char *sha1);
