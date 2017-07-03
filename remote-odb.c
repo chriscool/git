@@ -163,7 +163,8 @@ int remote_odb_get_object(const unsigned char *sha1)
 		int ret;
 		int fd;
 
-		if (!odb_helper_has_object(o, sha1))
+		if (!(o->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ) &&
+		    !(o->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ))
 			continue;
 
 		fd = create_object_tmpfile(&tmpfile, pathbuf.buf);
