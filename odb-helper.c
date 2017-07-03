@@ -427,27 +427,44 @@ static int odb_helper_get_git_object(struct odb_helper *o,
 }
 
 int odb_helper_get_direct(struct odb_helper *o,
-			  const unsigned char *sha1,
-			  int fd)
+			  const unsigned char *sha1)
 {
-	int res = 0;
 	uint64_t start = getnanotime();
 
-	fetch_object(o->cmd, sha1);
+	if (o->type == ODB_HELPER_GIT_REMOTE) {
+		fetch_object(o->cmd, sha1);
+	} else {
+		struct odb_helper_object *obj;
+		struct odb_helper_cmd cmd;
+
+		obj = odb_helper_lookup(o, sha1);
+		if (!obj)
+			return -1;
+
+		if (odb_helper_start(o, &cmd, 0, "get_direct %s", sha1_to_hex(sha1)) < 0)
+			return -1;
+
+		if (odb_helper_finish(o, &cmd))
+			return -1;
+	}
 
 	trace_performance_since(start, "odb_helper_get_direct");
 
-	return res;
+	return 0;
 }
 
 int odb_helper_get_object(struct odb_helper *o,
 			  const unsigned char *sha1,
 			  int fd)
 {
+	if (o->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
+		return odb_helper_get_git_object(o, sha1, fd);
 	if (o->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ)
 		return odb_helper_get_raw_object(o, sha1, fd);
-	else
-		return odb_helper_get_git_object(o, sha1, fd);
+	if (o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)
+		return 0;
+
+	BUG("invalid get capability (capabilities: '%d')", o->supported_capabilities);
 }
 
 int odb_helper_put_object(struct odb_helper *o,
