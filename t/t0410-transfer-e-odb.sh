@@ -17,14 +17,14 @@ die() {
 GIT_DIR=$ALT_SOURCE1; export GIT_DIR
 case "$1" in
 init)
-	echo "capability=get"
+	echo "capability=get_git_obj"
 	echo "capability=have"
 	;;
 have)
 	git cat-file --batch-check --batch-all-objects |
 	awk '{print $1 " " $3 " " $2}'
 	;;
-get)
+get_git_obj)
 	cat "$GIT_DIR"/objects/$(echo $2 | sed 's#..#&/#')
 	;;
 put)
@@ -56,13 +56,13 @@ die() {
 GIT_DIR=$ALT_SOURCE2; export GIT_DIR
 case "$1" in
 init)
-	echo "capability=get"
+	echo "capability=get_git_obj"
 	echo "capability=have"
 	;;
 have)
 	GIT_DIR=$OTHER_SOURCE git for-each-ref --format='%(objectname)' refs/odbs/magic/ | GIT_DIR=$OTHER_SOURCE xargs git show
 	;;
-get)
+get_git_obj)
 	OBJ_FILE="$GIT_DIR"/objects/$(echo $2 | sed 's#..#&/#')
 	if ! test -f "$OBJ_FILE"
 	then
@@ -97,7 +97,8 @@ HELPER2="\"$PWD\"/odb-helper2"
 test_expect_success 'setup first alternate repo' '
 	git init alt-repo1 &&
 	test_commit zero &&
-	git config odb.magic.scriptCommand "$HELPER1"
+	git config odb.magic.scriptCommand "$HELPER1" &&
+	git config odb.magic.fetchKind "gitObject"
 '
 
 test_expect_success 'setup other repo and its alternate repo' '
@@ -127,6 +128,7 @@ test_expect_success 'other repo gets the blobs from object store' '
 	 test_must_fail git cat-file blob "$hash1" &&
 	 test_must_fail git cat-file blob "$hash2" &&
 	 git config odb.magic.scriptCommand "$HELPER2" &&
+	 git config odb.magic.fetchKind "gitObject"
 	 git cat-file blob "$hash1" &&
 	 git cat-file blob "$hash2"
 	)
