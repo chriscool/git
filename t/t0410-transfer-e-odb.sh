@@ -27,7 +27,7 @@ have)
 get_git_obj)
 	cat "$GIT_DIR"/objects/$(echo $2 | sed 's#..#&/#')
 	;;
-put)
+put_raw_obj)
 	sha1="$2"
 	size="$3"
 	kind="$4"
@@ -78,7 +78,7 @@ get_git_obj)
 	fi
 	cat "$OBJ_FILE" || die "Could not cat '$OBJ_FILE'"
 	;;
-put)
+put_raw_obj)
 	sha1="$2"
 	size="$3"
 	kind="$4"
