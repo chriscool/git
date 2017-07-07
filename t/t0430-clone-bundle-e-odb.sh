@@ -23,7 +23,6 @@ die() {
 echo >&2 "odb-clone-bundle-helper args:" "$@"
 case "$1" in
 init)
-	echo "capability=get"
 	echo "capability=have"
 	;;
 have)
@@ -38,11 +37,11 @@ have)
 	GIT_NO_EXTERNAL_ODB=1 git bundle unbundle bundle_file >unbundling_info ||
 	die "unbundling 'bundle_file' failed"
 	;;
-get)
-	die "odb-clone-bundle-helper 'get' called"
+get*)
+	die "odb-clone-bundle-helper '$1' called"
 	;;
-put)
-	die "odb-clone-bundle-helper 'put' called"
+put*)
+	die "odb-clone-bundle-helper '$1' called"
 	;;
 *)
 	die "unknown command '$1'"
