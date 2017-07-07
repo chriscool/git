@@ -36,7 +36,7 @@ get_raw_obj)
 	curl "$get_url" ||
 	die "curl '$get_url' failed"
 	;;
-put)
+put_raw_obj)
 	sha1="$2"
 	size="$3"
 	kind="$4"
