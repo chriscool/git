@@ -24,7 +24,7 @@ have)
 get_git_obj)
 	cat "$GIT_DIR"/objects/$(echo $2 | sed 's#..#&/#')
 	;;
-put)
+put_raw_obj)
 	sha1="$2"
 	size="$3"
 	kind="$4"
@@ -66,7 +66,7 @@ test_expect_success 'helper can add objects to alt repo' '
 	hash=$(echo "Hello odb!" | git hash-object -w -t blob --stdin) &&
 	test -f .git/objects/$(echo $hash | sed "s#..#&/#") &&
 	size=$(git cat-file -s "$hash") &&
-	git cat-file blob "$hash" | ./odb-helper put "$hash" "$size" blob &&
+	git cat-file blob "$hash" | ./odb-helper put_raw_obj "$hash" "$size" blob &&
 	alt_size=$(cd alt-repo && git cat-file -s "$hash") &&
 	test "$size" -eq "$alt_size"
 '
