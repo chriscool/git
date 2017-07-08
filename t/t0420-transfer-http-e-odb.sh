@@ -23,7 +23,7 @@ die() {
 echo >&2 "odb-http-helper args:" "$@"
 case "$1" in
 init)
-	echo "capability=get"
+	echo "capability=get_raw_obj"
 	echo "capability=have"
 	;;
 have)
@@ -31,7 +31,7 @@ have)
 	curl "$list_url" ||
 	die "curl '$list_url' failed"
 	;;
-get)
+get_raw_obj)
 	get_url="$HTTPD_URL/list/?sha1=$2"
 	curl "$get_url" ||
 	die "curl '$get_url' failed"
