@@ -51,6 +51,7 @@ build_git_rev () {
 		then
 			sh -c "$GIT_PERF_MAKE_COMMAND"
 		else
+			echo >&2 "making using: 'make $GIT_PERF_MAKE_OPTS'"
 			make $GIT_PERF_MAKE_OPTS
 		fi
 	) || die "failed to build revision '$mydir'"
@@ -118,6 +119,9 @@ set -- $GIT_PERF_DIRS_OR_REVS "$@"
 
 get_var_from_env_or_config "GIT_PERF_MAKE_COMMAND" "perf.makeCommand"
 get_var_from_env_or_config "GIT_PERF_MAKE_OPTS" "perf.makeOpts"
+
+echo >&2 "GIT_PERF_MAKE_COMMAND: '$GIT_PERF_MAKE_COMMAND'"
+echo >&2 "GIT_PERF_MAKE_OPTS: '$GIT_PERF_MAKE_OPTS'"
 
 GIT_PERF_AGGREGATING_LATER=t
 export GIT_PERF_AGGREGATING_LATER
