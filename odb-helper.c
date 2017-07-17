@@ -114,7 +114,7 @@ static struct read_object_process *launch_read_object_process(const char *cmd)
 
 		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
 			free(entry);
-			return 0;
+			return NULL;
 		}
 	}
 
@@ -168,6 +168,8 @@ static int init_object_process(struct odb_helper *o)
 	start = getnanotime();
 
 	entry = launch_read_object_process(cmd);
+	if (!entry)
+		die("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
@@ -399,6 +401,8 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 	start = getnanotime();
 
 	entry = launch_read_object_process(cmd);
+	if (!entry)
+		die("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
@@ -460,6 +464,8 @@ static int write_object_process(struct odb_helper *o,
 	start = getnanotime();
 
 	entry = launch_read_object_process(cmd);
+	if (!entry)
+		die("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
@@ -658,6 +664,8 @@ static int have_object_process(struct odb_helper *o)
 	start = getnanotime();
 
 	entry = launch_read_object_process(cmd);
+	if (!entry)
+		die("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
