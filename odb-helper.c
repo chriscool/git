@@ -464,6 +464,8 @@ static int write_object_process(struct odb_helper *o,
 	start = getnanotime();
 
 	entry = launch_read_object_process(cmd);
+	if (!entry)
+		return error("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
@@ -662,6 +664,8 @@ static int have_object_process(struct odb_helper *o)
 	start = getnanotime();
 
 	entry = launch_read_object_process(cmd);
+	if (!entry)
+		return error("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
