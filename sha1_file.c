@@ -1759,6 +1759,9 @@ static int stat_sha1_file(const unsigned char *sha1, struct stat *st,
 			return 0;
 	}
 
+	if (!external_odb_fetch_object(sha1) && !lstat(*path, st))
+		return 0;
+
 	return -1;
 }
 
