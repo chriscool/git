@@ -169,7 +169,7 @@ static int init_object_process(struct odb_helper *o)
 
 	entry = launch_read_object_process(cmd);
 	if (!entry)
-		die("Could not launch process for cmd '%s'", cmd);
+		return error("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
@@ -402,7 +402,7 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 
 	entry = launch_read_object_process(cmd);
 	if (!entry)
-		die("Could not launch process for cmd '%s'", cmd);
+		return error("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
@@ -465,7 +465,7 @@ static int write_object_process(struct odb_helper *o,
 
 	entry = launch_read_object_process(cmd);
 	if (!entry)
-		die("Could not launch process for cmd '%s'", cmd);
+		return error("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
@@ -665,7 +665,7 @@ static int have_object_process(struct odb_helper *o)
 
 	entry = launch_read_object_process(cmd);
 	if (!entry)
-		die("Could not launch process for cmd '%s'", cmd);
+		return error("Could not launch process for cmd '%s'", cmd);
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
