@@ -100,7 +100,7 @@ static struct read_object_process *launch_read_object_process(const char *cmd)
 
 	if (!subprocess_map_initialized) {
 		subprocess_map_initialized = 1;
-		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, 0);
+		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, NULL, 0);
 		entry = NULL;
 	} else {
 		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
