@@ -152,6 +152,19 @@ static int check_object_process_error(int err,
 	return err;
 }
 
+static int send_init_packets(struct child_process *process,
+			     struct strbuf *status)
+{
+	int err = packet_write_fmt_gently(process->in, "command=init\n") ||
+		packet_flush_gently(process->in);
+
+	if (!err) {
+		subprocess_read_status(process->out, status);
+		err = strcmp(status->buf, "success");
+	}
+	return err;
+}
+
 static int init_object_process(struct odb_helper *o)
 {
 	int err;
@@ -171,18 +184,8 @@ static int init_object_process(struct odb_helper *o)
 
 	sigchain_push(SIGPIPE, SIG_IGN);
 
-	err = packet_write_fmt_gently(process->in, "command=init\n");
-	if (err)
-		goto done;
+	err = send_init_packets(process, &status);
 
-	err = packet_flush_gently(process->in);
-	if (err)
-		goto done;
-
-	subprocess_read_status(process->out, &status);
-	err = strcmp(status.buf, "success");
-
-done:
 	sigchain_pop(SIGPIPE);
 
 	err = check_object_process_error(err, status.buf, entry, cmd, 0);
@@ -383,6 +386,52 @@ static ssize_t read_packetized_git_object_to_fd(struct odb_helper *o,
 	return total_read;
 }
 
+static int send_read_packets(struct odb_helper *o,
+			     struct read_object_process *entry,
+			     struct child_process *process,
+			     const unsigned char *sha1,
+			     int fd,
+			     unsigned int *cur_cap,
+			     struct strbuf *status)
+{
+	const char *instruction;
+	int err = 0;
+
+	if (entry->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ) {
+		*cur_cap = ODB_HELPER_CAP_GET_GIT_OBJ;
+		instruction = "get_git_obj";
+	} else if (entry->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ) {
+		*cur_cap = ODB_HELPER_CAP_GET_RAW_OBJ;
+		instruction = "get_raw_obj";
+	} else if (entry->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT) {
+		*cur_cap = ODB_HELPER_CAP_GET_DIRECT;
+		instruction = "get_direct";
+	} else {
+		BUG("No known ODB_HELPER_CAP_GET_XXX capability!");
+	}
+
+	err = packet_write_fmt_gently(process->in, "command=%s\n", instruction);
+	if (err)
+		return err;
+
+	err = packet_write_fmt_gently(process->in, "sha1=%s\n", sha1_to_hex(sha1));
+	if (err)
+		return err;
+
+	err = packet_flush_gently(process->in);
+	if (err)
+		return err;
+
+	if (entry->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ)
+		err = read_packetized_plain_object_to_fd(o, sha1, process->out, fd) < 0;
+	else if (entry->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
+		err = read_packetized_git_object_to_fd(o, sha1, process->out, fd) < 0;
+
+	subprocess_read_status(process->out, status);
+
+	return strcmp(status->buf, "success");
+}
+
 static int read_object_process(struct odb_helper *o, const unsigned char *sha1, int fd)
 {
 	int err;
@@ -390,9 +439,8 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 	struct child_process *process;
 	struct strbuf status = STRBUF_INIT;
 	const char *cmd = o->cmd;
-	const char *instruction;
-	unsigned int cur_get_cap;
 	uint64_t start;
+	unsigned int cur_cap = 0;
 
 	start = getnanotime();
 
@@ -402,44 +450,13 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 	process = &entry->subprocess.process;
 	o->supported_capabilities = entry->supported_capabilities;
 
-	if (entry->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ) {
-		cur_get_cap = ODB_HELPER_CAP_GET_GIT_OBJ;
-		instruction = "get_git_obj";
-	} else if (entry->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ) {
-		cur_get_cap = ODB_HELPER_CAP_GET_RAW_OBJ;
-		instruction = "get_raw_obj";
-	} else if (entry->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT) {
-		cur_get_cap = ODB_HELPER_CAP_GET_DIRECT;
-		instruction = "get_direct";
-	} else
-		return -1;
-
 	sigchain_push(SIGPIPE, SIG_IGN);
 
-	err = packet_write_fmt_gently(process->in, "command=%s\n", instruction);
-	if (err)
-		goto done;
+	err = send_read_packets(o, entry, process, sha1, fd, &cur_cap, &status);
 
-	err = packet_write_fmt_gently(process->in, "sha1=%s\n", sha1_to_hex(sha1));
-	if (err)
-		goto done;
-
-	err = packet_flush_gently(process->in);
-	if (err)
-		goto done;
-
-	if (entry->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ)
-		err = read_packetized_plain_object_to_fd(o, sha1, process->out, fd) < 0;
-	else if (entry->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
-		err = read_packetized_git_object_to_fd(o, sha1, process->out, fd) < 0;
-
-	subprocess_read_status(process->out, &status);
-	err = strcmp(status.buf, "success");
-
-done:
 	sigchain_pop(SIGPIPE);
 
-	err = check_object_process_error(err, status.buf, entry, cmd, cur_get_cap);
+	err = check_object_process_error(err, status.buf, entry, cmd, cur_cap);
 
 	trace_performance_since(start, "read_object_process");
 
