@@ -49,6 +49,33 @@ static void parse_capabilities(char *cap_buf,
 	string_list_clear(&cap_list, 0);
 }
 
+static int send_start_packets(struct child_process *process, const char *cmd)
+{
+	int err = packet_writel(process->in, "git-read-object-client", "version=1", NULL);
+	if (err)
+		return err;
+
+	err = strcmp(packet_read_line(process->out, NULL), "git-read-object-server");
+	if (err) {
+		error("external process '%s' does not support read-object protocol version 1", cmd);
+		return err;
+	}
+	err = strcmp(packet_read_line(process->out, NULL), "version=1");
+	if (err)
+		return err;
+	err = packet_read_line(process->out, NULL) != NULL;
+	if (err)
+		return err;
+
+	return packet_writel(process->in,
+			     "capability=get_git_obj",
+			     "capability=get_raw_obj",
+			     "capability=get_direct",
+			     "capability=put_raw_obj",
+			     "capability=have",
+			     NULL);
+}
+
 static int start_read_object_fn(struct subprocess_entry *subprocess)
 {
 	int err;
@@ -58,36 +85,12 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 
 	sigchain_push(SIGPIPE, SIG_IGN);
 
-	err = packet_writel(process->in, "git-read-object-client", "version=1", NULL);
-	if (err)
-		goto done;
+	err = send_start_packets(process, subprocess->cmd);
 
-	err = strcmp(packet_read_line(process->out, NULL), "git-read-object-server");
-	if (err) {
-		error("external process '%s' does not support read-object protocol version 1", subprocess->cmd);
-		goto done;
-	}
-	err = strcmp(packet_read_line(process->out, NULL), "version=1");
-	if (err)
-		goto done;
-	err = packet_read_line(process->out, NULL) != NULL;
-	if (err)
-		goto done;
+	if (!err)
+		while ((cap_buf = packet_read_line(process->out, NULL)))
+			parse_capabilities(cap_buf, &entry->supported_capabilities, subprocess->cmd);
 
-	err = packet_writel(process->in,
-			    "capability=get_git_obj",
-			    "capability=get_raw_obj",
-			    "capability=get_direct",
-			    "capability=put_raw_obj",
-			    "capability=have",
-			    NULL);
-	if (err)
-		goto done;
-
-	while ((cap_buf = packet_read_line(process->out, NULL)))
-		parse_capabilities(cap_buf, &entry->supported_capabilities, subprocess->cmd);
-
-done:
 	sigchain_pop(SIGPIPE);
 
 	return err;
