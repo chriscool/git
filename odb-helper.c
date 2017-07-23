@@ -93,7 +93,7 @@ done:
 	return err;
 }
 
-static struct read_object_process *launch_read_object_process(const char *cmd)
+static struct read_object_process *launch_read_object_process(const char *cmd, unsigned int capability)
 {
 	struct read_object_process *entry = NULL;
 
@@ -109,10 +109,18 @@ static struct read_object_process *launch_read_object_process(const char *cmd)
 		entry->supported_capabilities = 0;
 
 		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
+			error("Could not launch process for cmd '%s'", cmd);
 			free(entry);
 			return NULL;
 		}
 	}
+
+	if (capability && !(capability & entry->supported_capabilities)) {
+		error("The cmd '%s' does not support capability '%d'", cmd, capability);
+		return NULL;
+	}
+
+	sigchain_push(SIGPIPE, SIG_IGN);
 
 	return entry;
 }
@@ -123,8 +131,10 @@ static int check_object_process_error(int err,
 				      const char *cmd,
 				      unsigned int capability)
 {
+	sigchain_pop(SIGPIPE);
+
 	if (!err)
-		return;
+		return 0;
 
 	if (!strcmp(status, "error")) {
 		/* The process signaled a problem with the file. */
@@ -177,16 +187,12 @@ static int init_object_process(struct odb_helper *o)
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(cmd);
+	entry = launch_read_object_process(cmd, 0);
 	if (!entry)
-		return error("Could not launch process for cmd '%s'", cmd);
+		return -1;
 	o->supported_capabilities = entry->supported_capabilities;
 
-	sigchain_push(SIGPIPE, SIG_IGN);
-
 	err = send_init_packets(entry, &status);
-
-	sigchain_pop(SIGPIPE);
 
 	err = check_object_process_error(err, status.buf, entry, cmd, 0);
 
@@ -443,16 +449,12 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(cmd);
+	entry = launch_read_object_process(cmd, 0);
 	if (!entry)
-		return error("Could not launch process for cmd '%s'", cmd);
+		return -1;
 	o->supported_capabilities = entry->supported_capabilities;
 
-	sigchain_push(SIGPIPE, SIG_IGN);
-
 	err = send_read_packets(o, entry, sha1, fd, &cur_cap, &status);
-
-	sigchain_pop(SIGPIPE);
 
 	err = check_object_process_error(err, status.buf, entry, cmd, cur_cap);
 
@@ -509,19 +511,12 @@ static int write_object_process(struct odb_helper *o,
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(cmd);
+	entry = launch_read_object_process(cmd, ODB_HELPER_CAP_PUT_RAW_OBJ);
 	if (!entry)
-		return error("Could not launch process for cmd '%s'", cmd);
+		return -1;
 	o->supported_capabilities = entry->supported_capabilities;
 
-	if (!(ODB_HELPER_CAP_PUT_RAW_OBJ & entry->supported_capabilities))
-		return -1;
-
-	sigchain_push(SIGPIPE, SIG_IGN);
-
 	err = send_write_packets(entry, sha1, buf, len, &status);
-
-	sigchain_pop(SIGPIPE);
 
 	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_PUT_RAW_OBJ);
 
@@ -728,19 +723,12 @@ static int have_object_process(struct odb_helper *o)
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(cmd);
+	entry = launch_read_object_process(cmd, ODB_HELPER_CAP_HAVE);
 	if (!entry)
-		return error("Could not launch process for cmd '%s'", cmd);
+		return -1;
 	o->supported_capabilities = entry->supported_capabilities;
 
-	if (!(ODB_HELPER_CAP_HAVE & entry->supported_capabilities))
-		return -1;
-
-	sigchain_push(SIGPIPE, SIG_IGN);
-
 	err = send_have_packets(o, entry, &status);
-
-	sigchain_pop(SIGPIPE);
 
 	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_HAVE);
 
