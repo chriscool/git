@@ -494,7 +494,7 @@ static int write_object_process(struct odb_helper *o,
 	struct object_process *entry;
 	struct strbuf status = STRBUF_INIT;
 
-	entry = launch_read_object_process(o, ODB_HELPER_CAP_PUT_RAW_OBJ);
+	entry = launch_object_process(o, ODB_HELPER_CAP_PUT_RAW_OBJ);
 	if (!entry)
 		return -1;
 
@@ -710,7 +710,7 @@ static int have_object_process(struct odb_helper *o)
 	struct object_process *entry;
 	struct strbuf status = STRBUF_INIT;
 
-	entry = launch_read_object_process(o, ODB_HELPER_CAP_HAVE);
+	entry = launch_object_process(o, ODB_HELPER_CAP_HAVE);
 	if (!entry)
 		return -1;
 
