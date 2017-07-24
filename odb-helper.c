@@ -478,9 +478,7 @@ static int send_write_packets(struct object_process *entry,
 	if (err)
 		return err;
 
-	subprocess_read_status(process->out, status);
-
-	return strcmp(status->buf, "success");
+	return check_object_process_status(process->out, status);
 }
 
 static int write_object_process(struct odb_helper *o,
@@ -497,8 +495,7 @@ static int write_object_process(struct odb_helper *o,
 
 	err = send_write_packets(entry, sha1, buf, len, &status);
 
-	return check_object_process_error(err, status.buf,
-					  entry, o->cmd,
+	return check_object_process_error(err, status.buf, entry, o->cmd,
 					  ODB_HELPER_CAP_PUT_RAW_OBJ);
 }
 
