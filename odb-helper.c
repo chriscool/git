@@ -188,9 +188,6 @@ static int init_object_process(struct odb_helper *o)
 	int err;
 	struct read_object_process *entry;
 	struct strbuf status = STRBUF_INIT;
-	uint64_t start;
-
-	start = getnanotime();
 
 	entry = launch_object_process(o, 0);
 	if (!entry)
@@ -198,11 +195,7 @@ static int init_object_process(struct odb_helper *o)
 
 	err = send_init_packets(entry, &status);
 
-	err = check_object_process_error(err, status.buf, entry, o->cmd, 0);
-
-	trace_performance_since(start, "init_object_process");
-
-	return err;
+	return check_object_process_error(err, status.buf, entry, o->cmd, 0);
 }
 
 static struct odb_helper_object *odb_helper_lookup(struct odb_helper *o,
@@ -447,10 +440,7 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 	int err;
 	struct read_object_process *entry;
 	struct strbuf status = STRBUF_INIT;
-	uint64_t start;
 	unsigned int cur_cap = 0;
-
-	start = getnanotime();
 
 	entry = launch_object_process(o, 0);
 	if (!entry)
@@ -458,13 +448,9 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 
 	err = send_read_packets(o, entry, sha1, fd, &cur_cap, &status);
 
-	err = check_object_process_error(err, status.buf,
-					 entry, o->cmd,
-					 cur_cap);
-
-	trace_performance_since(start, "read_object_process");
-
-	return err;
+	return check_object_process_error(err, status.buf,
+					  entry, o->cmd,
+					  cur_cap);
 }
 
 static int send_write_packets(struct read_object_process *entry,
@@ -607,26 +593,37 @@ static int odb_helper_finish(struct odb_helper *o,
 	return 0;
 }
 
-int odb_helper_init(struct odb_helper *o)
+static int init_object_script(struct odb_helper *o)
 {
 	struct odb_helper_cmd cmd;
 	FILE *fh;
 	struct strbuf line = STRBUF_INIT;
 
-	if (o->script_mode) {
-		if (odb_helper_start(o, &cmd, 0, "init") < 0)
-			return -1;
+	if (odb_helper_start(o, &cmd, 0, "init") < 0)
+		return -1;
 
-		fh = xfdopen(cmd.child.out, "r");
-		while (strbuf_getline(&line, fh) != EOF)
-			parse_capabilities(line.buf, &o->supported_capabilities, o->name);
+	fh = xfdopen(cmd.child.out, "r");
+	while (strbuf_getline(&line, fh) != EOF)
+		parse_capabilities(line.buf, &o->supported_capabilities, o->name);
 
-		strbuf_release(&line);
-		fclose(fh);
-		odb_helper_finish(o, &cmd);
-	} else {
-		return init_object_process(o);
-	}
+	strbuf_release(&line);
+	fclose(fh);
+	odb_helper_finish(o, &cmd);
+
+	return 0;
+}
+
+int odb_helper_init(struct odb_helper *o)
+{
+	int res;
+	uint64_t start = getnanotime();
+
+	if (o->script_mode)
+		res = init_object_script(o);
+	else
+		res = init_object_process(o);
+
+	trace_performance_since(start, "odb_helper_init");
 
 	return 0;
 }
@@ -977,50 +974,73 @@ static int odb_helper_fetch_git_object(struct odb_helper *o,
 	return 0;
 }
 
+static int fault_in_object_script(struct odb_helper *o, const unsigned char *sha1)
+{
+	struct odb_helper_cmd cmd;
+	struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
+
+	if (!obj)
+		return -1;
+	if (odb_helper_start(o, &cmd, 0, "get_direct %s", sha1_to_hex(sha1)) < 0)
+		return -1;
+	if (odb_helper_finish(o, &cmd))
+		return -1;
+	return 0;
+}
+
 int odb_helper_fault_in_object(struct odb_helper *o,
 			       const unsigned char *sha1)
 {
+	int res;
+	uint64_t start;
+
 	if (o->supported_capabilities & ODB_HELPER_CAP_HAVE) {
 		struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
 		if (!obj)
 			return -1;
 	}
 
-	if (o->script_mode) {
-		struct odb_helper_cmd cmd;
-		struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
+	start = getnanotime();
 
-		if (!obj)
-			return -1;
+	if (o->script_mode)
+		res = fault_in_object_script(o, sha1);
+	else
+		res = read_object_process(o, sha1, -1);
 
-		if (odb_helper_start(o, &cmd, 0, "get_direct %s", sha1_to_hex(sha1)) < 0)
-			return -1;
-		if (odb_helper_finish(o, &cmd))
-			return -1;
+	trace_performance_since(start, "odb_helper_fault_in_object");
+
+	return res;
+}
+
+static int read_object_script(struct odb_helper *o, const unsigned char *sha1, int fd)
+{
+	if (o->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
+		return odb_helper_fetch_git_object(o, sha1, fd);
+	if (o->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ)
+		return odb_helper_fetch_plain_object(o, sha1, fd);
+	if (o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)
 		return 0;
-	} else {
-		return read_object_process(o, sha1, -1);
-	}
+
+	// TODO maybe use
+	//	BUG("invalid fetch kind '%d'", o->fetch_kind);
+	return -1;
 }
 
 int odb_helper_fetch_object(struct odb_helper *o,
 			    const unsigned char *sha1,
 			    int fd)
 {
-	if (o->script_mode) {
-		if (o->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
-			return odb_helper_fetch_git_object(o, sha1, fd);
-		if (o->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ)
-			return odb_helper_fetch_plain_object(o, sha1, fd);
-		if (o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)
-			return 0;
+	int res;
+	uint64_t start = getnanotime();
 
-		// TODO maybe use
-		//	BUG("invalid fetch kind '%d'", o->fetch_kind);
-		return -1;
-	} else {
-		return read_object_process(o, sha1, fd);
-	}
+	if (o->script_mode)
+		res = read_object_script(o, sha1, fd);
+	else
+		res = read_object_process(o, sha1, fd);
+
+	trace_performance_since(start, "odb_helper_fetch_object");
+
+	return res;
 }
 
 int odb_helper_for_each_object(struct odb_helper *o,
