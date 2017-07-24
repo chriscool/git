@@ -198,9 +198,6 @@ static int init_object_process(struct odb_helper *o)
 	return check_object_process_error(err, status.buf, entry, o->cmd, 0);
 }
 
-static struct odb_helper_object *odb_helper_lookup(struct odb_helper *o,
-						   const unsigned char *sha1);
-
 static ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
 						  const unsigned char *sha1,
 						  int fd_in, int fd_out)
