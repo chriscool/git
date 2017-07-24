@@ -15,6 +15,12 @@ struct object_process {
 
 static struct hashmap subprocess_map;
 
+static int check_object_process_status(int fd, struct strbuf *status)
+{
+	subprocess_read_status(fd, status);
+	return strcmp(status->buf, "success");
+}
+
 static void parse_capabilities(char *cap_buf,
 			       unsigned int *supported_capabilities,
 			       const char *process_name)
@@ -172,30 +178,24 @@ static int send_init_packets(struct object_process *entry,
 			     struct strbuf *status)
 {
 	struct child_process *process = &entry->subprocess.process;
-	int err = packet_write_fmt_gently(process->in, "command=init\n") ||
-		packet_flush_gently(process->in);
 
-	if (!err) {
-		subprocess_read_status(process->out, status);
-		err = strcmp(status->buf, "success");
-	}
-
-	return err;
+	return packet_write_fmt_gently(process->in, "command=init\n") ||
+		packet_flush_gently(process->in) ||
+		check_object_process_status(process->out, status);
 }
 
 static int init_object_process(struct odb_helper *o)
 {
 	int err;
-	struct object_process *entry;
 	struct strbuf status = STRBUF_INIT;
-
-	entry = launch_object_process(o, 0);
+	struct object_process *entry = launch_object_process(o, 0);
 	if (!entry)
 		return -1;
 
 	err = send_init_packets(entry, &status);
 
-	return check_object_process_error(err, status.buf, entry, o->cmd, 0);
+	return check_object_process_error(err, status.buf, entry,
+					  o->cmd, 0);
 }
 
 static ssize_t read_packetized_plain_object_to_fd(struct odb_helper *o,
@@ -427,27 +427,24 @@ static int send_read_packets(struct odb_helper *o,
 	else if (entry->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
 		err = read_packetized_git_object_to_fd(o, sha1, process->out, fd) < 0;
 
-	subprocess_read_status(process->out, status);
-
-	return strcmp(status->buf, "success");
+	return check_object_process_status(process->out, status);
 }
 
-static int read_object_process(struct odb_helper *o, const unsigned char *sha1, int fd)
+static int read_object_process(struct odb_helper *o,
+			       const unsigned char *sha1,
+			       int fd)
 {
 	int err;
-	struct object_process *entry;
 	struct strbuf status = STRBUF_INIT;
 	unsigned int cur_cap = 0;
-
-	entry = launch_object_process(o, 0);
+	struct object_process *entry = launch_object_process(o, 0);
 	if (!entry)
 		return -1;
 
 	err = send_read_packets(o, entry, sha1, fd, &cur_cap, &status);
 
-	return check_object_process_error(err, status.buf,
-					  entry, o->cmd,
-					  cur_cap);
+	return check_object_process_error(err, status.buf, entry,
+					  o->cmd, cur_cap);
 }
 
 static int send_write_packets(struct object_process *entry,
