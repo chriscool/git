@@ -969,10 +969,7 @@ static int odb_helper_fetch_git_object(struct odb_helper *o,
 static int fault_in_object_script(struct odb_helper *o, const unsigned char *sha1)
 {
 	struct odb_helper_cmd cmd;
-	struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
 
-	if (!obj)
-		return -1;
 	if (odb_helper_start(o, &cmd, 0, "get_direct %s", sha1_to_hex(sha1)) < 0)
 		return -1;
 	if (odb_helper_finish(o, &cmd))
