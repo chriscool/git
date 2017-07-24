@@ -693,9 +693,7 @@ static int send_have_packets(struct odb_helper *o,
 	if (packet_len < 0)
 		return packet_len;
 
-	subprocess_read_status(process->out, status);
-
-	return strcmp(status->buf, "success");
+	return check_object_process_status(process->out, status);
 }
 
 static int have_object_process(struct odb_helper *o)
@@ -710,8 +708,7 @@ static int have_object_process(struct odb_helper *o)
 
 	err = send_have_packets(o, entry, &status);
 
-	return check_object_process_error(err, status.buf,
-					  entry, o->cmd,
+	return check_object_process_error(err, status.buf, entry, o->cmd,
 					  ODB_HELPER_CAP_HAVE);
 }
 
