@@ -496,9 +496,6 @@ static int write_object_process(struct odb_helper *o,
 	int err;
 	struct read_object_process *entry;
 	struct strbuf status = STRBUF_INIT;
-	uint64_t start;
-
-	start = getnanotime();
 
 	entry = launch_object_process(o, ODB_HELPER_CAP_PUT_RAW_OBJ);
 	if (!entry)
@@ -506,13 +503,9 @@ static int write_object_process(struct odb_helper *o,
 
 	err = send_write_packets(entry, sha1, buf, len, &status);
 
-	err = check_object_process_error(err, status.buf,
-					 entry, o->cmd,
-					 ODB_HELPER_CAP_PUT_RAW_OBJ);
-
-	trace_performance_since(start, "write_object_process");
-
-	return err;
+	return check_object_process_error(err, status.buf,
+					  entry, o->cmd,
+					  ODB_HELPER_CAP_PUT_RAW_OBJ);
 }
 
 struct odb_helper *odb_helper_new(const char *name, int namelen)
@@ -1091,9 +1084,15 @@ int odb_helper_write_object(struct odb_helper *o,
 			    const void *buf, size_t len,
 			    const char *type, unsigned char *sha1)
 {
-	if (o->script_mode) {
-		return odb_helper_write_plain_object(o, buf, len, type, sha1);
-	} else {
-		return write_object_process(o, buf, len, type, sha1);
-	}
+	int res;
+	uint64_t start = getnanotime();
+
+	if (o->script_mode)
+		res = odb_helper_write_plain_object(o, buf, len, type, sha1);
+	else
+		res = write_object_process(o, buf, len, type, sha1);
+
+	trace_performance_since(start, "odb_helper_write_object");
+
+	return res;
 }
