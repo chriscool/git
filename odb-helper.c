@@ -96,14 +96,15 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 	return err;
 }
 
-static struct read_object_process *launch_read_object_process(const char *cmd, unsigned int capability)
+static struct read_object_process *launch_read_object_process(struct odb_helper *o,
+							      unsigned int capability)
 {
 	struct read_object_process *entry = NULL;
 
 	if (!subprocess_map.tablesize)
 		hashmap_init(&subprocess_map, (hashmap_cmp_fn) cmd2process_cmp, NULL, 0);
 	else
-		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, cmd);
+		entry = (struct read_object_process *)subprocess_find_entry(&subprocess_map, o->cmd);
 
 	fflush(NULL);
 
@@ -111,15 +112,17 @@ static struct read_object_process *launch_read_object_process(const char *cmd, u
 		entry = xmalloc(sizeof(*entry));
 		entry->supported_capabilities = 0;
 
-		if (subprocess_start(&subprocess_map, &entry->subprocess, cmd, start_read_object_fn)) {
-			error("Could not launch process for cmd '%s'", cmd);
+		if (subprocess_start(&subprocess_map, &entry->subprocess, o->cmd, start_read_object_fn)) {
+			error("Could not launch process for cmd '%s'", o->cmd);
 			free(entry);
 			return NULL;
 		}
 	}
 
+	o->supported_capabilities = entry->supported_capabilities;
+
 	if (capability && !(capability & entry->supported_capabilities)) {
-		error("The cmd '%s' does not support capability '%d'", cmd, capability);
+		error("The cmd '%s' does not support capability '%d'", o->cmd, capability);
 		return NULL;
 	}
 
@@ -185,19 +188,17 @@ static int init_object_process(struct odb_helper *o)
 	int err;
 	struct read_object_process *entry;
 	struct strbuf status = STRBUF_INIT;
-	const char *cmd = o->cmd;
 	uint64_t start;
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(cmd, 0);
+	entry = launch_read_object_process(o, 0);
 	if (!entry)
 		return -1;
-	o->supported_capabilities = entry->supported_capabilities;
 
 	err = send_init_packets(entry, &status);
 
-	err = check_object_process_error(err, status.buf, entry, cmd, 0);
+	err = check_object_process_error(err, status.buf, entry, o->cmd, 0);
 
 	trace_performance_since(start, "init_object_process");
 
@@ -446,20 +447,20 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 	int err;
 	struct read_object_process *entry;
 	struct strbuf status = STRBUF_INIT;
-	const char *cmd = o->cmd;
 	uint64_t start;
 	unsigned int cur_cap = 0;
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(cmd, 0);
+	entry = launch_read_object_process(o, 0);
 	if (!entry)
 		return -1;
-	o->supported_capabilities = entry->supported_capabilities;
 
 	err = send_read_packets(o, entry, sha1, fd, &cur_cap, &status);
 
-	err = check_object_process_error(err, status.buf, entry, cmd, cur_cap);
+	err = check_object_process_error(err, status.buf,
+					 entry, o->cmd,
+					 cur_cap);
 
 	trace_performance_since(start, "read_object_process");
 
@@ -509,19 +510,19 @@ static int write_object_process(struct odb_helper *o,
 	int err;
 	struct read_object_process *entry;
 	struct strbuf status = STRBUF_INIT;
-	const char *cmd = o->cmd;
 	uint64_t start;
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(cmd, ODB_HELPER_CAP_PUT_RAW_OBJ);
+	entry = launch_read_object_process(o, ODB_HELPER_CAP_PUT_RAW_OBJ);
 	if (!entry)
 		return -1;
-	o->supported_capabilities = entry->supported_capabilities;
 
 	err = send_write_packets(entry, sha1, buf, len, &status);
 
-	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_PUT_RAW_OBJ);
+	err = check_object_process_error(err, status.buf,
+					 entry, o->cmd,
+					 ODB_HELPER_CAP_PUT_RAW_OBJ);
 
 	trace_performance_since(start, "write_object_process");
 
@@ -721,19 +722,19 @@ static int have_object_process(struct odb_helper *o)
 	int err;
 	struct read_object_process *entry;
 	struct strbuf status = STRBUF_INIT;
-	const char *cmd = o->cmd;
 	uint64_t start;
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(cmd, ODB_HELPER_CAP_HAVE);
+	entry = launch_read_object_process(o, ODB_HELPER_CAP_HAVE);
 	if (!entry)
 		return -1;
-	o->supported_capabilities = entry->supported_capabilities;
 
 	err = send_have_packets(o, entry, &status);
 
-	err = check_object_process_error(err, status.buf, entry, cmd, ODB_HELPER_CAP_HAVE);
+	err = check_object_process_error(err, status.buf,
+					 entry, o->cmd,
+					 ODB_HELPER_CAP_HAVE);
 
 	trace_performance_since(start, "have_object_process");
 
