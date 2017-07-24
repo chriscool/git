@@ -96,8 +96,8 @@ static int start_read_object_fn(struct subprocess_entry *subprocess)
 	return err;
 }
 
-static struct read_object_process *launch_read_object_process(struct odb_helper *o,
-							      unsigned int capability)
+static struct read_object_process *launch_object_process(struct odb_helper *o,
+							 unsigned int capability)
 {
 	struct read_object_process *entry = NULL;
 
@@ -192,7 +192,7 @@ static int init_object_process(struct odb_helper *o)
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(o, 0);
+	entry = launch_object_process(o, 0);
 	if (!entry)
 		return -1;
 
@@ -452,7 +452,7 @@ static int read_object_process(struct odb_helper *o, const unsigned char *sha1, 
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(o, 0);
+	entry = launch_object_process(o, 0);
 	if (!entry)
 		return -1;
 
@@ -514,7 +514,7 @@ static int write_object_process(struct odb_helper *o,
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(o, ODB_HELPER_CAP_PUT_RAW_OBJ);
+	entry = launch_object_process(o, ODB_HELPER_CAP_PUT_RAW_OBJ);
 	if (!entry)
 		return -1;
 
@@ -726,7 +726,7 @@ static int have_object_process(struct odb_helper *o)
 
 	start = getnanotime();
 
-	entry = launch_read_object_process(o, ODB_HELPER_CAP_HAVE);
+	entry = launch_object_process(o, ODB_HELPER_CAP_HAVE);
 	if (!entry)
 		return -1;
 
