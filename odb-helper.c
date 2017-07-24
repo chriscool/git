@@ -712,9 +712,6 @@ static int have_object_process(struct odb_helper *o)
 	int err;
 	struct read_object_process *entry;
 	struct strbuf status = STRBUF_INIT;
-	uint64_t start;
-
-	start = getnanotime();
 
 	entry = launch_object_process(o, ODB_HELPER_CAP_HAVE);
 	if (!entry)
@@ -722,20 +719,20 @@ static int have_object_process(struct odb_helper *o)
 
 	err = send_have_packets(o, entry, &status);
 
-	err = check_object_process_error(err, status.buf,
-					 entry, o->cmd,
-					 ODB_HELPER_CAP_HAVE);
-
-	trace_performance_since(start, "have_object_process");
-
-	return err;
+	return check_object_process_error(err, status.buf,
+					  entry, o->cmd,
+					  ODB_HELPER_CAP_HAVE);
 }
 
 static void odb_helper_load_have(struct odb_helper *o)
 {
+	uint64_t start;
+
 	if (o->have_valid)
 		return;
 	o->have_valid = 1;
+
+	start = getnanotime();
 
 	if (o->script_mode) {
 		struct odb_helper_cmd cmd;
@@ -756,6 +753,8 @@ static void odb_helper_load_have(struct odb_helper *o)
 	} else {
 		have_object_process(o);
 	}
+
+	trace_performance_since(start, "odb_helper_load_have");
 
 	qsort(o->have, o->have_nr, sizeof(*o->have), odb_helper_object_cmp);
 }
