@@ -635,6 +635,70 @@ static int odb_helper_object_cmp(const void *va, const void *vb)
 	return hashcmp(a->sha1, b->sha1);
 }
 
+static int send_have_packets(struct odb_helper *o,
+			     struct object_process *entry,
+			     struct strbuf *status)
+{
+	int packet_len;
+	int total_got = 0;
+	struct child_process *process = &entry->subprocess.process;
+	int err = packet_write_fmt_gently(process->in, "command=have\n");
+
+	if (err)
+		return err;
+
+	err = packet_flush_gently(process->in);
+	if (err)
+		return err;
+
+	for (;;) {
+		/* packet_read() writes a '\0' extra byte at the end */
+		char buf[LARGE_PACKET_DATA_MAX + 1];
+		char *p = buf;
+		int more;
+
+		packet_len = packet_read(process->out, NULL, NULL,
+			buf, LARGE_PACKET_DATA_MAX + 1,
+			PACKET_READ_GENTLE_ON_EOF);
+
+		if (packet_len <= 0)
+			break;
+
+		total_got += packet_len;
+
+		/* 'have' packets should end with '\n' or '\0' */
+		do {
+			char *eol = strchrnul(p, '\n');
+			more = (*eol == '\n');
+			*eol = '\0';
+			if (add_have_entry(o, p))
+				break;
+			p = eol + 1;
+		} while (more && *p);
+	}
+
+	if (packet_len < 0)
+		return packet_len;
+
+	return check_object_process_status(process->out, status);
+}
+
+static int have_object_process(struct odb_helper *o)
+{
+	int err;
+	struct object_process *entry;
+	struct strbuf status = STRBUF_INIT;
+
+	entry = launch_object_process(o, ODB_HELPER_CAP_HAVE);
+	if (!entry)
+		return -1;
+
+	err = send_have_packets(o, entry, &status);
+
+	return check_object_process_error(err, status.buf, entry, o->cmd,
+					  ODB_HELPER_CAP_HAVE);
+}
+
 static void have_object_script(struct odb_helper *o)
 {
 	struct odb_helper_cmd cmd;
@@ -656,12 +720,20 @@ static void have_object_script(struct odb_helper *o)
 
 static void odb_helper_load_have(struct odb_helper *o)
 {
+	uint64_t start;
+
 	if (o->have_valid)
 		return;
 	o->have_valid = 1;
 
+	start = getnanotime();
+
 	if (o->type == ODB_HELPER_SCRIPT_CMD)
 		have_object_script(o);
+	else if (o->type == ODB_HELPER_SUBPROCESS_CMD)
+		have_object_process(o);
+
+	trace_performance_since(start, "odb_helper_load_have");
 
 	qsort(o->have, o->have_nr, sizeof(*o->have), odb_helper_object_cmp);
 }
@@ -925,7 +997,7 @@ int odb_helper_get_direct(struct odb_helper *o,
 		fetch_object(o->cmd, sha1);
 	else if (o->type == ODB_HELPER_SCRIPT_CMD)
 		res = get_direct_script(o, sha1);
-	else
+	else if (o->type == ODB_HELPER_SUBPROCESS_CMD)
 		res = get_object_process(o, sha1, -1);
 
 	trace_performance_since(start, "odb_helper_get_direct");
@@ -995,12 +1067,12 @@ int odb_helper_put_object(struct odb_helper *o,
 			  const void *buf, size_t len,
 			  const char *type, unsigned char *sha1)
 {
-	int res;
+	int res = 0;
 	uint64_t start = getnanotime();
 
-	if (o->script_mode)
+	if (o->type == ODB_HELPER_SCRIPT_CMD)
 		res = put_raw_object_script(o, buf, len, type, sha1);
-	else
+	else if (o->type == ODB_HELPER_SUBPROCESS_CMD)
 		res = put_object_process(o, buf, len, type, sha1);
 
 	trace_performance_since(start, "odb_helper_put_object");
