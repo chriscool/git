@@ -956,6 +956,12 @@ extern void check_repository_format(void);
 extern void sha1_file_name(struct strbuf *buf, const unsigned char *sha1);
 
 /*
+ * Like sha1_file_name, but put in `buf` the filename within a
+ * specific alternate object directory.
+ */
+extern void sha1_file_name_alt(struct strbuf *buf, const char *objdir, const unsigned char *sha1);
+
+/*
  * Return an abbreviated sha1 unique within this repository's object database.
  * The result will be at least `len` characters long, and will be NUL
  * terminated.
@@ -1251,6 +1257,8 @@ extern int parse_sha1_header(const char *hdr, unsigned long *sizep);
 
 extern int check_object_signature(const struct object_id *oid, void *buf, unsigned long size, const char *type);
 
+extern int create_object_tmpfile(struct strbuf *tmp, const char *filename);
+extern void close_sha1_file(int fd);
 extern int finalize_object_file(const char *tmpfile, const char *filename);
 
 /*
