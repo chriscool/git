@@ -1256,6 +1256,8 @@ extern int parse_sha1_header(const char *hdr, unsigned long *sizep);
 
 extern int check_object_signature(const struct object_id *oid, void *buf, unsigned long size, const char *type);
 
+extern int create_object_tmpfile(struct strbuf *tmp, const char *filename);
+extern void close_sha1_file(int fd);
 extern int finalize_object_file(const char *tmpfile, const char *filename);
 
 /* Helper to check and "touch" a file */
