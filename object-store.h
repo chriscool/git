@@ -138,6 +138,12 @@ void raw_object_store_clear(struct raw_object_store *o);
  */
 void sha1_file_name(struct repository *r, struct strbuf *buf, const unsigned char *sha1);
 
+/*
+ * Like sha1_file_name, but put in `buf` the filename within a
+ * specific alternate object directory.
+ */
+void sha1_file_name_alt(struct strbuf *buf, const char *objdir, const unsigned char *sha1);
+
 void *map_sha1_file(struct repository *r, const unsigned char *sha1, unsigned long *size);
 
 #endif /* OBJECT_STORE_H */
