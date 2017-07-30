@@ -1,6 +1,7 @@
 #include "cache.h"
 #include "external-odb.h"
 #include "odb-helper.h"
+#include "attr.h"
 
 static struct odb_helper *helpers;
 static struct odb_helper **helpers_tail = &helpers;
@@ -155,8 +156,23 @@ int external_odb_get_object(const unsigned char *sha1)
 	return external_odb_do_get_object(sha1);
 }
 
+static int has_odb_attrs(struct odb_helper *o, const char *path)
+{
+	static struct attr_check *check;
+
+	if (!check)
+		check = attr_check_initl("odb", NULL);
+
+	if (!git_check_attr(path, check)) {
+		const char *value = check->items[0].value;
+		return value ? !strcmp(o->name, value) : 0;
+	}
+	return 0;
+}
+
 int external_odb_put_object(const void *buf, size_t len,
-			    const char *type, unsigned char *sha1)
+			    const char *type, unsigned char *sha1,
+			    const char *path)
 {
 	struct odb_helper *o;
 
@@ -164,12 +180,14 @@ int external_odb_put_object(const void *buf, size_t len,
 		return 1;
 
 	/* For now accept only blobs */
-	if (strcmp(type, "blob"))
+	if (!path || strcmp(type, "blob"))
 		return 1;
 
 	external_odb_init();
 
 	for (o = helpers; o; o = o->next) {
+		if (!has_odb_attrs(o, path))
+			continue;
 		int r = odb_helper_put_object(o, buf, len, type, sha1);
 		if (r <= 0)
 			return r;
