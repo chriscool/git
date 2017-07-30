@@ -18,7 +18,8 @@ extern int external_odb_has_object(const unsigned char *sha1);
 extern int external_odb_get_object(const unsigned char *sha1);
 extern int external_odb_get_direct(const unsigned char *sha1);
 extern int external_odb_put_object(const void *buf, size_t len,
-				   const char *type, unsigned char *sha1);
+				   const char *type, unsigned char *sha1,
+				   const char *path);
 extern int external_odb_get_many_direct(const struct oid_array *to_get);
 
 #endif /* EXTERNAL_ODB_H */
