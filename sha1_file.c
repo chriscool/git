@@ -1696,7 +1696,9 @@ static int freshen_packed_object(const unsigned char *sha1)
 	return 1;
 }
 
-int write_sha1_file(const void *buf, unsigned long len, const char *type, unsigned char *sha1)
+static int write_sha1_file_with_path(const void *buf, unsigned long len,
+				     const char *type, unsigned char *sha1,
+				     const char *path)
 {
 	char hdr[32];
 	int hdrlen = sizeof(hdr);
@@ -1705,11 +1707,17 @@ int write_sha1_file(const void *buf, unsigned long len, const char *type, unsign
 	 * it out into .git/objects/??/?{38} file.
 	 */
 	write_sha1_file_prepare(buf, len, type, sha1, hdr, &hdrlen);
-	if (!external_odb_put_object(buf, len, type, sha1))
+	if (!external_odb_put_object(buf, len, type, sha1, path))
 		return 0;
 	if (freshen_packed_object(sha1) || freshen_loose_object(sha1))
 		return 0;
 	return write_loose_object(sha1, hdr, hdrlen, buf, len, 0);
+}
+
+int write_sha1_file(const void *buf, unsigned long len,
+		    const char *type, unsigned char *sha1)
+{
+	return write_sha1_file_with_path(buf, len, type, sha1, NULL);
 }
 
 int hash_sha1_file_literally(const void *buf, unsigned long len, const char *type,
@@ -1832,7 +1840,8 @@ static int index_mem(struct object_id *oid, void *buf, size_t size,
 	}
 
 	if (write_object)
-		ret = write_sha1_file(buf, size, typename(type), oid->hash);
+		ret = write_sha1_file_with_path(buf, size, typename(type),
+						oid->hash, path);
 	else
 		ret = hash_sha1_file(buf, size, typename(type), oid->hash);
 	if (re_allocated)
@@ -1854,8 +1863,9 @@ static int index_stream_convert_blob(struct object_id *oid, int fd,
 				 get_safe_crlf(flags));
 
 	if (write_object)
-		ret = write_sha1_file(sbuf.buf, sbuf.len, typename(OBJ_BLOB),
-				      oid->hash);
+		ret = write_sha1_file_with_path(sbuf.buf, sbuf.len,
+						typename(OBJ_BLOB),
+						oid->hash, path);
 	else
 		ret = hash_sha1_file(sbuf.buf, sbuf.len, typename(OBJ_BLOB),
 				     oid->hash);
