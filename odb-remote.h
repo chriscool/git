@@ -19,6 +19,7 @@ extern int odb_remote_get_object(const unsigned char *sha1);
 extern int odb_remote_get_direct(const unsigned char *sha1);
 extern int odb_remote_get_many_direct(const struct oid_array *to_get);
 extern int odb_remote_put_object(const void *buf, size_t len,
-				 const char *type, unsigned char *sha1);
+				 const char *type, unsigned char *sha1,
+				 const char *path);
 
 #endif /* ODB_REMOTE_H */
