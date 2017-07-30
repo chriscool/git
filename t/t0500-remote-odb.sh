@@ -71,6 +71,9 @@ test_expect_success 'helper can add objects to alt repo' '
 
 test_expect_success 'commit adds objects to alt repo' '
 	test_config odb.magic.scriptCommand "$HELPER" &&
+	echo "* odb=magic" >.gitattributes &&
+	GIT_NO_REMOTE_ODB=1 git add .gitattributes &&
+	GIT_NO_REMOTE_ODB=1 git commit -m "Add .gitattributes" &&
 	test_commit three &&
 	hash3=$(git ls-tree HEAD | grep three.t | cut -f1 | cut -d\  -f3) &&
 	content=$(git -C alt-repo show "$hash3") &&

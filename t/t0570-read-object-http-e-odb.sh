@@ -62,6 +62,9 @@ test_expect_success 'can delete uploaded files' '
 FILES_DIR="httpd/www/files"
 
 test_expect_success 'new blobs are transfered to the http server' '
+	echo "* odb=magic" >.gitattributes &&
+	GIT_NO_REMOTE_ODB=1 git add .gitattributes &&
+	GIT_NO_REMOTE_ODB=1 git commit -m "Add .gitattributes" &&
 	test_commit one &&
 	hash1=$(git ls-tree HEAD | grep one.t | cut -f1 | cut -d\  -f3) &&
 	echo "$hash1-4-blob" >expected &&

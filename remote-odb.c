@@ -3,6 +3,7 @@
 #include "odb-helper.h"
 #include "config.h"
 #include "object-store.h"
+#include "attr.h"
 
 static struct odb_helper *helpers;
 static struct odb_helper **helpers_tail = &helpers;
@@ -219,19 +220,37 @@ int remote_odb_get_object(const unsigned char *sha1)
 	return remote_odb_do_get_object(sha1);
 }
 
+static int has_odb_attrs(struct odb_helper *o, const char *path)
+{
+	static struct attr_check *check;
+
+	if (!check)
+		check = attr_check_initl("odb", NULL);
+
+	if (!git_check_attr(&the_index, path, check)) {
+		const char *value = check->items[0].value;
+		return value ? !strcmp(o->name, value) : 0;
+	}
+	return 0;
+}
+
 int remote_odb_put_object(const void *buf, size_t len,
-			  const char *type, unsigned char *sha1)
+			  const char *type, unsigned char *sha1,
+			  const char *path)
 {
 	struct odb_helper *o;
 
 	remote_odb_init();
 
 	/* For now accept only blobs */
-	if (strcmp(type, "blob"))
+	if (!path || strcmp(type, "blob"))
 		return 1;
 
 	for (o = helpers; o; o = o->next) {
-		int r = odb_helper_put_object(o, buf, len, type, sha1);
+		int r;
+		if (!has_odb_attrs(o, path))
+			continue;
+		r = odb_helper_put_object(o, buf, len, type, sha1);
 		if (r <= 0)
 			return r;
 	}

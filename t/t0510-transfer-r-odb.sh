@@ -111,6 +111,9 @@ test_expect_success 'setup other repo and its alternate repo' '
 '
 
 test_expect_success 'new blobs are put in first object store' '
+	echo "* odb=magic" >.gitattributes &&
+	GIT_NO_REMOTE_ODB=1 git add .gitattributes &&
+	GIT_NO_REMOTE_ODB=1 git commit -m "Add .gitattributes" &&
 	test_commit one &&
 	hash1=$(git ls-tree HEAD | grep one.t | cut -f1 | cut -d\  -f3) &&
 	content=$(cd alt-repo1 && git show "$hash1") &&
