@@ -770,9 +770,9 @@ int odb_helper_has_object(struct odb_helper *o, const unsigned char *sha1)
 	return !!odb_helper_lookup(o, sha1);
 }
 
-static int odb_helper_fetch_plain_object(struct odb_helper *o,
-					 const unsigned char *sha1,
-					 int fd)
+static int odb_helper_get_plain_object(struct odb_helper *o,
+				       const unsigned char *sha1,
+				       int fd)
 {
 	struct odb_helper_object *obj;
 	struct odb_helper_cmd cmd;
@@ -868,9 +868,9 @@ static int odb_helper_fetch_plain_object(struct odb_helper *o,
 	return 0;
 }
 
-static int odb_helper_fetch_git_object(struct odb_helper *o,
-				       const unsigned char *sha1,
-				       int fd)
+static int odb_helper_get_git_object(struct odb_helper *o,
+				     const unsigned char *sha1,
+				     int fd)
 {
 	struct odb_helper_object *obj;
 	struct odb_helper_cmd cmd;
@@ -996,20 +996,20 @@ int odb_helper_fault_in_object(struct odb_helper *o,
 static int read_object_script(struct odb_helper *o, const unsigned char *sha1, int fd)
 {
 	if (o->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
-		return odb_helper_fetch_git_object(o, sha1, fd);
+		return odb_helper_get_git_object(o, sha1, fd);
 	if (o->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ)
-		return odb_helper_fetch_plain_object(o, sha1, fd);
+		return odb_helper_get_plain_object(o, sha1, fd);
 	if (o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)
 		return 0;
 
 	// TODO maybe use
-	//	BUG("invalid fetch kind '%d'", o->fetch_kind);
+	//	BUG("invalid get kind '%d'", o->fetch_kind);
 	return -1;
 }
 
-int odb_helper_fetch_object(struct odb_helper *o,
-			    const unsigned char *sha1,
-			    int fd)
+int odb_helper_get_object(struct odb_helper *o,
+			  const unsigned char *sha1,
+			  int fd)
 {
 	int res;
 	uint64_t start = getnanotime();
@@ -1019,7 +1019,7 @@ int odb_helper_fetch_object(struct odb_helper *o,
 	else
 		res = read_object_process(o, sha1, fd);
 
-	trace_performance_since(start, "odb_helper_fetch_object");
+	trace_performance_since(start, "odb_helper_get_object");
 
 	return res;
 }

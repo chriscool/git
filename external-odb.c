@@ -68,7 +68,7 @@ const char *external_odb_root(void)
 	return root;
 }
 
-static int external_odb_do_fetch_object(const unsigned char *sha1)
+static int external_odb_do_get_object(const unsigned char *sha1)
 {
 	struct odb_helper *o;
 	const char *path;
@@ -92,7 +92,7 @@ static int external_odb_do_fetch_object(const unsigned char *sha1)
 			return -1;
 		}
 
-		if (odb_helper_fetch_object(o, sha1, fd) < 0) {
+		if (odb_helper_get_object(o, sha1, fd) < 0) {
 			close(fd);
 			unlink(tmpfile.buf);
 			strbuf_release(&tmpfile);
@@ -140,7 +140,7 @@ int external_odb_has_object(const unsigned char *sha1)
 		if (!(o->supported_capabilities & ODB_HELPER_CAP_HAVE)) {
 			if (o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)
 				return 1;
-			return !external_odb_do_fetch_object(sha1);
+			return !external_odb_do_get_object(sha1);
 		}
 		if (odb_helper_has_object(o, sha1))
 			return 1;
@@ -148,12 +148,12 @@ int external_odb_has_object(const unsigned char *sha1)
 	return 0;
 }
 
-int external_odb_fetch_object(const unsigned char *sha1)
+int external_odb_get_object(const unsigned char *sha1)
 {
 	if (!external_odb_has_object(sha1))
 		return -1;
 
-	return external_odb_do_fetch_object(sha1);
+	return external_odb_do_get_object(sha1);
 }
 
 static int has_odb_attrs(struct odb_helper *o, const char *path)
