@@ -170,9 +170,9 @@ static int has_odb_attrs(struct odb_helper *o, const char *path)
 	return 0;
 }
 
-int external_odb_write_object(const void *buf, size_t len,
-			      const char *type, unsigned char *sha1,
-			      const char *path)
+int external_odb_put_object(const void *buf, size_t len,
+			    const char *type, unsigned char *sha1,
+			    const char *path)
 {
 	struct odb_helper *o;
 
@@ -188,7 +188,7 @@ int external_odb_write_object(const void *buf, size_t len,
 	for (o = helpers; o; o = o->next) {
 		if (!has_odb_attrs(o, path))
 			continue;
-		int r = odb_helper_write_object(o, buf, len, type, sha1);
+		int r = odb_helper_put_object(o, buf, len, type, sha1);
 		if (r <= 0)
 			return r;
 	}

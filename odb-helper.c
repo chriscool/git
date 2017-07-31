@@ -1053,9 +1053,9 @@ static int write_plain_object_script(struct odb_helper *o,
 	return 0;
 }
 
-int odb_helper_write_object(struct odb_helper *o,
-			    const void *buf, size_t len,
-			    const char *type, unsigned char *sha1)
+int odb_helper_put_object(struct odb_helper *o,
+			  const void *buf, size_t len,
+			  const char *type, unsigned char *sha1)
 {
 	int res;
 	uint64_t start = getnanotime();

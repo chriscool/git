@@ -3498,7 +3498,7 @@ static int write_sha1_file_with_path(const void *buf, unsigned long len,
 	 * it out into .git/objects/??/?{38} file.
 	 */
 	write_sha1_file_prepare(buf, len, type, sha1, hdr, &hdrlen);
-	if (!external_odb_write_object(buf, len, type, sha1, path))
+	if (!external_odb_put_object(buf, len, type, sha1, path))
 		return 0;
 	if (freshen_packed_object(sha1) || freshen_loose_object(sha1))
 		return 0;
