@@ -1,0 +1,48 @@
+External ODBs
+^^^^^^^^^^^^^
+
+The External ODB mechanism makes it possible for Git objects, mostly
+blobs for now though, to be stored in an "external object database"
+(External ODB).
+
+An External ODB can be any object store as long as there is an helper
+program called an "odb helper" that can communicate with Git to
+transfer objects to/from the external odb and to retrieve information
+about available objects in the external odb.
+
+Purpose
+=======
+
+The purpose of this mechanism is to make possible to handle Git
+objects, especially blobs, in much more flexible ways.
+
+Currently Git can store its objects only in the form of loose objects
+in separate files or packed objects in a pack file.
+
+This is not flexible enough for some important use cases like handling
+really big binary files or handling a really big number of files that
+are fetched only as needed. And it is not realistic to expect that Git
+could fully natively handle many of such use cases.
+
+Furthermore many improvements that are dependent on specific setups
+could be implemented in the way Git objects are managed if it was
+possible to customize how the Git objects are handled. For example a
+restartable clone using the bundle mechanism has often been requested,
+but implementing that would go against the current strict rules under
+which the Git objects are currently handled.
+
+What Git needs a mechanism to make it possible to customize in a lot
+of different ways how the Git objects are handled. Though this
+mechanism should try as much as possible to avoid interfering with the
+usual way in which Git handle its objects.
+
+Helpers
+=======
+
+ODB helpers are commands that have to be registered using either the
+"odb.<odbname>.subprocessCommand" or the "odb.<odbname>.scriptCommand"
+config variables.
+
+They will be used when Git wants to communicate with 
+
+An external object store
