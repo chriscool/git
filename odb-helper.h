@@ -18,7 +18,7 @@ struct odb_helper {
 	int script_mode;
 
 	struct odb_helper_object {
-		unsigned char sha1[20];
+		struct object_id oid;
 		unsigned long size;
 		enum object_type type;
 	} *have;
@@ -31,12 +31,12 @@ struct odb_helper {
 
 struct odb_helper *odb_helper_new(const char *name, int namelen);
 int odb_helper_init(struct odb_helper *o);
-int odb_helper_has_object(struct odb_helper *o, const unsigned char *sha1);
-int odb_helper_get_object(struct odb_helper *o, const unsigned char *sha1,
+int odb_helper_has_object(struct odb_helper *o, const struct object_id *oid);
+int odb_helper_get_object(struct odb_helper *o, const struct object_id *oid,
 			  int fd);
-int odb_helper_get_direct(struct odb_helper *o, const unsigned char *sha1);
+int odb_helper_get_direct(struct odb_helper *o, const struct object_id *oid);
 int odb_helper_put_object(struct odb_helper *o,
 			  const void *buf, size_t len,
-			  const char *type, unsigned char *sha1);
+			  const char *type, const struct object_id *oid);
 
 #endif /* ODB_HELPER_H */

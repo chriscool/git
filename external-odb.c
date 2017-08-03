@@ -68,12 +68,12 @@ const char *external_odb_root(void)
 	return root;
 }
 
-static int external_odb_do_get_object(const unsigned char *sha1)
+static int external_odb_do_get_object(const struct object_id *oid)
 {
 	struct odb_helper *o;
 	const char *path;
 
-	path = sha1_file_name_alt(external_odb_root(), sha1);
+	path = sha1_file_name_alt(external_odb_root(), oid->hash);
 	safe_create_leading_directories_const(path);
 	prepare_external_alt_odb();
 
@@ -92,7 +92,7 @@ static int external_odb_do_get_object(const unsigned char *sha1)
 			return -1;
 		}
 
-		if (odb_helper_get_object(o, sha1, fd) < 0) {
+		if (odb_helper_get_object(o, oid, fd) < 0) {
 			close(fd);
 			unlink(tmpfile.buf);
 			strbuf_release(&tmpfile);
@@ -109,17 +109,17 @@ static int external_odb_do_get_object(const unsigned char *sha1)
 	return -1;
 }
 
-int external_odb_get_direct(const unsigned char *sha1)
+int external_odb_get_direct(const struct object_id *oid)
 {
 	struct odb_helper *o;
 
-	if (!external_odb_has_object(sha1))
+	if (!external_odb_has_object(oid))
 		return -1;
 
 	for (o = helpers; o; o = o->next) {
 		if (!(o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT))
 			continue;
-		if (odb_helper_get_direct(o, sha1) < 0)
+		if (odb_helper_get_direct(o, oid) < 0)
 			continue;
 		return 0;
 	}
@@ -127,7 +127,7 @@ int external_odb_get_direct(const unsigned char *sha1)
 	return -1;
 }
 
-int external_odb_has_object(const unsigned char *sha1)
+int external_odb_has_object(const struct object_id *oid)
 {
 	struct odb_helper *o;
 
@@ -140,20 +140,20 @@ int external_odb_has_object(const unsigned char *sha1)
 		if (!(o->supported_capabilities & ODB_HELPER_CAP_HAVE)) {
 			if (o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)
 				return 1;
-			return !external_odb_do_get_object(sha1);
+			return !external_odb_do_get_object(oid);
 		}
-		if (odb_helper_has_object(o, sha1))
+		if (odb_helper_has_object(o, oid))
 			return 1;
 	}
 	return 0;
 }
 
-int external_odb_get_object(const unsigned char *sha1)
+int external_odb_get_object(const struct object_id *oid)
 {
-	if (!external_odb_has_object(sha1))
+	if (!external_odb_has_object(oid))
 		return -1;
 
-	return external_odb_do_get_object(sha1);
+	return external_odb_do_get_object(oid);
 }
 
 static int has_odb_attrs(struct odb_helper *o, const char *path)
@@ -171,7 +171,7 @@ static int has_odb_attrs(struct odb_helper *o, const char *path)
 }
 
 int external_odb_put_object(const void *buf, size_t len,
-			    const char *type, unsigned char *sha1,
+			    const char *type, const struct object_id *oid,
 			    const char *path)
 {
 	struct odb_helper *o;
@@ -188,7 +188,7 @@ int external_odb_put_object(const void *buf, size_t len,
 	for (o = helpers; o; o = o->next) {
 		if (!has_odb_attrs(o, path))
 			continue;
-		int r = odb_helper_put_object(o, buf, len, type, sha1);
+		int r = odb_helper_put_object(o, buf, len, type, oid);
 		if (r <= 0)
 			return r;
 	}

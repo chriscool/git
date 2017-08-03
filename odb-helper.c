@@ -199,7 +199,7 @@ static int init_object_process(struct odb_helper *o)
 }
 
 static ssize_t read_packetized_raw_object_to_fd(struct odb_helper *o,
-						const unsigned char *sha1,
+						const struct object_id *oid,
 						int fd_in, int fd_out)
 {
 	ssize_t total_read = 0;
@@ -285,25 +285,25 @@ static ssize_t read_packetized_raw_object_to_fd(struct odb_helper *o,
 
 	if (ret != Z_STREAM_END) {
 		warning("bad zlib data from odb helper '%s' for %s",
-			o->name, sha1_to_hex(sha1));
+			o->name, oid_to_hex(oid));
 		return -1;
 	}
 
 	ret = git_deflate_end_gently(&stream);
 	if (ret != Z_OK) {
 		warning("deflateEnd on object %s from odb helper '%s' failed (%d)",
-			sha1_to_hex(sha1), o->name, ret);
+			oid_to_hex(oid), o->name, ret);
 		return -1;
 	}
 	git_SHA1_Final(real_sha1, &hash);
-	if (hashcmp(sha1, real_sha1)) {
+	if (hashcmp(oid->hash, real_sha1)) {
 		warning("sha1 mismatch from odb helper '%s' for %s (got %s)",
-			o->name, sha1_to_hex(sha1), sha1_to_hex(real_sha1));
+			o->name, oid_to_hex(oid), sha1_to_hex(real_sha1));
 		return -1;
 	}
 	if (total_got != size) {
 		warning("size mismatch from odb helper '%s' for %s (%lu != %lu)",
-			o->name, sha1_to_hex(sha1), total_got, size);
+			o->name, oid_to_hex(oid), total_got, size);
 		return -1;
 	}
 
@@ -311,7 +311,7 @@ static ssize_t read_packetized_raw_object_to_fd(struct odb_helper *o,
 }
 
 static ssize_t read_packetized_git_object_to_fd(struct odb_helper *o,
-						const unsigned char *sha1,
+						const struct object_id *oid,
 						int fd_in, int fd_out)
 {
 	ssize_t total_read = 0;
@@ -374,12 +374,12 @@ static ssize_t read_packetized_git_object_to_fd(struct odb_helper *o,
 
 	if (zret != Z_STREAM_END) {
 		warning("bad zlib data from odb helper '%s' for %s",
-			o->name, sha1_to_hex(sha1));
+			o->name, oid_to_hex(oid));
 		return -1;
 	}
-	if (hashcmp(real_sha1, sha1)) {
+	if (hashcmp(real_sha1, oid->hash)) {
 		warning("sha1 mismatch from odb helper '%s' for %s (got %s)",
-			o->name, sha1_to_hex(sha1), sha1_to_hex(real_sha1));
+			o->name, oid_to_hex(oid), sha1_to_hex(real_sha1));
 		return -1;
 	}
 
@@ -388,7 +388,7 @@ static ssize_t read_packetized_git_object_to_fd(struct odb_helper *o,
 
 static int send_get_packets(struct odb_helper *o,
 			    struct object_process *entry,
-			    const unsigned char *sha1,
+			    const struct object_id *oid,
 			    int fd,
 			    unsigned int *cur_cap,
 			    struct strbuf *status)
@@ -414,7 +414,7 @@ static int send_get_packets(struct odb_helper *o,
 	if (err)
 		return err;
 
-	err = packet_write_fmt_gently(process->in, "sha1=%s\n", sha1_to_hex(sha1));
+	err = packet_write_fmt_gently(process->in, "sha1=%s\n", oid_to_hex(oid));
 	if (err)
 		return err;
 
@@ -423,14 +423,14 @@ static int send_get_packets(struct odb_helper *o,
 		return err;
 
 	if (entry->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ)
-		err = read_packetized_raw_object_to_fd(o, sha1, process->out, fd) < 0;
+		err = read_packetized_raw_object_to_fd(o, oid, process->out, fd) < 0;
 	else if (entry->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
-		err = read_packetized_git_object_to_fd(o, sha1, process->out, fd) < 0;
+		err = read_packetized_git_object_to_fd(o, oid, process->out, fd) < 0;
 
 	return check_object_process_status(process->out, status);
 }
 
-static int get_object_process(struct odb_helper *o, const unsigned char *sha1, int fd)
+static int get_object_process(struct odb_helper *o, const struct object_id *oid, int fd)
 {
 	int err;
 	struct strbuf status = STRBUF_INIT;
@@ -439,14 +439,14 @@ static int get_object_process(struct odb_helper *o, const unsigned char *sha1, i
 	if (!entry)
 		return -1;
 
-	err = send_get_packets(o, entry, sha1, fd, &cur_cap, &status);
+	err = send_get_packets(o, entry, oid, fd, &cur_cap, &status);
 
 	return check_object_process_error(err, status.buf, entry,
 					  o->cmd, cur_cap);
 }
 
 static int send_put_packets(struct object_process *entry,
-			    const unsigned char *sha1,
+			    const struct object_id *oid,
 			    const void *buf,
 			    size_t len,
 			    struct strbuf *status)
@@ -456,7 +456,7 @@ static int send_put_packets(struct object_process *entry,
 	if (err)
 		return err;
 
-	err = packet_write_fmt_gently(process->in, "sha1=%s\n", sha1_to_hex(sha1));
+	err = packet_write_fmt_gently(process->in, "sha1=%s\n", oid_to_hex(oid));
 	if (err)
 		return err;
 
@@ -481,7 +481,7 @@ static int send_put_packets(struct object_process *entry,
 
 static int put_object_process(struct odb_helper *o,
 			      const void *buf, size_t len,
-			      const char *type, unsigned char *sha1)
+			      const char *type, const struct object_id *oid)
 {
 	int err;
 	struct object_process *entry;
@@ -491,7 +491,7 @@ static int put_object_process(struct odb_helper *o,
 	if (!entry)
 		return -1;
 
-	err = send_put_packets(entry, sha1, buf, len, &status);
+	err = send_put_packets(entry, oid, buf, len, &status);
 
 	return check_object_process_error(err, status.buf, entry, o->cmd,
 					  ODB_HELPER_CAP_PUT_RAW_OBJ);
@@ -613,7 +613,7 @@ int odb_helper_init(struct odb_helper *o)
 static int parse_object_line(struct odb_helper_object *o, const char *line)
 {
 	char *end;
-	if (get_sha1_hex(line, o->sha1) < 0)
+	if (get_oid_hex(line, &o->oid) < 0)
 		return -1;
 
 	line += 40;
@@ -643,7 +643,7 @@ static int add_have_entry(struct odb_helper *o, const char *line)
 static int odb_helper_object_cmp(const void *va, const void *vb)
 {
 	const struct odb_helper_object *a = va, *b = vb;
-	return hashcmp(a->sha1, b->sha1);
+	return oidcmp(&a->oid, &b->oid);
 }
 
 static int send_have_packets(struct odb_helper *o,
@@ -750,26 +750,26 @@ static void odb_helper_load_have(struct odb_helper *o)
 }
 
 static struct odb_helper_object *odb_helper_lookup(struct odb_helper *o,
-						   const unsigned char *sha1)
+						   const struct object_id *oid)
 {
 	int idx;
 
 	odb_helper_load_have(o);
 	idx = sha1_entry_pos(o->have, sizeof(*o->have), 0,
 			     0, o->have_nr, o->have_nr,
-			     sha1);
+			     oid->hash);
 	if (idx < 0)
 		return NULL;
 	return &o->have[idx];
 }
 
-int odb_helper_has_object(struct odb_helper *o, const unsigned char *sha1)
+int odb_helper_has_object(struct odb_helper *o, const struct object_id *oid)
 {
-	return !!odb_helper_lookup(o, sha1);
+	return !!odb_helper_lookup(o, oid);
 }
 
 static int odb_helper_get_raw_object(struct odb_helper *o,
-				     const unsigned char *sha1,
+				     const struct object_id *oid,
 				     int fd)
 {
 	struct odb_helper_object *obj;
@@ -785,11 +785,11 @@ static int odb_helper_get_raw_object(struct odb_helper *o,
 	git_SHA_CTX hash;
 	unsigned char real_sha1[20];
 
-	obj = odb_helper_lookup(o, sha1);
+	obj = odb_helper_lookup(o, oid);
 	if (!obj)
 		return -1;
 
-	if (odb_helper_start(o, &cmd, 0, "get_raw_obj %s", sha1_to_hex(sha1)) < 0)
+	if (odb_helper_start(o, &cmd, 0, "get_raw_obj %s", oid_to_hex(oid)) < 0)
 		return -1;
 
 	/* Set it up */
@@ -840,26 +840,26 @@ static int odb_helper_get_raw_object(struct odb_helper *o,
 	close(cmd.child.out);
 	if (ret != Z_STREAM_END) {
 		warning("bad zlib data from odb helper '%s' for %s",
-			o->name, sha1_to_hex(sha1));
+			o->name, oid_to_hex(oid));
 		return -1;
 	}
 	ret = git_deflate_end_gently(&stream);
 	if (ret != Z_OK) {
 		warning("deflateEnd on object %s from odb helper '%s' failed (%d)",
-			sha1_to_hex(sha1), o->name, ret);
+			oid_to_hex(oid), o->name, ret);
 		return -1;
 	}
 	git_SHA1_Final(real_sha1, &hash);
-	if (hashcmp(sha1, real_sha1)) {
+	if (hashcmp(oid->hash, real_sha1)) {
 		warning("sha1 mismatch from odb helper '%s' for %s (got %s)",
-			o->name, sha1_to_hex(sha1), sha1_to_hex(real_sha1));
+			o->name, oid_to_hex(oid), sha1_to_hex(real_sha1));
 		return -1;
 	}
 	if (odb_helper_finish(o, &cmd))
 		return -1;
 	if (total_got != obj->size) {
 		warning("size mismatch from odb helper '%s' for %s (%lu != %lu)",
-			o->name, sha1_to_hex(sha1), total_got, obj->size);
+			o->name, oid_to_hex(oid), total_got, obj->size);
 		return -1;
 	}
 
@@ -867,7 +867,7 @@ static int odb_helper_get_raw_object(struct odb_helper *o,
 }
 
 static int odb_helper_get_git_object(struct odb_helper *o,
-				     const unsigned char *sha1,
+				     const struct object_id *oid,
 				     int fd)
 {
 	struct odb_helper_object *obj;
@@ -878,11 +878,11 @@ static int odb_helper_get_git_object(struct odb_helper *o,
 	git_SHA_CTX hash;
 	unsigned char real_sha1[20];
 
-	obj = odb_helper_lookup(o, sha1);
+	obj = odb_helper_lookup(o, oid);
 	if (!obj)
 		return -1;
 
-	if (odb_helper_start(o, &cmd, 0, "get_git_obj %s", sha1_to_hex(sha1)) < 0)
+	if (odb_helper_start(o, &cmd, 0, "get_git_obj %s", oid_to_hex(oid)) < 0)
 		return -1;
 
 	memset(&stream, 0, sizeof(stream));
@@ -939,28 +939,28 @@ static int odb_helper_get_git_object(struct odb_helper *o,
 		return -1;
 	if (zret != Z_STREAM_END) {
 		warning("bad zlib data from odb helper '%s' for %s",
-			o->name, sha1_to_hex(sha1));
+			o->name, oid_to_hex(oid));
 		return -1;
 	}
 	if (total_got != obj->size) {
 		warning("size mismatch from odb helper '%s' for %s (%lu != %lu)",
-			o->name, sha1_to_hex(sha1), total_got, obj->size);
+			o->name, oid_to_hex(oid), total_got, obj->size);
 		return -1;
 	}
-	if (hashcmp(real_sha1, sha1)) {
+	if (hashcmp(real_sha1, oid->hash)) {
 		warning("sha1 mismatch from odb helper '%s' for %s (got %s)",
-			o->name, sha1_to_hex(sha1), sha1_to_hex(real_sha1));
+			o->name, oid_to_hex(oid), sha1_to_hex(real_sha1));
 		return -1;
 	}
 
 	return 0;
 }
 
-static int get_direct_script(struct odb_helper *o, const unsigned char *sha1)
+static int get_direct_script(struct odb_helper *o, const struct object_id *oid)
 {
 	struct odb_helper_cmd cmd;
 
-	if (odb_helper_start(o, &cmd, 0, "get_direct %s", sha1_to_hex(sha1)) < 0)
+	if (odb_helper_start(o, &cmd, 0, "get_direct %s", oid_to_hex(oid)) < 0)
 		return -1;
 	if (odb_helper_finish(o, &cmd))
 		return -1;
@@ -968,13 +968,13 @@ static int get_direct_script(struct odb_helper *o, const unsigned char *sha1)
 }
 
 int odb_helper_get_direct(struct odb_helper *o,
-			  const unsigned char *sha1)
+			  const struct object_id *oid)
 {
 	int res;
 	uint64_t start;
 
 	if (o->supported_capabilities & ODB_HELPER_CAP_HAVE) {
-		struct odb_helper_object *obj = odb_helper_lookup(o, sha1);
+		struct odb_helper_object *obj = odb_helper_lookup(o, oid);
 		if (!obj)
 			return -1;
 	}
@@ -982,21 +982,21 @@ int odb_helper_get_direct(struct odb_helper *o,
 	start = getnanotime();
 
 	if (o->script_mode)
-		res = get_direct_script(o, sha1);
+		res = get_direct_script(o, oid);
 	else
-		res = get_object_process(o, sha1, -1);
+		res = get_object_process(o, oid, -1);
 
 	trace_performance_since(start, "odb_helper_get_direct");
 
 	return res;
 }
 
-static int get_object_script(struct odb_helper *o, const unsigned char *sha1, int fd)
+static int get_object_script(struct odb_helper *o, const struct object_id *oid, int fd)
 {
 	if (o->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
-		return odb_helper_get_git_object(o, sha1, fd);
+		return odb_helper_get_git_object(o, oid, fd);
 	if (o->supported_capabilities & ODB_HELPER_CAP_GET_RAW_OBJ)
-		return odb_helper_get_raw_object(o, sha1, fd);
+		return odb_helper_get_raw_object(o, oid, fd);
 	if (o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT)
 		return 0;
 
@@ -1004,16 +1004,16 @@ static int get_object_script(struct odb_helper *o, const unsigned char *sha1, in
 }
 
 int odb_helper_get_object(struct odb_helper *o,
-			  const unsigned char *sha1,
+			  const struct object_id *oid,
 			  int fd)
 {
 	int res;
 	uint64_t start = getnanotime();
 
 	if (o->script_mode)
-		res = get_object_script(o, sha1, fd);
+		res = get_object_script(o, oid, fd);
 	else
-		res = get_object_process(o, sha1, fd);
+		res = get_object_process(o, oid, fd);
 
 	trace_performance_since(start, "odb_helper_get_object");
 
@@ -1022,12 +1022,12 @@ int odb_helper_get_object(struct odb_helper *o,
 
 static int put_raw_object_script(struct odb_helper *o,
 				 const void *buf, size_t len,
-				 const char *type, unsigned char *sha1)
+				 const char *type, const struct object_id *oid)
 {
 	struct odb_helper_cmd cmd;
 
 	if (odb_helper_start(o, &cmd, 1, "put_raw_obj %s %"PRIuMAX" %s",
-			     sha1_to_hex(sha1), (uintmax_t)len, type) < 0)
+			     oid_to_hex(oid), (uintmax_t)len, type) < 0)
 		return -1;
 
 	do {
@@ -1051,15 +1051,15 @@ static int put_raw_object_script(struct odb_helper *o,
 
 int odb_helper_put_object(struct odb_helper *o,
 			  const void *buf, size_t len,
-			  const char *type, unsigned char *sha1)
+			  const char *type, const struct object_id *oid)
 {
 	int res;
 	uint64_t start = getnanotime();
 
 	if (o->script_mode)
-		res = put_raw_object_script(o, buf, len, type, sha1);
+		res = put_raw_object_script(o, buf, len, type, oid);
 	else
-		res = put_object_process(o, buf, len, type, sha1);
+		res = put_object_process(o, buf, len, type, oid);
 
 	trace_performance_since(start, "odb_helper_put_object");
 
