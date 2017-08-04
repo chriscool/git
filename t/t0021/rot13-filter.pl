@@ -118,19 +118,25 @@ sub compare_lists {
 	return 1;
 }
 
+sub packet_initialize {
+	my ($name, $version) = @_;
+
+	compare_lists([0, $name . "-client"], packet_txt_read()) ||
+		die "bad initialize";
+	compare_lists([0, "version=" . $version], packet_txt_read()) ||
+		die "bad version";
+	compare_lists([1, ""], packet_bin_read()) ||
+		die "bad version end";
+
+	packet_txt_write( $name . "-server" );
+	packet_txt_write( "version=" . $version );
+	packet_flush();
+}
+
 print $debug "START\n";
 $debug->flush();
 
-compare_lists([0, "git-filter-client"], packet_txt_read()) ||
-	die "bad initialize";
-compare_lists([0, "version=2"], packet_txt_read()) ||
-	die "bad version";
-compare_lists([1, ""], packet_bin_read()) ||
-	die "bad version end";
-
-packet_txt_write("git-filter-server");
-packet_txt_write("version=2");
-packet_flush();
+packet_initialize("git-filter", 2);
 
 compare_lists([0, "capability=clean"], packet_txt_read()) ||
 	die "bad capability";
