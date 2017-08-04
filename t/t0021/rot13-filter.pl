@@ -40,23 +40,20 @@ sub packet_bin_read {
 	if ( $bytes_read == 0 ) {
 		# EOF - Git stopped talking to us!
 		return ( -1, "" );
-	}
-	elsif ( $bytes_read != 4 ) {
+	} elsif ( $bytes_read != 4 ) {
 		die "invalid packet: '$buffer'";
 	}
 	my $pkt_size = hex($buffer);
 	if ( $pkt_size == 0 ) {
 		return ( 1, "" );
-	}
-	elsif ( $pkt_size > 4 ) {
+	} elsif ( $pkt_size > 4 ) {
 		my $content_size = $pkt_size - 4;
 		$bytes_read = read STDIN, $buffer, $content_size;
 		if ( $bytes_read != $content_size ) {
 			die "invalid packet ($content_size bytes expected; $bytes_read bytes read)";
 		}
 		return ( 0, $buffer );
-	}
-	else {
+	} else {
 		die "invalid packet size: $pkt_size";
 	}
 }
@@ -144,14 +141,11 @@ while (1) {
 	my $output;
 	if ( $pathname eq "error.r" or $pathname eq "abort.r" ) {
 		$output = "";
-	}
-	elsif ( $command eq "clean" and grep( /^clean$/, @capabilities ) ) {
+	} elsif ( $command eq "clean" and grep( /^clean$/, @capabilities ) ) {
 		$output = rot13($input);
-	}
-	elsif ( $command eq "smudge" and grep( /^smudge$/, @capabilities ) ) {
+	} elsif ( $command eq "smudge" and grep( /^smudge$/, @capabilities ) ) {
 		$output = rot13($input);
-	}
-	else {
+	} else {
 		die "bad command '$command'";
 	}
 
@@ -163,14 +157,12 @@ while (1) {
 		$debug->flush();
 		packet_txt_write("status=error");
 		packet_flush();
-	}
-	elsif ( $pathname eq "abort.r" ) {
+	} elsif ( $pathname eq "abort.r" ) {
 		print $debug "[ABORT]\n";
 		$debug->flush();
 		packet_txt_write("status=abort");
 		packet_flush();
-	}
-	else {
+	} else {
 		packet_txt_write("status=success");
 		packet_flush();
 
@@ -187,8 +179,7 @@ while (1) {
 			print $debug ".";
 			if ( length($output) > $MAX_PACKET_CONTENT_SIZE ) {
 				$output = substr( $output, $MAX_PACKET_CONTENT_SIZE );
-			}
-			else {
+			} else {
 				$output = "";
 			}
 		}
