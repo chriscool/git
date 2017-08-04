@@ -98,7 +98,8 @@ sub packet_txt_read {
 	if ( $res == -1 or $buf eq '' or $buf =~ s/\n$// ) {
 		return ( $res, $buf );
 	}
-	die "A non-binary line MUST be terminated by an LF.";
+	die "A non-binary line MUST be terminated by an LF.\n"
+	    . "Received: '$buf'";
 }
 
 # Read a text line and check that it is in the form "key=value"
