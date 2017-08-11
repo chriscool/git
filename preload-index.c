@@ -78,6 +78,7 @@ void preload_index(struct index_state *index, const struct pathspec *pathspec)
 
 	if (!core_preload_index && !core_fsmonitor)
 		return;
+	refresh_by_fsmonitor(index);
 
 	threads = index->cache_nr / THREAD_COST;
 	if (threads < 2)

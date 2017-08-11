@@ -1656,6 +1656,7 @@ static int valid_cached_dir(struct dir_struct *dir,
 	/*
 	 * With fsmonitor, we can trust the untracked cache's valid field.
 	 */
+	refresh_by_fsmonitor(&the_index);
 	if (!(dir->untracked->use_fsmonitor && untracked->valid)) {
 		if (stat(path->len ? path->buf : ".", &st)) {
 			invalidate_directory(dir->untracked, untracked);

@@ -11,6 +11,7 @@
 #include "string-list.h"
 #include "pack-revindex.h"
 #include "hash.h"
+#include <pthread.h>
 
 #ifndef platform_SHA_CTX
 /*
@@ -346,6 +347,9 @@ struct index_state {
 	struct untracked_cache *untracked;
 	uint64_t fsmonitor_last_update;
 	struct ewah_bitmap *fsmonitor_dirty;
+#ifndef NO_PTHREADS
+	pthread_t fsmonitor_pthread;
+#endif
 };
 
 extern struct index_state the_index;

@@ -2,6 +2,7 @@
 #include "dir.h"
 #include "ewah/ewok.h"
 #include "fsmonitor.h"
+#include <pthread.h>
 #include "run-command.h"
 #include "strbuf.h"
 
@@ -170,8 +171,9 @@ static void mark_file_dirty(struct index_state *istate, const char *name)
 	}
 }
 
-static void refresh_by_fsmonitor(struct index_state *istate)
+static void *query_fsmonitor_thread(void *_data)
 {
+	struct index_state *istate = (struct index_state *)_data;
 	struct strbuf query_result = STRBUF_INIT;
 	int query_success = 0;
 	size_t bol; /* beginning of line */
@@ -226,8 +228,15 @@ static void refresh_by_fsmonitor(struct index_state *istate)
 	}
 	strbuf_release(&query_result);
 
+	if (istate->fsmonitor_dirty) {
+		ewah_free(istate->fsmonitor_dirty);
+		istate->fsmonitor_dirty = NULL;
+	}
+
 	/* Now that we've updated istate, save the last_update time */
 	istate->fsmonitor_last_update = last_update;
+
+	return NULL;
 }
 
 void tweak_fsmonitor_extension(struct index_state *istate)
@@ -241,15 +250,38 @@ void tweak_fsmonitor_extension(struct index_state *istate)
 		if (!istate->fsmonitor_last_update)
 			istate->cache_changed |= FSMONITOR_CHANGED;
 
-		refresh_by_fsmonitor(istate);
+#ifndef NO_PTHREADS
+		/* first status after init has an empty index, nothing to mark dirty */
+		if (istate->initialized)
+			if (pthread_create(&istate->fsmonitor_pthread, NULL, query_fsmonitor_thread, istate))
+				die("unable to create threaded query-fsmonitor");
+#else
+		/* first status after init has an empty index, nothing to mark dirty */
+		if (!istate->initialized)
+			query_fsmonitor_thread(istate);
+#endif
 	} else {
 		if (istate->fsmonitor_last_update)
 			istate->cache_changed |= FSMONITOR_CHANGED;
 		istate->fsmonitor_last_update = 0;
-	}
 
-	if (istate->fsmonitor_dirty) {
-		ewah_free(istate->fsmonitor_dirty);
-		istate->fsmonitor_dirty = NULL;
+		/* Free the bitmap in the case where fsmonitor is being turned off */
+		if (istate->fsmonitor_dirty) {
+			ewah_free(istate->fsmonitor_dirty);
+			istate->fsmonitor_dirty = NULL;
+		}
 	}
 }
+
+#ifndef NO_PTHREADS
+void refresh_by_fsmonitor(struct index_state *istate)
+{
+	static int has_run_once = 0;
+
+	if (!core_fsmonitor || has_run_once)
+		return;
+	has_run_once = 1;
+
+	pthread_join(istate->fsmonitor_pthread, NULL);
+}
+#endif
