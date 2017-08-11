@@ -10,7 +10,7 @@
  * Mostly randomly chosen minimum index entry count.  We want enough entries
  * to be worth spawing the query-fsmonitor process.
  */
-#define MINIMUM_ENTRIES			(50000)
+#define MINIMUM_ENTRIES			(15000)
 #define INDEX_EXTENSION_VERSION	(1)
 #define HOOK_INTERFACE_VERSION	(1)
 
@@ -79,6 +79,7 @@ void write_fsmonitor_extension(struct strbuf *sb, struct index_state *istate)
 	memcpy(sb->buf + fixup, &ewah_size, sizeof(uint32_t));
 }
 
+#if 0
 static struct untracked_cache_dir *find_untracked_cache_dir(
 	struct untracked_cache *uc, struct untracked_cache_dir *ucd,
 	const char *name)
@@ -99,22 +100,84 @@ static struct untracked_cache_dir *find_untracked_cache_dir(
 	return dir;
 }
 
-/* This function will be passed to ewah_each_bit() */
-static void mark_fsmonitor_dirty(size_t pos, void *is)
+static void mark_dirty(struct index_state *istate, struct cache_entry *ce, const char *name, int mark_changed)
 {
-	struct index_state *istate = is;
-	struct untracked_cache_dir *dir;
+	if (ce) {
+		if (ce->ce_flags & CE_FSMONITOR_CLEAN) {
+			ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
+			if (mark_changed)
+				istate->cache_changed |= FSMONITOR_CHANGED;
+		}
+		name = ce->name;
+	}
+
+	if (name) {
+		struct untracked_cache_dir *dir;
+
+		/*
+		 * Find the corresponding directory in the untracked cache
+		 * and mark it as invalid
+		 */
+		if (!istate->untracked || !istate->untracked->root)
+			return;
+
+		dir = find_untracked_cache_dir(istate->untracked, istate->untracked->root, name);
+		if (dir) {
+			if (dir->valid) {
+				dir->valid = 0;
+				if (mark_changed)
+					istate->cache_changed |= FSMONITOR_CHANGED;
+			}
+		}
+	}
+}
+#endif
+
+static void fsmonitor_ewah_callback(size_t pos, void *is)
+{
+	struct index_state *istate = (struct index_state *)is;
 	struct cache_entry *ce = istate->cache[pos];
 
-	assert(pos < istate->cache_nr);
-	ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
+	if (ce->ce_flags & CE_FSMONITOR_CLEAN)
+		ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
 
-	if (!istate->untracked || !istate->untracked->root)
-		return;
+	untracked_cache_invalidate_path(istate, ce->name);
+#if 0
+	mark_dirty(istate, istate->cache[pos], NULL, 0);
+#endif
+}
 
-	dir = find_untracked_cache_dir(istate->untracked, istate->untracked->root, ce->name);
-	if (dir)
-		dir->valid = 0;
+static void mark_file_dirty(struct index_state *istate, const char *name)
+{
+	int pos = index_name_pos(istate, name, strlen(name));
+
+	if (pos >= 0) {
+		struct cache_entry *ce = istate->cache[pos];
+
+		if (ce->ce_flags & CE_FSMONITOR_CLEAN) {
+			ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
+			istate->cache_changed |= FSMONITOR_CHANGED;
+		}
+	}
+
+	untracked_cache_invalidate_path(istate, name);
+#if 0
+	mark_dirty(istate, pos >= 0 ? istate->cache[pos] : NULL, name, 1);
+#endif
+}
+
+void mark_fsmonitor_dirty(struct index_state *istate, struct cache_entry *ce)
+{
+	if (core_fsmonitor) {
+		if (ce->ce_flags & CE_FSMONITOR_CLEAN) {
+			ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
+			istate->cache_changed |= FSMONITOR_CHANGED;
+		}
+		untracked_cache_invalidate_path(istate, ce->name);
+	}
+#if 0
+	mark_dirty(istate, ce, NULL, 1);
+#endif
 }
 
 /*
@@ -139,36 +202,6 @@ static int query_fsmonitor(int version, uint64_t last_update, struct strbuf *que
 	cp.out = -1;
 
 	return capture_command(&cp, query_result, 1024);
-}
-
-static void mark_file_dirty(struct index_state *istate, const char *name)
-{
-	struct untracked_cache_dir *dir;
-	int pos;
-
-	/* find it in the index and mark that entry as dirty */
-	pos = index_name_pos(istate, name, strlen(name));
-	if (pos >= 0) {
-		if (istate->cache[pos]->ce_flags & CE_FSMONITOR_CLEAN) {
-			istate->cache[pos]->ce_flags &= ~CE_FSMONITOR_CLEAN;
-			istate->cache_changed |= FSMONITOR_CHANGED;
-		}
-	}
-
-	/*
-	 * Find the corresponding directory in the untracked cache
-	 * and mark it as invalid
-	 */
-	if (!istate->untracked || !istate->untracked->root)
-		return;
-
-	dir = find_untracked_cache_dir(istate->untracked, istate->untracked->root, name);
-	if (dir) {
-		if (dir->valid) {
-			dir->valid = 0;
-			istate->cache_changed |= FSMONITOR_CHANGED;
-		}
-	}
 }
 
 static void *query_fsmonitor_thread(void *_data)
@@ -204,7 +237,7 @@ static void *query_fsmonitor_thread(void *_data)
 
 		/* Mark all previously saved entries as dirty */
 		if (istate->fsmonitor_dirty)
-			ewah_each_bit(istate->fsmonitor_dirty, mark_fsmonitor_dirty, istate);
+			ewah_each_bit(istate->fsmonitor_dirty, fsmonitor_ewah_callback, istate);
 
 		/* Mark all entries returned by the monitor as dirty */
 		buf = query_result.buf;
@@ -241,12 +274,13 @@ static void *query_fsmonitor_thread(void *_data)
 
 void tweak_fsmonitor_extension(struct index_state *istate)
 {
-	int val, i;
+	int val;
 
 	if (!git_config_get_maybe_bool("core.fsmonitor", &val))
 		core_fsmonitor = val;
 
 	if (core_fsmonitor) {
+		/* if fsmonitor is being switched from off to on */
 		if (!istate->fsmonitor_last_update)
 			istate->cache_changed |= FSMONITOR_CHANGED;
 
@@ -261,14 +295,15 @@ void tweak_fsmonitor_extension(struct index_state *istate)
 			query_fsmonitor_thread(istate);
 #endif
 	} else {
-		if (istate->fsmonitor_last_update)
+		/* if fsmonitor is being switched from on to off */
+		if (istate->fsmonitor_last_update) {
 			istate->cache_changed |= FSMONITOR_CHANGED;
-		istate->fsmonitor_last_update = 0;
+			istate->fsmonitor_last_update = 0;
 
-		/* Free the bitmap in the case where fsmonitor is being turned off */
-		if (istate->fsmonitor_dirty) {
-			ewah_free(istate->fsmonitor_dirty);
-			istate->fsmonitor_dirty = NULL;
+			if (istate->fsmonitor_dirty) {
+				ewah_free(istate->fsmonitor_dirty);
+				istate->fsmonitor_dirty = NULL;
+			}
 		}
 	}
 }

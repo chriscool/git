@@ -3,6 +3,7 @@
 #include "dir.h"
 #include "streaming.h"
 #include "submodule.h"
+#include "fsmonitor.h"
 
 static void create_directories(const char *path, int path_len,
 			       const struct checkout *state)
@@ -221,7 +222,7 @@ finish:
 			lstat(ce->name, &st);
 		fill_stat_cache_info(ce, &st);
 		ce->ce_flags |= CE_UPDATE_IN_BASE;
-		ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
+		mark_fsmonitor_dirty(state->istate, ce);
 		state->istate->cache_changed |= CE_ENTRY_CHANGED;
 	}
 	return 0;

@@ -67,7 +67,7 @@ static void replace_index_entry(struct index_state *istate, int nr, struct cache
 	free(old);
 	set_index_entry(istate, nr, ce);
 	ce->ce_flags |= CE_UPDATE_IN_BASE;
-	ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
+	mark_fsmonitor_dirty(istate, ce);
 	istate->cache_changed |= CE_ENTRY_CHANGED;
 }
 
@@ -784,7 +784,7 @@ int chmod_index_entry(struct index_state *istate, struct cache_entry *ce,
 	}
 	cache_tree_invalidate_path(istate, ce->name);
 	ce->ce_flags |= CE_UPDATE_IN_BASE;
-	ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
+	mark_fsmonitor_dirty(istate, ce);
 	istate->cache_changed |= CE_ENTRY_CHANGED;
 
 	return 0;
@@ -1352,8 +1352,6 @@ int refresh_index(struct index_state *istate, unsigned int flags,
 	const char *added_fmt;
 	const char *unmerged_fmt;
 
-	refresh_by_fsmonitor(istate);
-
 	modified_fmt = (in_porcelain ? "M\t%s\n" : "%s: needs update\n");
 	deleted_fmt = (in_porcelain ? "D\t%s\n" : "%s: needs update\n");
 	typechange_fmt = (in_porcelain ? "T\t%s\n" : "%s needs update\n");
@@ -1404,7 +1402,7 @@ int refresh_index(struct index_state *istate, unsigned int flags,
 				 */
 				ce->ce_flags &= ~CE_VALID;
 				ce->ce_flags |= CE_UPDATE_IN_BASE;
-				ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
+				mark_fsmonitor_dirty(istate, ce);
 				istate->cache_changed |= CE_ENTRY_CHANGED;
 			}
 			if (quiet)
