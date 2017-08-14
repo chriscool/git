@@ -21,8 +21,8 @@ void preload_index(struct index_state *index, const struct pathspec *pathspec)
  * to have at least 500 lstat's per thread for it to
  * be worth starting a thread.
  */
-#define MAX_PARALLEL (20)
-#define THREAD_COST (500)
+#define MAX_PARALLEL (2)
+#define THREAD_COST (2)
 
 struct thread_data {
 	pthread_t pthread;

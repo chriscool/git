@@ -794,6 +794,7 @@ test_create_repo () {
 		"$GIT_EXEC_PATH/git$X" init "--template=$GIT_BUILD_DIR/templates/blt/" >&3 2>&4 ||
 		error "cannot run git init -- have you built things yet?"
 		mv .git/hooks .git/hooks-disabled
+		git config core.fsmonitor /c/query-fsmonitor
 	) || exit
 }
 

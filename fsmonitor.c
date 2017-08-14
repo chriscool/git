@@ -10,7 +10,7 @@
  * Mostly randomly chosen minimum index entry count.  We want enough entries
  * to be worth spawing the query-fsmonitor process.
  */
-#define MINIMUM_ENTRIES			(15000)
+#define MINIMUM_ENTRIES			(1)
 #define INDEX_EXTENSION_VERSION	(1)
 #define HOOK_INTERFACE_VERSION	(1)
 
