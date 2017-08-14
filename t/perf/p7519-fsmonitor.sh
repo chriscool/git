@@ -27,6 +27,9 @@ MINGW*|MSYS_NT*)
   ;;
 esac
 
+FSMONITOR_ON=".git/hooks/query-fsmonitor"
+FSMONITOR_OFF=""
+
 # The big win for using fsmonitor is the elimination of the need to scan
 # the working directory looking for changed files and untracked files. If
 # the file information is all cached in RAM, the benefits are reduced.
@@ -69,9 +72,9 @@ test_expect_success "setup" '
 
 	# Hook scaffolding
 	mkdir .git/hooks &&
-#	write_script .git/hooks/query-fsmonitor<<-\EOF &&
+#	write_script "$FSMONITOR_ON" <<-\EOF &&
 #	EOF
-	cp "$TEST_DIRECTORY/../templates/hooks--query-fsmonitor.sample" .git/hooks/query-fsmonitor &&
+	cp "$TEST_DIRECTORY/../templates/hooks--query-fsmonitor.sample" "$FSMONITOR_ON" &&
 
 	# have Watchman monitor the test folder
 	watchman watch "$GIT_WORK_TREE" &&
@@ -79,75 +82,67 @@ test_expect_success "setup" '
 '
 
 # Cold file system cache without fsmonitor
-test_expect_success "turn off fsmonitor, clear cache" '
-	git config core.fsmonitor false &&
+test_expect_success "clear cache" '
 	flush_disk_cache
 '
 test_perf "status (fsmonitor=false, cold cache)" '
-	git status
+	git -c core.fsmonitor="$FSMONITOR_OFF" status
 '
 
 # Cold file system cache with fsmonitor
 test_expect_success "turn on fsmonitor, clear cache" '
-	git config core.fsmonitor true &&
-	git status &&
+	git -c core.fsmonitor="$FSMONITOR_ON" status &&
 	flush_disk_cache
 '
 test_perf "status (fsmonitor=true, cold cache)" '
-	git status
+	git -c core.fsmonitor="$FSMONITOR_ON" status
 '
 
 # Warm file system cache without fsmonitor
-test_expect_success "turn off fsmonitor, populate cache" '
-	git config core.fsmonitor false &&
-	git status
+test_expect_success "populate cache" '
+	git -c core.fsmonitor="$FSMONITOR_OFF" status
 '
 test_perf "status (fsmonitor=false, warm cache)" '
-	git status
+	git -c core.fsmonitor="$FSMONITOR_OFF" status
 '
 
 # Warm file system cache with fsmonitor
-test_expect_success "turn on fsmonitor, populate cache" '
-	git config core.fsmonitor true &&
-	git status
+test_expect_success "populate cache" '
+	git -c core.fsmonitor="$FSMONITOR_ON" status
 '
 test_perf "status (fsmonitor=true, warm cache)" '
-	git status
+	git -c core.fsmonitor="$FSMONITOR_ON" status
 '
 
 # Let's see if -uno & -uall make any difference
-test_expect_success "turn off fsmonitor, clear cache" '
-	git config core.fsmonitor false &&
+test_expect_success "clear cache" '
 	flush_disk_cache
 '
 test_perf "status -uno (fsmonitor=false, cold cache)" '
-	git status -uno
+	git -c core.fsmonitor="$FSMONITOR_OFF" status -uno
 '
 
-test_expect_success "turn on fsmonitor, clear cache" '
-	git config core.fsmonitor true &&
-	git status &&
+test_expect_success "add extension, clear cache" '
+	git -c core.fsmonitor="$FSMONITOR_ON" status -uno &&
 	flush_disk_cache
 '
 test_perf "status -uno (fsmonitor=true, cold cache)" '
-	git status -uno
+	git -c core.fsmonitor="$FSMONITOR_ON" status -uno
 '
 
-test_expect_success "turn off fsmonitor, clear cache" '
-	git config core.fsmonitor false &&
+test_expect_success "clear cache" '
 	flush_disk_cache
 '
 test_perf "status -uall (fsmonitor=false, cold cache)" '
-	git status -uall
+	git -c core.fsmonitor="$FSMONITOR_OFF" status -uall
 '
 
-test_expect_success "turn on fsmonitor, clear cache" '
-	git config core.fsmonitor true &&
-	git status &&
+test_expect_success "add extension, clear cache" '
+	git -c core.fsmonitor="$FSMONITOR_ON" status -uall &&
 	flush_disk_cache
 '
 test_perf "status -uall (fsmonitor=true, cold cache)" '
-	git status -uall
+	git -c core.fsmonitor="$FSMONITOR_ON" status -uall
 '
 
 test_expect_success "cleanup" '

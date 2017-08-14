@@ -14,6 +14,25 @@
 #define INDEX_EXTENSION_VERSION	(1)
 #define HOOK_INTERFACE_VERSION	(1)
 
+const char *core_fsmonitor;
+
+static int fsmonitor_config(const char *conf_key, const char *value,
+	void *cb)
+{
+	if (!strcmp(conf_key, "core.fsmonitor")) {
+		core_fsmonitor = xstrdup(value);
+	}
+	return 0;
+}
+
+void ensure_fsmonitor_configured(void)
+{
+	static int configured;
+	if (configured)
+		return;
+	git_config(fsmonitor_config, NULL);
+	configured = 1;
+}
 
 int read_fsmonitor_extension(struct index_state *istate, const void *data,
 	unsigned long sz)
@@ -138,6 +157,10 @@ static void fsmonitor_ewah_callback(size_t pos, void *is)
 	struct index_state *istate = (struct index_state *)is;
 	struct cache_entry *ce = istate->cache[pos];
 
+	/*
+	 * Don't flag the extension as dirty as we're just reapplying the dirty
+	 * state from when it was last saved.
+	 */
 	if (ce->ce_flags & CE_FSMONITOR_CLEAN)
 		ce->ce_flags &= ~CE_FSMONITOR_CLEAN;
 
@@ -160,6 +183,10 @@ static void mark_file_dirty(struct index_state *istate, const char *name)
 		}
 	}
 
+	/*
+	 * Mark the untracked cache dirty even if it wasn't found in the index
+	 * as it could be a new untracked file.
+	 */
 	untracked_cache_invalidate_path(istate, name);
 #if 0
 	mark_dirty(istate, pos >= 0 ? istate->cache[pos] : NULL, name, 1);
@@ -190,7 +217,7 @@ static int query_fsmonitor(int version, uint64_t last_update, struct strbuf *que
 	char date[64];
 	const char *argv[4];
 
-	if (!(argv[0] = find_hook("query-fsmonitor")))
+	if (!(argv[0] = core_fsmonitor))
 		return -1;
 
 	snprintf(ver, sizeof(version), "%d", version);
@@ -199,6 +226,7 @@ static int query_fsmonitor(int version, uint64_t last_update, struct strbuf *que
 	argv[2] = date;
 	argv[3] = NULL;
 	cp.argv = argv;
+	cp.use_shell = 1;
 	cp.out = -1;
 
 	return capture_command(&cp, query_result, 1024);
@@ -274,11 +302,7 @@ static void *query_fsmonitor_thread(void *_data)
 
 void tweak_fsmonitor_extension(struct index_state *istate)
 {
-	int val;
-
-	if (!git_config_get_maybe_bool("core.fsmonitor", &val))
-		core_fsmonitor = val;
-
+	ensure_fsmonitor_configured();
 	if (core_fsmonitor) {
 		/* if fsmonitor is being switched from off to on */
 		if (!istate->fsmonitor_last_update)

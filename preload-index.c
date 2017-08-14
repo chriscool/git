@@ -76,6 +76,7 @@ void preload_index(struct index_state *index, const struct pathspec *pathspec)
 	int threads, i, work, offset;
 	struct thread_data data[MAX_PARALLEL];
 
+	ensure_fsmonitor_configured();
 	if (!core_preload_index && !core_fsmonitor)
 		return;
 	refresh_by_fsmonitor(index);

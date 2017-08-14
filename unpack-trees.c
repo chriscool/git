@@ -12,6 +12,7 @@
 #include "dir.h"
 #include "submodule.h"
 #include "submodule-config.h"
+#include "fsmonitor.h"
 
 /*
  * Error messages expected by scripts out of plumbing commands such as

@@ -1,6 +1,9 @@
 #ifndef FSMONITOR_H
 #define FSMONITOR_H
 
+extern const char *core_fsmonitor;
+void ensure_fsmonitor_configured(void);
+
 int read_fsmonitor_extension(struct index_state *istate, const void *data, unsigned long sz);
 void write_fsmonitor_extension(struct strbuf *sb, struct index_state *istate);
 void tweak_fsmonitor_extension(struct index_state *istate);

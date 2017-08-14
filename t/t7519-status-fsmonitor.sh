@@ -41,7 +41,7 @@ test_expect_success 'setup' '
 	git add . &&
 	test_tick &&
 	git commit -m initial &&
-	git config core.fsmonitor true &&
+	git config core.fsmonitor .git/hooks/query-fsmonitor &&
 	cat >.gitignore <<-\EOF
 	.gitignore
 	expect*
@@ -116,7 +116,7 @@ do
 		rm -f marker &&
 		git status >output &&
 		test_path_is_file marker &&
-		git -c core.fsmonitor=false status >expect &&
+		git -c core.fsmonitor= status >expect &&
 		test_i18ncmp expect output
 	'
 
@@ -148,7 +148,7 @@ test_expect_success 'status with core.untrackedcache false' '
 	EOF
 	clean_repo &&
 	dirty_repo &&
-	git -c core.fsmonitor=false status >expect &&
+	git -c core.fsmonitor= status >expect &&
 	clean_repo &&
 	git status &&
 	test_path_is_missing marker &&
@@ -165,7 +165,7 @@ fi
 
 test_expect_success 'status with core.untrackedcache true' '
 	git config core.untrackedcache true &&
-	git -c core.fsmonitor=false status >expect &&
+	git -c core.fsmonitor= status >expect &&
 	clean_repo &&
 	git status &&
 	test_path_is_missing marker &&
