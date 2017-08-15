@@ -158,7 +158,8 @@ static int handshake_version(struct child_process *process,
 
 static int handshake_capabilities(struct child_process *process,
 				  struct subprocess_capability *capabilities,
-				  unsigned int *supported_capabilities)
+				  unsigned int *supported_capabilities,
+				  const char *cmd)
 {
 	int i;
 	char *line;
@@ -184,8 +185,8 @@ static int handshake_capabilities(struct child_process *process,
 			if (supported_capabilities)
 				*supported_capabilities |= capabilities[i].flag;
 		} else {
-			warning("external filter requested unsupported filter capability '%s'",
-				p);
+			warning("subprocess '%s' requested unsupported capability '%s'",
+				cmd, p);
 		}
 	}
 
@@ -206,8 +207,10 @@ int subprocess_handshake(struct subprocess_entry *entry,
 
 	retval = handshake_version(process, welcome_prefix, versions,
 				   chosen_version) ||
-		 handshake_capabilities(process, capabilities,
-					supported_capabilities);
+		 handshake_capabilities(process,
+					capabilities,
+					supported_capabilities,
+					entry->cmd);
 
 	sigchain_pop(SIGPIPE);
 	return retval;
