@@ -111,7 +111,7 @@ int subprocess_start(struct hashmap *hashmap, struct subprocess_entry *entry, co
 
 static int handshake_version(struct child_process *process,
 			     const char *welcome_prefix, int *versions,
-			     int *chosen_version)
+			     int *chosen_version, const char *cmd)
 {
 	int version_scratch;
 	int i;
@@ -123,27 +123,33 @@ static int handshake_version(struct child_process *process,
 
 	if (packet_write_fmt_gently(process->in, "%s-client\n",
 				    welcome_prefix))
-		return error("Could not write client identification");
+		return error("Could not write client identification "
+			     "for subprocess '%s'", cmd);
 	for (i = 0; versions[i]; i++) {
 		if (packet_write_fmt_gently(process->in, "version=%d\n",
 					    versions[i]))
-			return error("Could not write requested version");
+			return error("Could not write requested version "
+				     "for subprocess '%s'", cmd);
 	}
 	if (packet_flush_gently(process->in))
-		return error("Could not write flush packet");
+		return error("Could not write flush packet "
+			     "for subprocess '%s'", cmd);
 
 	if (!(line = packet_read_line(process->out, NULL)) ||
 	    !skip_prefix(line, welcome_prefix, &p) ||
 	    strcmp(p, "-server"))
-		return error("Unexpected line '%s', expected %s-server",
-			     line ? line : "<flush packet>", welcome_prefix);
+		return error("Unexpected line '%s', expected %s-server "
+			     "for subprocess '%s'",
+			     line ? line : "<flush packet>", welcome_prefix, cmd);
 	if (!(line = packet_read_line(process->out, NULL)) ||
 	    !skip_prefix(line, "version=", &p) ||
 	    strtol_i(p, 10, chosen_version))
-		return error("Unexpected line '%s', expected version",
-			     line ? line : "<flush packet>");
+		return error("Unexpected line '%s', expected version "
+			     "for subprocess '%s'",
+			     line ? line : "<flush packet>", cmd);
 	if ((line = packet_read_line(process->out, NULL)))
-		return error("Unexpected line '%s', expected flush", line);
+		return error("Unexpected line '%s', expected flush packet "
+			     "for subprocess '%s'", line, cmd);
 
 	/* Check to make sure that the version received is supported */
 	for (i = 0; versions[i]; i++) {
@@ -151,7 +157,8 @@ static int handshake_version(struct child_process *process,
 			break;
 	}
 	if (!versions[i])
-		return error("Version %d not supported", *chosen_version);
+		return error("Version %d not supported for subprocess '%s'",
+			     *chosen_version, cmd);
 
 	return 0;
 }
@@ -206,7 +213,7 @@ int subprocess_handshake(struct subprocess_entry *entry,
 	sigchain_push(SIGPIPE, SIG_IGN);
 
 	retval = handshake_version(process, welcome_prefix, versions,
-				   chosen_version) ||
+				   chosen_version, entry->cmd) ||
 		 handshake_capabilities(process,
 					capabilities,
 					supported_capabilities,
