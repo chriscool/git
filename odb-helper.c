@@ -55,51 +55,23 @@ static void parse_capabilities(char *cap_buf,
 	string_list_clear(&cap_list, 0);
 }
 
-static int send_start_packets(struct child_process *process, const char *cmd)
-{
-	int err = packet_writel(process->in, "git-read-object-client", "version=1", NULL);
-	if (err)
-		return err;
-
-	err = strcmp(packet_read_line(process->out, NULL), "git-read-object-server");
-	if (err) {
-		error("external process '%s' does not support read-object protocol version 1", cmd);
-		return err;
-	}
-	err = strcmp(packet_read_line(process->out, NULL), "version=1");
-	if (err)
-		return err;
-	err = packet_read_line(process->out, NULL) != NULL;
-	if (err)
-		return err;
-
-	return packet_writel(process->in,
-			     "capability=get_git_obj",
-			     "capability=get_raw_obj",
-			     "capability=get_direct",
-			     "capability=put_raw_obj",
-			     "capability=have",
-			     NULL);
-}
-
 static int start_object_process_fn(struct subprocess_entry *subprocess)
 {
-	int err;
+	static int versions[] = {1, 0};
+	static struct subprocess_capability capabilities[] = {
+		{ "get_git_obj", ODB_HELPER_CAP_GET_GIT_OBJ },
+		{ "get_raw_obj", ODB_HELPER_CAP_GET_RAW_OBJ },
+		{ "get_direct",  ODB_HELPER_CAP_GET_DIRECT  },
+		{ "put_git_obj", ODB_HELPER_CAP_PUT_GIT_OBJ },
+		{ "put_raw_obj", ODB_HELPER_CAP_PUT_RAW_OBJ },
+		{ "put_direct",  ODB_HELPER_CAP_PUT_DIRECT  },
+		{ "have",        ODB_HELPER_CAP_HAVE },
+		{ NULL, 0 }
+	};
 	struct object_process *entry = (struct object_process *)subprocess;
-	struct child_process *process = &subprocess->process;
-	char *cap_buf;
-
-	sigchain_push(SIGPIPE, SIG_IGN);
-
-	err = send_start_packets(process, subprocess->cmd);
-
-	if (!err)
-		while ((cap_buf = packet_read_line(process->out, NULL)))
-			parse_capabilities(cap_buf, &entry->supported_capabilities, subprocess->cmd);
-
-	sigchain_pop(SIGPIPE);
-
-	return err;
+	return subprocess_handshake(subprocess, "git-read-object", versions, NULL,
+				    capabilities,
+				    &entry->supported_capabilities);
 }
 
 static struct object_process *launch_object_process(struct odb_helper *o,
