@@ -13,15 +13,16 @@ int cmd2process_cmp(const void *unused_cmp_data,
 	const struct subprocess_entry *e1 = entry;
 	const struct subprocess_entry *e2 = entry_or_key;
 
-	return strcmp(e1->cmd, e2->cmd);
+	return strcmp(e1->process.argv[0], e2->process.argv[0]);
 }
 
 struct subprocess_entry *subprocess_find_entry(struct hashmap *hashmap, const char *cmd)
 {
 	struct subprocess_entry key;
+	const char *argv[] = { cmd, NULL };
 
 	hashmap_entry_init(&key, strhash(cmd));
-	key.cmd = cmd;
+	key.process.argv = argv;
 	return hashmap_get(hashmap, &key, NULL);
 }
 
@@ -79,7 +80,6 @@ int subprocess_start(struct hashmap *hashmap, struct subprocess_entry *entry, co
 	struct child_process *process;
 	const char *argv[] = { cmd, NULL };
 
-	entry->cmd = cmd;
 	process = &entry->process;
 
 	child_process_init(process);

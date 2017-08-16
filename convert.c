@@ -543,7 +543,7 @@ static void handle_filter_error(const struct strbuf *filter_status,
 		 * Something went wrong with the protocol filter.
 		 * Force shutdown and restart if another blob requires filtering.
 		 */
-		error("external filter '%s' failed", entry->subprocess.cmd);
+		error("external filter '%s' failed", entry->subprocess.process.argv[0]);
 		subprocess_stop(&subprocess_map, &entry->subprocess);
 		free(entry);
 	}
