@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use IPC::Open2;
+use IPC::Open3;
 
 # An example hook script to integrate Watchman
 # (https://facebook.github.io/watchman/) with git to provide fast
@@ -57,8 +57,8 @@ my $git_work_tree = $ENV{'PWD'};
 # Set input record separator
 $/ = 0666;
 
-my $pid = open2(\*CHLD_IN, \*CHLD_OUT, 'watchman -j')
-    or die "open2() failed $!";
+my $pid = open3(\*CHLD_IN, \*CHLD_OUT, \*CHLD_ERR, 'watchman -j')
+    or die "open3() failed $!";
 
 print CHLD_IN "[\"query\", \"$git_work_tree\", { \
 	\"since\": $time, \
@@ -67,6 +67,7 @@ print CHLD_IN "[\"query\", \"$git_work_tree\", { \
 	}]";
 
 my $response = <CHLD_OUT>;
+my $err = <CHLD_ERR>;
 
 die "Watchman: command returned no output.\n" .
     "Falling back to scanning...\n" if $response eq "";
