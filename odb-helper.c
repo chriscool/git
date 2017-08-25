@@ -650,6 +650,7 @@ static int send_have_packets(struct odb_helper *o,
 
 		total_got += packet_len;
 
+		/* 'have' packets should end with '\n' or '\0' */
 		do {
 			char *eol = strchrnul(p, '\n');
 			more = (*eol == '\n');
@@ -657,7 +658,7 @@ static int send_have_packets(struct odb_helper *o,
 			if (add_have_entry(o, p))
 				break;
 			p = eol + 1;
-		} while (more);
+		} while (more && *p);
 	}
 
 	if (packet_len < 0)
