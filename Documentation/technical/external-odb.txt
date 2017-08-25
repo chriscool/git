@@ -47,12 +47,23 @@ Registering such a command tells Git that an external odb called
 <odbname> exists and that the registered command should be used to
 communicate with it.
 
+The communication happens through instructions that are sent by Git
+and that the commands should answer. If it makes sense, Git can send
+the same instruction to many commands in the order in which they are
+configured.
+
 There are 2 kinds of commands. Commands registered using the
 "odb.<odbname>.subprocessCommand" config variable are called "process
 commands" and the associated mode is called "process mode". Commands
 registered using the "odb.<odbname>.scriptCommand" config variables
 are called "script commands" and the associated mode is called "script
 mode".
+
+Early on git commands send an 'init' instruction to the registered
+commands. A capability negociation will take place during this
+request/response exchange which will let Git and the helpers know how
+they can further collaborate. The attribute system can also be used to
+tell Git which objects should be handled by which helper.
 
 Process Mode
 ============
@@ -203,8 +214,11 @@ packet: git< status=abort
 packet: git< 0000
 ------------------------
 
-Git neither stops nor restarts the helper in case the "error"/"abort"
-status is set.
+Git neither stops nor restarts the helper in case a
+"notfound"/"error"/"abort" status is set. An "error" status means a
+possibly more transient error than an abort. The helper should also
+send a "notfound" error in case of a "get_*" instruction, which means
+that the requested object cannot be found.
 
 If the helper dies during the communication or does not adhere to the
 protocol then Git will stop and restart it with the next instruction.
@@ -228,17 +242,17 @@ file in the ".git/objects" directory.
 
 After the helper has sent the "status=success" packet and the
 following flush packet in process mode, or after it has exited in the
-script mode, Git should lookup again for a loose object file with the
-requested sha1.
+script mode, Git will lookup again for the requested sha1 in its loose
+object files and pack files.
 
  - 'put_raw_obj <sha1> <size> <type>'
 
 This instruction should be following by three arguments to tell which
 object the helper will receive from git: <sha1>, <size> and
 <type>. The hexadecimal <sha1> argument describes the object that will
-be sent from Git to the helper. The <type> is the object type (blob,
-tree, commit or tag) of this object. The <size> is the size of the
-(decompressed) object content.
+be sent from Git to the helper. The <type> is the object type ("blob",
+"tree", "commit" or "tag") of this object. The <size> is the size in
+bytes of the (decompressed) object content.
 
 In process mode the last argument (the type) should be followed by a
 flush packet.
@@ -263,6 +277,9 @@ size and type, in this order, of all the objects it can provide to Git
 (through a 'get_*' instruction). There should be a space character
 between the sha1 and the size and between the size and the type, and
 then a new line character after the type.
+
+If many packets are needed to send back all this information, the
+split between packets should be made after the new line characters.
 
 If the helper does not experience problems, then it must then send a
 "success" status as described for the 'get_*' instructions.
