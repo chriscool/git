@@ -722,15 +722,19 @@ static void odb_helper_load_have(struct odb_helper *o)
 	qsort(o->have, o->have_nr, sizeof(*o->have), odb_helper_object_cmp);
 }
 
+static const unsigned char *have_sha1_access(size_t index, void *table)
+{
+	struct odb_helper_object *have = table;
+	return have[index].sha1;
+}
+
 static struct odb_helper_object *odb_helper_lookup(struct odb_helper *o,
 						   const unsigned char *sha1)
 {
 	int idx;
 
 	odb_helper_load_have(o);
-	idx = sha1_entry_pos(o->have, sizeof(*o->have), 0,
-			     0, o->have_nr, o->have_nr,
-			     sha1);
+	idx = sha1_pos(sha1, o->have, o->have_nr, have_sha1_access);
 	if (idx < 0)
 		return NULL;
 	return &o->have[idx];
