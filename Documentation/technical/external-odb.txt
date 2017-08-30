@@ -17,12 +17,18 @@ The purpose of this mechanism is to make possible to handle Git
 objects, especially blobs, in much more flexible ways.
 
 Currently Git can store its objects only in the form of loose objects
-in separate files or packed objects in a pack file.
+in separate files or packed objects in a pack file. These existing
+object stores cannot be easily optimized for many different kind of
+contents.
 
-This is not flexible enough for some important use cases like handling
-really big binary files or handling a really big number of files that
-are fetched only as needed. And it is not realistic to expect that Git
-could fully natively handle many of such use cases.
+So the current stores are not flexible enough for some important use
+cases like handling really big binary files or handling a really big
+number of files that are fetched only as needed. And it is not
+realistic to expect that Git could fully natively handle many of such
+use cases. Git would need to natively implement different internal
+stores which would be a huge burden and which could lead to
+re-implement things like HTTP servers, Docker registries or artifact
+stores that already exist outside Git.
 
 Furthermore many improvements that are dependent on specific setups
 could be implemented in the way Git objects are managed if it was
@@ -31,8 +37,8 @@ restartable clone using the bundle mechanism has often been requested,
 but implementing that would go against the current strict rules under
 which the Git objects are currently handled.
 
-What Git needs a mechanism to make it possible to customize in a lot
-of different ways how the Git objects are handled. Though this
+What Git needs is a mechanism to make it possible to customize in a
+lot of different ways how the Git objects are handled. Though this
 mechanism should try as much as possible to avoid interfering with the
 usual way in which Git handle its objects.
 
