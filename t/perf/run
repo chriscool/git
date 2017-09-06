@@ -93,6 +93,18 @@ run_dirs () {
 	done
 }
 
+get_subsections () {
+	section="$1"
+	git config -f "$GIT_PERF_CONFIG_FILE" --name-only --get-regex "$section\..*\.[^.]+" |
+	sed -e "s/$section\.\(.*\)\..*/\1/" | sort | uniq | {
+		while read -r line
+		do
+			elems="$elems $(git rev-parse --sq-quote "$line")"
+		done;
+		echo "elems: $elems"
+	}
+}
+
 get_var_from_env_or_config () {
 	env_var="$1"
 	conf_var="$2"
