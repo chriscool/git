@@ -340,3 +340,108 @@ can that contains:
 *.jpg           odb=magic
 ------------------------
 
+Transfering objects
+===================
+
+When an external odb helper is configured, the objects managed by the
+external odb are not put in the pack file that is sent (when pushing
+or answering clone and fetch requests), so the receiver should also
+have configured an external odb helper that can get the missing
+objects otherwise Git will error out complaining about missing
+objects.
+
+This has some drawbacks of course, but at least it makes sure that
+users' and admins' repositories are both properly configured to use a
+common external ODB before they can talk to each other.
+
+Transfering meta information and restartable clone
+==================================================
+
+There are different ways to make it possible for the external odb
+helpers to know which services they should get the objects from (or
+put them into), for example the information could be hardcoded into
+the helpers, or the information could be computed from configuration
+information like the url of the "origin" remote.
+
+The external odb mechanism itself doesn't really take care of this, so
+helpers are free to do whatever they want.
+
+One interesting possibility though is to have this information as part
+of the repository in special refs, for example refs/odb/magic/*, where
+"magic" is the external odb name.
+
+This would especially make it possible to implement a restartable
+clone using Git bundles (and an external odb helper) like this:
+
+	1) At the very start of the clone, Git would fetch the refs
+	that contain "meta information", for example refs/odb/magic/*
+	(where "magic" is the odb name). These refs would point to
+	some blobs that contain lists of the bundles that are
+	available for fetching by the helper, along with enough
+	information for the helper to fetch them (for example HTTP
+	urls of the bundles).
+
+	2) After this first fetch of the refs/odb/magic/* refs, the
+	helper would be sent the 'init' instruction. At that time it
+	can read all the blobs pointed to by these refs and download
+	the bundles listed in the blobs.
+
+	If something goes wrong when the helper "fetches" a bundle,
+	the helper could force the clone to error out (after maybe
+	retrying), and when the user (or the helper itself) tries
+	again to clone, the helper would restart its bundle "fetch"
+	(using the restartable protocol, for example HTTP).
+
+	When this "fetch" eventually succeeds, then the helper will
+	unbundle what it received, and then give back control to the
+	second regular part of the clone.
+
+	3) This regular part of the clone will then try to fetch the
+	usual refs, but as the unbundling has already updated the
+	content of the usual refs as well as the object stores this
+	fetch will find that everything is up-to-date.
+
+	Or if everything is not quite up-to-date and there are still
+	things to fetch, another hopefully much small regular fetch
+	will happen.
+
+As this is an interesting use of the external odb mechanism, the
+`--initial-refspec` option has been implemented in `git clone`. This
+makes it possible to perform all the above steps using a single clone
+command like:
+
+------------------------
+$ git clone -c odb.magic.scriptCommand="$HELPER" \
+  --initial-refspec "refs/odbs/magic/*:refs/odbs/magic/*" "$URL"
+------------------------
+
+But note that the above could also be performed using:
+
+------------------------
+$ git init
+$ git remote add origin "$URL"
+$ git fetch origin "refs/odbs/magic/*:refs/odbs/magic/*"
+$ git config odb.magic.scriptCommand "$HELPER"
+$ git fetch origin
+------------------------
+
+So the `--initial-refspec` option can be seen as just a shortcut to
+simplify external odb helped clones for users.
+
+Also note that this `--initial-refspec` approach could be slower than
+a regular clone, so it is mostly interesting if one wants to fetch a
+big number of objects or many big objects, like for an initial clone
+of a big repo. In this use case a relatively small amount of time
+spent in the initial fetch is an acceptable trade-off if the clone is
+restartable.
+
+Though in some cases, as the `--initial-refspec` clone could alleviate
+resource usage of the Git server, it could be even faster than a
+regular clone.
+
+So admins and users should not blindly use the `--initial-refspec`
+option all the time when an external odb is configured. But using an
+external odb in the first place means that they have specific
+requirements for handling objects which suggests that the regular way
+to clone might not be very good for their use cases and for the
+objects that are stored in their external ODBs.
