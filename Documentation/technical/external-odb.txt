@@ -299,6 +299,30 @@ after the type.
 After sending this, the script helper should exit and its exit code
 should signal to Git if a problem occured or not.
 
+Order of instructions
+=====================
+
+For get_*_object instructions the regular code to find objects is
+called before the odb helpers.
+
+For put_*_object instructions the regular code to store the objects is
+called after the odb helpers.
+
+For now this order is not configurable.
+
+Object caching
+==============
+
+If a helper returns the object data as requested by get_git_obj or
+get_raw_obj, then Git will itself store the object locally in its
+regular object store, so it is redundant for the helper to also store
+or try to store the object in the regular object store.
+
+Yeah, this seems to defeat the goal of enabling specialized object
+handlers to handle large or other "unusual" objects that git normally
+doesn't deal well with. So in the long run there should be a way to
+make this configurable.
+
 Selecting objects
 =================
 
