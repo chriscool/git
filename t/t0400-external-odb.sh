@@ -29,8 +29,8 @@ put_raw_obj)
 	sha1="$2"
 	size="$3"
 	kind="$4"
-	writen=$(git hash-object -w -t "$kind" --stdin)
-	test "$writen" = "$sha1" || die "bad sha1 passed '$sha1' vs writen '$writen'"
+	written=$(git hash-object -w -t "$kind" --stdin)
+	test "$written" = "$sha1" || die "bad sha1 passed '$sha1' vs written '$written'"
 	;;
 *)
 	die "unknown command '$1'"
