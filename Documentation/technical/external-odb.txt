@@ -1,7 +1,7 @@
 External ODBs
 ^^^^^^^^^^^^^
 
-The External ODB mechanism makes it possible for Git objects, mostly
+The External ODB mechanism makes it possible for Git objects, only
 blobs for now though, to be stored in an "external object database"
 (External ODB).
 
@@ -327,7 +327,7 @@ Selecting objects
 =================
 
 To select objects that should be handled by an external odb, one can
-use the git attributes system. For now this will only work will blobs
+use the git attributes system. For now this will only work with blobs
 and this will only work along with the 'put_raw_obj' instruction.
 
 For example if one has an external odb called "magic" and has
