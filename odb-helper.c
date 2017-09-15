@@ -870,6 +870,8 @@ static int odb_helper_get_git_object(struct odb_helper *o,
 	int zret = Z_STREAM_END;
 	git_SHA_CTX hash;
 	unsigned char real_sha1[20];
+	struct strbuf header = STRBUF_INIT;
+	unsigned long hdr_size;
 
 	obj = odb_helper_lookup(o, sha1);
 	if (!obj)
@@ -916,10 +918,14 @@ static int odb_helper_get_git_object(struct odb_helper *o,
 			/* skip header when counting size */
 			if (!total_got) {
 				const unsigned char *p = memchr(inflated, '\0', got);
-				if (p)
-					got -= p - inflated + 1;
-				else
+				if (p) {
+					unsigned long hdr_last = p - inflated + 1;
+					strbuf_add(&header, inflated, hdr_last);
+					got -= hdr_last;
+				} else {
+					strbuf_add(&header, inflated, got);
 					got = 0;
+				}
 			}
 			total_got += got;
 		} while (stream.avail_in && zret == Z_OK);
@@ -943,6 +949,16 @@ static int odb_helper_get_git_object(struct odb_helper *o,
 	if (hashcmp(real_sha1, sha1)) {
 		warning("sha1 mismatch from odb helper '%s' for %s (got %s)",
 			o->name, sha1_to_hex(sha1), sha1_to_hex(real_sha1));
+		return -1;
+	}
+	if (parse_sha1_header(header.buf, &hdr_size) < 0) {
+		warning("could not parse header from odb helper '%s' for %s",
+			o->name, sha1_to_hex(sha1));
+		return -1;
+	}
+	if (total_got != hdr_size) {
+		warning("size mismatch from odb helper '%s' for %s (%lu != %lu)",
+			o->name, sha1_to_hex(sha1), total_got, hdr_size);
 		return -1;
 	}
 
