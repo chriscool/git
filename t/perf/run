@@ -151,7 +151,6 @@ cd "$(dirname $0)"
 . ../../GIT-BUILD-OPTIONS
 
 mkdir -p test-results
-echo "*** perf subsections ***:"
 get_subsections "perf" >test-results/run_subsections.names
 
 if test $(wc -l <test-results/run_subsections.names) -eq 0
@@ -165,6 +164,7 @@ else
 		(
 			GIT_PERF_SUBSECTION="$subsec"
 			export GIT_PERF_SUBSECTION
+			echo "======== Run for subsection '$GIT_PERF_SUBSECTION' ========"
 			run_subsection "$@"
 		)
 	done <test-results/run_subsections.names
