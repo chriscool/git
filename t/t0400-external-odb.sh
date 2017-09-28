@@ -41,11 +41,9 @@ HELPER="\"$PWD\"/odb-helper"
 
 test_expect_success 'setup alternate repo' '
 	git init alt-repo &&
-	(cd alt-repo &&
-	 test_commit one &&
-	 test_commit two
-	) &&
-	alt_head=`cd alt-repo && git rev-parse HEAD`
+	test_commit -C alt-repo one &&
+	test_commit -C alt-repo two &&
+	alt_head=$(git -C alt-repo rev-parse HEAD)
 '
 
 test_expect_success 'alt objects are missing' '
@@ -67,7 +65,7 @@ test_expect_success 'helper can add objects to alt repo' '
 	test -f .git/objects/$(echo $hash | sed "s#..#&/#") &&
 	size=$(git cat-file -s "$hash") &&
 	git cat-file blob "$hash" | ./odb-helper put_raw_obj "$hash" "$size" blob &&
-	alt_size=$(cd alt-repo && git cat-file -s "$hash") &&
+	alt_size=$(git -C alt-repo cat-file -s "$hash") &&
 	test "$size" -eq "$alt_size"
 '
 
@@ -78,7 +76,7 @@ test_expect_success 'commit adds objects to alt repo' '
 	GIT_NO_EXTERNAL_ODB=1 git commit -m "Add .gitattributes" &&
 	test_commit three &&
 	hash3=$(git ls-tree HEAD | grep three.t | cut -f1 | cut -d\  -f3) &&
-	content=$(cd alt-repo && git show "$hash3") &&
+	content=$(git -C alt-repo show "$hash3") &&
 	test "$content" = "three"
 '
 
