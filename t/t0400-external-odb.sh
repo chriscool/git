@@ -76,7 +76,7 @@ test_expect_success 'commit adds objects to alt repo' '
 	GIT_NO_EXTERNAL_ODB=1 git commit -m "Add .gitattributes" &&
 	test_commit three &&
 	hash3=$(git ls-tree HEAD | grep three.t | cut -f1 | cut -d\  -f3) &&
-	content=$(cd alt-repo && git show "$hash3") &&
+	content=$(git -C alt-repo show "$hash3") &&
 	test "$content" = "three"
 '
 
