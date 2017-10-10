@@ -35,10 +35,15 @@ sub format_times {
 	return $out;
 }
 
-my (@dirs, %dirnames, %dirabbrevs, %prefixes, @tests);
+my (@dirs, %dirnames, %dirabbrevs, %prefixes, @tests, $codespeed);
 while (scalar @ARGV) {
 	my $arg = $ARGV[0];
 	my $dir;
+	if ($arg eq "--codespeed") {
+		$codespeed = 1;
+		shift @ARGV;
+		next;
+	}
 	last if -f $arg or $arg eq "--";
 	if (! -d $arg) {
 		my $rev = Git::command_oneline(qw(rev-parse --verify), $arg);
@@ -174,6 +179,22 @@ sub print_default_results {
 	}
 }
 
+sub print_codespeed_results {
+	for my $t (@subtests) {
+		print $shorttests{$t}, "\n";
+		print read_descr("$resultsdir/$t.descr"), "\n";
+		for my $d (@dirs) {
+			my ($r,$u,$s) = get_times("$resultsdir/$prefixes{$d}$t.times");
+			print $r;
+		}
+		print "\n";
+	}
+}
+
 binmode STDOUT, ":utf8" or die "PANIC on binmode: $!";
 
-print_default_results();
+if ($codespeed) {
+	print_codespeed_results();
+} else {
+	print_default_results();
+}
