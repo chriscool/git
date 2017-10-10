@@ -70,7 +70,7 @@ if (not @tests) {
 }
 
 my $resultsdir = "test-results";
-if ($ENV{GIT_PERF_SUBSECTION} ne "") {
+if ($ENV{GIT_PERF_SUBSECTION}) {
 	$resultsdir .= "/" . $ENV{GIT_PERF_SUBSECTION};
 }
 
