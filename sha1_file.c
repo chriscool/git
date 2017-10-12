@@ -1172,18 +1172,40 @@ static int sha1_loose_object_info(const unsigned char *sha1,
 	return (status < 0) ? status : 0;
 }
 
+int try_find_packed_entry_or_loose_object(const unsigned char *real, struct object_info *oi,
+					  unsigned flags, struct pack_entry *e, int retry)
+{
+	if (find_pack_entry(real, e))
+		return 1;
+
+	/* Most likely it's a loose object. */
+	if (!sha1_loose_object_info(real, oi, flags))
+		return 0;
+
+	/* Not a loose object; someone else may have just packed it. */
+	reprepare_packed_git();
+	if (find_pack_entry(real, e))
+		return 1;
+
+	/* Check if it is a missing object */
+	if (fetch_if_missing && has_external_odb() && retry) {
+		external_odb_get_object(real);
+		return try_find_packed_entry_or_loose_object(real, oi, flags, e, 0);
+	}
+
+	return -1;
+}
+
 int fetch_if_missing = 1;
 
 int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi, unsigned flags)
 {
 	static struct object_info blank_oi = OBJECT_INFO_INIT;
 	struct pack_entry e;
-	int rtype;
+	int rtype, res;
 	const unsigned char *real = (flags & OBJECT_INFO_LOOKUP_REPLACE) ?
 				    lookup_replace_object(sha1) :
 				    sha1;
-	int already_retried = 0;
-
 	if (!oi)
 		oi = &blank_oi;
 
@@ -1207,30 +1229,10 @@ int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi,
 		}
 	}
 
-retry:
-	if (find_pack_entry(real, &e))
-		goto found_packed;
+	res = try_find_packed_entry_or_loose_object(real, oi, flags, &e, 1);
+	if (res < 1)
+		return res;
 
-	/* Most likely it's a loose object. */
-	if (!sha1_loose_object_info(real, oi, flags))
-		return 0;
-
-	/* Not a loose object; someone else may have just packed it. */
-	reprepare_packed_git();
-	if (find_pack_entry(real, &e))
-		goto found_packed;
-
-	/* Check if it is a missing object */
-	if (fetch_if_missing && has_external_odb() &&
-	    !already_retried) {
-		external_odb_get_object(real);
-		already_retried = 1;
-		goto retry;
-	}
-
-	return -1;
-
-found_packed:
 	if (oi == &blank_oi)
 		/*
 		 * We know that the caller doesn't actually need the
