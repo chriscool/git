@@ -161,6 +161,10 @@ test_expect_success 'check-ref-format --branch from subdir' '
 	test "$refname" = "$sha1"
 '
 
+test_expect_success 'check-ref-format --branch from non-repo' '
+	test_must_fail nongit git check-ref-format --branch @{-1}
+'
+
 valid_ref_normalized() {
 	prereq=
 	case $1 in
