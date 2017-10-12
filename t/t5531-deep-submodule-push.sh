@@ -8,22 +8,26 @@ test_expect_success setup '
 	mkdir pub.git &&
 	GIT_DIR=pub.git git init --bare &&
 	GIT_DIR=pub.git git config receive.fsckobjects true &&
+	mkdir submodule &&
+	(
+		cd submodule &&
+		git init &&
+		git config push.default matching &&
+		>junk &&
+		git add junk &&
+		git commit -m "Initial junk"
+	) &&
+	git clone --bare submodule submodule.git &&
 	mkdir work &&
 	(
 		cd work &&
 		git init &&
 		git config push.default matching &&
-		mkdir -p gar/bage &&
-		(
-			cd gar/bage &&
-			git init &&
-			git config push.default matching &&
-			>junk &&
-			git add junk &&
-			git commit -m "Initial junk"
-		) &&
-		git add gar/bage &&
+		mkdir gar &&
+		git submodule add ../submodule.git gar/bage &&
 		git commit -m "Initial superproject"
+		cd gar/bage &&
+		git remote rm origin
 	)
 '
 
@@ -51,11 +55,10 @@ test_expect_success 'push if submodule has no remote' '
 
 test_expect_success 'push fails if submodule commit not on remote' '
 	(
-		cd work/gar &&
-		git clone --bare bage ../../submodule.git &&
-		cd bage &&
+		cd work/gar/bage &&
 		git remote add origin ../../../submodule.git &&
 		git fetch &&
+		git push --set-upstream origin master &&
 		>junk3 &&
 		git add junk3 &&
 		git commit -m "Third junk"
