@@ -1173,11 +1173,43 @@ static int sha1_loose_object_info(const unsigned char *sha1,
 	return (status < 0) ? status : 0;
 }
 
-int try_find_packed_entry_or_loose_object(const unsigned char *real, struct object_info *oi,
-					  unsigned flags, struct pack_entry *e, int retry)
+int object_info_from_pack_entry(const unsigned char *real,
+				struct object_info *oi,
+				struct object_info *blank_oi,
+				unsigned flags,
+				struct pack_entry *e)
+{
+	int rtype;
+
+	if (oi == blank_oi)
+		/*
+		 * We know that the caller doesn't actually need the
+		 * information below, so return early.
+		 */
+		return 0;
+	rtype = packed_object_info(e->p, e->offset, oi);
+	if (rtype < 0) {
+		mark_bad_packed_object(e->p, real);
+		return sha1_object_info_extended(real, oi, 0);
+	} else if (oi->whence == OI_PACKED) {
+		oi->u.packed.offset = e->offset;
+		oi->u.packed.pack = e->p;
+		oi->u.packed.is_delta = (rtype == OBJ_REF_DELTA ||
+					 rtype == OBJ_OFS_DELTA);
+	}
+
+	return 0;
+}
+
+int try_find_packed_entry_or_loose_object(const unsigned char *real,
+					  struct object_info *oi,
+					  struct object_info *blank_oi,
+					  unsigned flags,
+					  struct pack_entry *e,
+					  int retry)
 {
 	if (find_pack_entry(real, e))
-		return 1;
+		return object_info_from_pack_entry(real, oi, blank_oi, flags, e);
 
 	/* Most likely it's a loose object. */
 	if (!sha1_loose_object_info(real, oi, flags))
@@ -1186,12 +1218,12 @@ int try_find_packed_entry_or_loose_object(const unsigned char *real, struct obje
 	/* Not a loose object; someone else may have just packed it. */
 	reprepare_packed_git();
 	if (find_pack_entry(real, e))
-		return 1;
+		return object_info_from_pack_entry(real, oi, blank_oi, flags, e);
 
 	/* Check if it is a missing object */
 	if (fetch_if_missing && repository_format_partial_clone && retry) {
 		fetch_object(repository_format_partial_clone, real);
-		return try_find_packed_entry_or_loose_object(real, oi, flags, e, 0);
+		return try_find_packed_entry_or_loose_object(real, oi, blank_oi, flags, e, 0);
 	}
 
 	return -1;
@@ -1203,7 +1235,6 @@ int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi,
 {
 	static struct object_info blank_oi = OBJECT_INFO_INIT;
 	struct pack_entry e;
-	int rtype, res;
 	const unsigned char *real = (flags & OBJECT_INFO_LOOKUP_REPLACE) ?
 				    lookup_replace_object(sha1) :
 				    sha1;
@@ -1230,28 +1261,7 @@ int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi,
 		}
 	}
 
-	res = try_find_packed_entry_or_loose_object(real, oi, flags, &e, 1);
-	if (res < 1)
-		return res;
-
-	if (oi == &blank_oi)
-		/*
-		 * We know that the caller doesn't actually need the
-		 * information below, so return early.
-		 */
-		return 0;
-	rtype = packed_object_info(e.p, e.offset, oi);
-	if (rtype < 0) {
-		mark_bad_packed_object(e.p, real);
-		return sha1_object_info_extended(real, oi, 0);
-	} else if (oi->whence == OI_PACKED) {
-		oi->u.packed.offset = e.offset;
-		oi->u.packed.pack = e.p;
-		oi->u.packed.is_delta = (rtype == OBJ_REF_DELTA ||
-					 rtype == OBJ_OFS_DELTA);
-	}
-
-	return 0;
+	return try_find_packed_entry_or_loose_object(real, oi, &blank_oi, flags, &e, 1);
 }
 
 /* returns enum object_type or negative */
