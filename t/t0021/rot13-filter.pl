@@ -93,13 +93,21 @@ sub packet_bin_read {
 	}
 }
 
-sub packet_txt_read {
-	my ( $res, $buf ) = packet_bin_read();
-	if ( $res == -1 or $buf eq '' or $buf =~ s/\n$// ) {
-		return ( $res, $buf );
+sub remove_final_lf_or_die {
+	my $buf = shift;
+	if ( $buf =~ s/\n$// ) {
+		return $buf;
 	}
 	die "A non-binary line MUST be terminated by an LF.\n"
 	    . "Received: '$buf'";
+}
+
+sub packet_txt_read {
+	my ( $res, $buf ) = packet_bin_read();
+	if ( $res != -1 and $buf ne '' ) {
+		$buf = remove_final_lf_or_die($buf);
+	}
+	return ( $res, $buf );
 }
 
 # Read a text line and check that it is in the form "key=value"
