@@ -9,7 +9,7 @@ touch $BISECT_LOG
 hash1=$1
 hash2=$2
 
-git bisect start $hash1 $hash2 > $BISECT_LOG
+git bisect start --no-checkout $hash1 $hash2 > $BISECT_LOG
 count=0
 
 while grep -q "merge base must be tested" $BISECT_LOG
@@ -18,7 +18,7 @@ do
   count=$(($count + 1))
 done
 
-echo "Merge bases: $count"
+echo "$count"
 
-git bisect reset
+#git bisect reset >/dev/null 2>&1
 rm $BISECT_LOG
