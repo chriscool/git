@@ -1636,6 +1636,13 @@ ifeq ($(TCLTK_PATH),)
 NO_TCLTK = NoThanks
 endif
 
+ifndef NO_TCLTK
+	has_tcltk := $(shell type $(TCLTK_PATH) 2>/dev/null)
+	ifndef has_tcltk
+$(error "Tcl/Tk is not installed ('$(TCLTK_PATH)' not found). Consider setting NO_TCLTK or installing Tcl/Tk")
+	endif
+endif
+
 ifeq ($(PERL_PATH),)
 NO_PERL = NoThanks
 endif
