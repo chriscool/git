@@ -16,7 +16,8 @@ while read -r commit
 do
 	echo "Processing $commit"
 	GIT_EDITOR="$SCRIPT_DIR/remove_parent.sh" git replace --edit "$commit"
-	test $("$SCRIPT_DIR/merge_bases_count.sh" "$hash1" "$hash2") -eq "$nb_mb" ||
+	mb_counts=$("$SCRIPT_DIR/merge_bases_count.sh" "$hash1" "$hash2")
+	test "$mb_counts" = "$nb_mb" ||
 		git replace -d "$commit"
 done <"$TMP_MERGE_COMMITS"
 

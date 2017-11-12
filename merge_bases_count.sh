@@ -2,23 +2,27 @@
 #
 # Count merge bases with bisect
 
+trap "git bisect reset" INT
+
+hash1="$1"
+hash2="$2"
+
 BISECT_LOG="my_bisect_log.txt"
-# export LC_ALL=C
-touch $BISECT_LOG
 
-hash1=$1
-hash2=$2
-
-git bisect start $hash1 $hash2 > $BISECT_LOG
+git bisect start "$hash1" "$hash2" --no-checkout > "$BISECT_LOG"
 count=0
 
-while grep -q "merge base must be tested" $BISECT_LOG
+if grep -q "Some good revs are not ancestors of the bad rev" "$BISECT_LOG"
+then
+  return 0
+fi
+
+while grep -q "merge base must be tested" "$BISECT_LOG"
 do
-  git bisect good > $BISECT_LOG
+  git bisect good > "$BISECT_LOG"
   count=$(($count + 1))
 done
 
-echo "Merge bases: $count"
+echo "$count"
 
-git bisect reset
-rm $BISECT_LOG
+rm "$BISECT_LOG"
