@@ -35,4 +35,4 @@ linux)
 	;;
 esac
 
-MAKE_OPTS=""
+MAKE_OPTS="BYPASS_TCLTK_CHECK=1"
