@@ -30,6 +30,7 @@
 #include "quote.h"
 #include "packfile.h"
 #include "external-odb.h"
+#include "fetch-object.h"
 
 const unsigned char null_sha1[GIT_MAX_RAWSZ];
 const struct object_id null_oid;
