@@ -11,8 +11,8 @@ use HTTP::Request::Common;
 
 packet_initialize("git-read-object", 1);
 
-packet_read_and_check_capabilities("get_raw_obj", "put_raw_obj", "have");
-packet_write_capabilities("get_raw_obj", "put_raw_obj", "have");
+my %remote_caps = packet_read_and_check_capabilities("get_raw_obj", "put_raw_obj", "have");
+packet_check_and_write_capabilities(\%remote_caps, "get_raw_obj", "put_raw_obj", "have");
 
 my $http_url = $ENV{HTTPD_URL};
 
