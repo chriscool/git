@@ -37,8 +37,8 @@ my $DIR = "../.git/";
 
 packet_initialize("git-read-object", 1);
 
-packet_read_and_check_capabilities("get_direct");
-packet_write_capabilities("get_direct");
+my %remote_caps = packet_read_and_check_capabilities("get_direct");
+packet_check_and_write_capabilities(\%remote_caps, "get_direct");
 
 while (1) {
 	my ($res, $command) = packet_txt_read();
