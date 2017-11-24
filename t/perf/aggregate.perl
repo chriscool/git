@@ -75,8 +75,10 @@ if (not @tests) {
 }
 
 my $resultsdir = "test-results";
+my $results_section = "";
 if (exists $ENV{GIT_PERF_SUBSECTION} and $ENV{GIT_PERF_SUBSECTION} ne "") {
 	$resultsdir .= "/" . $ENV{GIT_PERF_SUBSECTION};
+	$results_section = $ENV{GIT_PERF_SUBSECTION};
 }
 
 my @subtests;
@@ -180,10 +182,18 @@ sub print_default_results {
 }
 
 sub print_codespeed_results {
+	my ($results_section) = @_;
 
 	my $project = "Git";
-	my $executable = `uname -o -p`;
+
+	my $executable;
+	if ($results_section eq "") {
+	    $executable = `uname -o -p`;
+	} else {
+	    $executable = $results_section;
+	}
 	chomp $executable;
+
 	my $environment = `uname -r`;
 	chomp $environment;
 
@@ -219,7 +229,7 @@ sub print_codespeed_results {
 binmode STDOUT, ":utf8" or die "PANIC on binmode: $!";
 
 if ($codespeed) {
-	print_codespeed_results();
+	print_codespeed_results($results_section);
 } else {
 	print_default_results();
 }
