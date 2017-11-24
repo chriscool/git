@@ -105,7 +105,7 @@ get_var_from_env_or_config () {
 	env_var="$1"
 	conf_sec="$2"
 	conf_var="$3"
-	# $4 can be set to a default value
+	default_value="$4" # optional
 
 	# Do nothing if the env variable is already set
 	eval "test -z \"\${$env_var+x}\"" || return
@@ -123,7 +123,7 @@ get_var_from_env_or_config () {
 	conf_value=$(git config -f "$GIT_PERF_CONFIG_FILE" "$var") &&
 	eval "$env_var=\"$conf_value\"" && return
 
-	test -n "${4+x}" && eval "$env_var=\"$4\""
+	test -n "${default_value+x}" && eval "$env_var=\"$default_value\""
 }
 
 run_subsection () {
