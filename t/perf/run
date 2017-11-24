@@ -106,6 +106,7 @@ get_var_from_env_or_config () {
 	conf_sec="$2"
 	conf_var="$3"
 	default_value="$4" # optional
+	conf_opts="$5" # optional
 
 	# Do nothing if the env variable is already set
 	eval "test -z \"\${$env_var+x}\"" || return
@@ -116,11 +117,11 @@ get_var_from_env_or_config () {
 	if test -n "$GIT_PERF_SUBSECTION"
 	then
 		var="$conf_sec.$GIT_PERF_SUBSECTION.$conf_var"
-		conf_value=$(git config -f "$GIT_PERF_CONFIG_FILE" "$var") &&
+		conf_value=$(git config $conf_opts -f "$GIT_PERF_CONFIG_FILE" "$var") &&
 		eval "$env_var=\"$conf_value\"" && return
 	fi
 	var="$conf_sec.$conf_var"
-	conf_value=$(git config -f "$GIT_PERF_CONFIG_FILE" "$var") &&
+	conf_value=$(git config $conf_opts -f "$GIT_PERF_CONFIG_FILE" "$var") &&
 	eval "$env_var=\"$conf_value\"" && return
 
 	test -n "${default_value+x}" && eval "$env_var=\"$default_value\""
