@@ -144,9 +144,14 @@ run_subsection () {
 		set -- . "$@"
 	fi
 
+	codespeed=
+	test "$GIT_PERF_CODESPEED_OUTPUT" = "true" && codespeed="--codespeed"
+
 	run_dirs "$@"
-	./aggregate.perl "$@"
+	./aggregate.perl $codespeed "$@"
 }
+
+get_var_from_env_or_config "GIT_PERF_CODESPEED_OUTPUT" "perf" "codespeedOutput" "" --bool
 
 cd "$(dirname $0)"
 . ../../GIT-BUILD-OPTIONS
