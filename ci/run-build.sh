@@ -5,4 +5,4 @@
 
 . ${0%/*}/lib-travisci.sh
 
-make --jobs=2
+make $MAKE_OPTS --jobs=2

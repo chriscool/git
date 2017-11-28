@@ -7,4 +7,4 @@
 
 mkdir -p $HOME/travis-cache
 ln -s $HOME/travis-cache/.prove t/.prove
-make --quiet test
+make $MAKE_OPTS --quiet test

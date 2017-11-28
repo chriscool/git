@@ -25,6 +25,6 @@ test -z $HOST_UID || (CI_USER="ci" && useradd -u $HOST_UID $CI_USER) &&
 # Build and test
 linux32 --32bit i386 su -m -l $CI_USER -c '
     cd /usr/src/git &&
-    make --jobs=2 &&
-    make --quiet test
+    make $MAKE_OPTS --jobs=2 &&
+    make $MAKE_OPTS --quiet test
 '
