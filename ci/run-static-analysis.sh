@@ -5,4 +5,4 @@
 
 . ${0%/*}/lib-travisci.sh
 
-make coccicheck
+make $MAKE_OPTS coccicheck

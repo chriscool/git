@@ -34,3 +34,5 @@ linux)
 	export PATH="$GIT_LFS_PATH:$P4_PATH:$PATH"
 	;;
 esac
+
+MAKE_OPTS=""
