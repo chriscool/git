@@ -187,9 +187,10 @@ int external_odb_put_object(const void *buf, size_t len,
 	external_odb_init();
 
 	for (o = helpers; o; o = o->next) {
+		int r;
 		if (!has_odb_attrs(o, path))
 			continue;
-		int r = odb_helper_put_object(o, buf, len, type, sha1);
+		r = odb_helper_put_object(o, buf, len, type, sha1);
 		if (r <= 0)
 			return r;
 	}
