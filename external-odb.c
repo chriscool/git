@@ -2,6 +2,7 @@
 #include "external-odb.h"
 #include "odb-helper.h"
 #include "attr.h"
+#include "config.h"
 
 static struct odb_helper *helpers;
 static struct odb_helper **helpers_tail = &helpers;
