@@ -2,6 +2,7 @@
 #include "odb-remote.h"
 #include "odb-helper.h"
 #include "config.h"
+#include "object-store.h"
 
 static struct odb_helper *helpers;
 static struct odb_helper **helpers_tail = &helpers;
@@ -33,8 +34,14 @@ static int odb_remote_config(const char *var, const char *value, void *data)
 
 	o = find_or_create_helper(name, namelen);
 
-	if (!strcmp(subkey, "promisorremote"))
+	if (!strcmp(subkey, "promisorremote")) {
+		o->type = ODB_HELPER_GIT_REMOTE;
 		return git_config_string(&o->dealer, var, value);
+	}
+	if (!strcmp(subkey, "scriptcommand")) {
+		o->type = ODB_HELPER_SCRIPT_CMD;
+		return git_config_string(&o->dealer, var, value);
+	}
 
 	return 0;
 }
@@ -98,6 +105,53 @@ int odb_remote_has_object(const unsigned char *sha1)
 		if (odb_helper_has_object(o, sha1))
 			return 1;
 	return 0;
+}
+
+int odb_remote_get_object(const unsigned char *sha1)
+{
+	struct odb_helper *o;
+	struct strbuf pathbuf = STRBUF_INIT;
+
+	if (!odb_remote_has_object(sha1))
+		return -1;
+
+	sha1_file_name_alt(&pathbuf, odb_remote_root(), sha1);
+	safe_create_leading_directories_const(pathbuf.buf);
+	prepare_external_alt_odb(the_repository);
+
+	for (o = helpers; o; o = o->next) {
+		struct strbuf tmpfile = STRBUF_INIT;
+		int ret;
+		int fd;
+
+		if (!odb_helper_has_object(o, sha1))
+			continue;
+
+		fd = create_object_tmpfile(&tmpfile, pathbuf.buf);
+		if (fd < 0) {
+			strbuf_release(&tmpfile);
+			strbuf_release(&pathbuf);
+			return -1;
+		}
+
+		if (odb_helper_get_object(o, sha1, fd) < 0) {
+			close(fd);
+			unlink(tmpfile.buf);
+			strbuf_release(&tmpfile);
+			continue;
+		}
+
+		close_sha1_file(fd);
+		ret = finalize_object_file(tmpfile.buf, pathbuf.buf);
+		strbuf_release(&tmpfile);
+		strbuf_release(&pathbuf);
+		if (!ret)
+			return 0;
+	}
+
+	strbuf_release(&pathbuf);
+
+	return -1;
 }
 
 int odb_remote_get_direct(const unsigned char *sha1)
