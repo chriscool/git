@@ -914,6 +914,9 @@ static int stat_sha1_file(struct repository *r, const unsigned char *sha1,
 			return 0;
 	}
 
+	if (!odb_remote_get_object(sha1) && !lstat(*path, st))
+		return 0;
+
 	return -1;
 }
 
@@ -955,7 +958,14 @@ static int open_sha1_file(struct repository *r,
 	if (fd >= 0)
 		return fd;
 
-	return open_sha1_file_alt(r, sha1, path);
+	fd = open_sha1_file_alt(r, sha1, path);
+	if (fd >= 0)
+		return fd;
+
+	if (!odb_remote_get_object(sha1))
+		fd = open_sha1_file_alt(r, sha1, path);
+
+	return fd;
 }
 
 /*
