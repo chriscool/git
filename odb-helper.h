@@ -23,4 +23,5 @@ extern int odb_helper_has_object(struct odb_helper *o,
 extern int odb_helper_get_object(struct odb_helper *o,
 				 const unsigned char *sha1,
 				 int fd);
+
 #endif /* ODB_HELPER_H */
