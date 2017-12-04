@@ -844,6 +844,28 @@ static int stat_sha1_file(const unsigned char *sha1, struct stat *st,
 			return 0;
 	}
 
+	if (!external_odb_get_object(sha1) && !lstat(*path, st))
+		return 0;
+
+	return -1;
+}
+
+static int open_sha1_file_alt(const unsigned char *sha1, const char **path)
+{
+	struct alternate_object_database *alt;
+	int most_interesting_errno = errno;
+
+	prepare_alt_odb();
+	for (alt = alt_odb_list; alt; alt = alt->next) {
+		int fd;
+		*path = alt_sha1_path(alt, sha1);
+		fd = git_open(*path);
+		if (fd >= 0)
+			return fd;
+		if (most_interesting_errno == ENOENT)
+			most_interesting_errno = errno;
+	}
+	errno = most_interesting_errno;
 	return -1;
 }
 
@@ -854,26 +876,20 @@ static int stat_sha1_file(const unsigned char *sha1, struct stat *st,
 static int open_sha1_file(const unsigned char *sha1, const char **path)
 {
 	int fd;
-	struct alternate_object_database *alt;
-	int most_interesting_errno;
 
 	*path = sha1_file_name(sha1);
 	fd = git_open(*path);
 	if (fd >= 0)
 		return fd;
-	most_interesting_errno = errno;
 
-	prepare_alt_odb();
-	for (alt = alt_odb_list; alt; alt = alt->next) {
-		*path = alt_sha1_path(alt, sha1);
-		fd = git_open(*path);
-		if (fd >= 0)
-			return fd;
-		if (most_interesting_errno == ENOENT)
-			most_interesting_errno = errno;
-	}
-	errno = most_interesting_errno;
-	return -1;
+	fd = open_sha1_file_alt(sha1, path);
+	if (fd >= 0)
+		return fd;
+
+	if (!external_odb_get_object(sha1))
+		fd = open_sha1_file_alt(sha1, path);
+
+	return fd;
 }
 
 /*
@@ -1480,7 +1496,7 @@ int hash_sha1_file(const void *buf, unsigned long len, const char *type,
 }
 
 /* Finalize a file on disk, and close it. */
-static void close_sha1_file(int fd)
+void close_sha1_file(int fd)
 {
 	if (fsync_object_files)
 		fsync_or_die(fd, "sha1 file");
@@ -1504,7 +1520,7 @@ static inline int directory_size(const char *filename)
  * We want to avoid cross-directory filename renames, because those
  * can have problems on various filesystems (FAT, NFS, Coda).
  */
-static int create_tmpfile(struct strbuf *tmp, const char *filename)
+int create_object_tmpfile(struct strbuf *tmp, const char *filename)
 {
 	int fd, dirlen = directory_size(filename);
 
@@ -1544,7 +1560,7 @@ static int write_loose_object(const unsigned char *sha1, char *hdr, int hdrlen,
 	static struct strbuf tmp_file = STRBUF_INIT;
 	const char *filename = sha1_file_name(sha1);
 
-	fd = create_tmpfile(&tmp_file, filename);
+	fd = create_object_tmpfile(&tmp_file, filename);
 	if (fd < 0) {
 		if (errno == EACCES)
 			return error("insufficient permission for adding an object to repository database %s", get_object_directory());
