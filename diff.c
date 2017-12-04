@@ -4563,10 +4563,8 @@ int diff_opt_parse(struct diff_options *options,
 		options->flags.rename_empty = 1;
 	else if (!strcmp(arg, "--no-rename-empty"))
 		options->flags.rename_empty = 0;
-	else if (skip_to_optional_val(arg, "--relative", &arg)) {
+	else if (skip_to_optional_val(arg, "--relative", &options->prefix))
 		options->flags.relative_name = 1;
-		options->prefix = arg;
-	}
 
 	/* xdiff options */
 	else if (!strcmp(arg, "--minimal"))
