@@ -11,6 +11,28 @@ int starts_with(const char *str, const char *prefix)
 			return 0;
 }
 
+int skip_to_optional_val_default(const char *str, const char *prefix,
+				 const char **val, const char *def)
+{
+	const char *p;
+
+	if (!skip_prefix(str, prefix, &p))
+		return 0;
+
+	if (!*p) {
+		if (val)
+			*val = def;
+		return 1;
+	}
+
+	if (*p != '=')
+		return 0;
+
+	if (val)
+		*val = p + 1;
+	return 1;
+}
+
 /*
  * Used as the default ->buf value, so that people can always assume
  * buf is non NULL and ->buf is NUL terminated even for a freshly
