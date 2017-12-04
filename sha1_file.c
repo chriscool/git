@@ -905,6 +905,9 @@ static int stat_sha1_file(const unsigned char *sha1, struct stat *st,
 			return 0;
 	}
 
+	if (!external_odb_get_object(sha1) && !lstat(*path, st))
+		return 0;
+
 	return -1;
 }
 
@@ -940,7 +943,14 @@ static int open_sha1_file(const unsigned char *sha1, const char **path)
 	if (fd >= 0)
 		return fd;
 
-	return open_sha1_file_alt(sha1, path);
+	fd = open_sha1_file_alt(sha1, path);
+	if (fd >= 0)
+		return fd;
+
+	if (!external_odb_get_object(sha1))
+		fd = open_sha1_file_alt(sha1, path);
+
+	return fd;
 }
 
 /*
