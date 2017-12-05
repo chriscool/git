@@ -1292,13 +1292,9 @@ int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi,
 			break;
 
 		/* Check if it is a missing object */
-		if (fetch_if_missing && repository_format_partial_clone &&
+		if (fetch_if_missing && has_external_odb() &&
 		    !already_retried) {
-			/*
-			 * TODO Investigate haveing fetch_object() return
-			 * TODO error/success and stopping the music here.
-			 */
-			fetch_object(repository_format_partial_clone, real);
+			external_odb_get_direct(real);
 			already_retried = 1;
 			continue;
 		}
