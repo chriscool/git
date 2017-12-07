@@ -20,14 +20,16 @@ int skip_to_optional_val_default(const char *str, const char *prefix,
 		return 0;
 
 	if (!*p) {
-		*val = def;
+		if (val)
+			*val = def;
 		return 1;
 	}
 
 	if (*p != '=')
 		return 0;
 
-	*val = p + 1;
+	if (val)
+		*val = p + 1;
 	return 1;
 }
 
