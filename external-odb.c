@@ -88,8 +88,10 @@ static int external_odb_do_get_object(const unsigned char *sha1)
 
 int external_odb_get_object(const unsigned char *sha1)
 {
+/*
 	if (!external_odb_has_object(sha1))
 		return -1;
+*/
 
 	return external_odb_do_get_object(sha1);
 }
