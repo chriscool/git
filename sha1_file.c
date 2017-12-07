@@ -30,7 +30,6 @@
 #include "quote.h"
 #include "packfile.h"
 #include "external-odb.h"
-#include "fetch-object.h"
 
 const unsigned char null_sha1[GIT_MAX_RAWSZ];
 const struct object_id null_oid;
@@ -1222,9 +1221,9 @@ retry:
 		goto found_packed;
 
 	/* Check if it is a missing object */
-	if (fetch_if_missing && repository_format_partial_clone &&
+	if (fetch_if_missing && has_external_odb() &&
 	    !already_retried) {
-		fetch_object(repository_format_partial_clone, real);
+		external_odb_get_object(real);
 		already_retried = 1;
 		goto retry;
 	}
