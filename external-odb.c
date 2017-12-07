@@ -21,6 +21,11 @@ static struct odb_helper *find_or_create_helper(const char *name, int len)
 	return o;
 }
 
+int has_external_odb(void)
+{
+	return !!helpers;
+}
+
 static int external_odb_config(const char *var, const char *value, void *data)
 {
 	struct odb_helper *o;
