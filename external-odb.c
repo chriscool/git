@@ -76,3 +76,18 @@ int external_odb_has_object(const unsigned char *sha1)
 			return 1;
 	return 0;
 }
+
+int external_odb_get_direct(const unsigned char *sha1)
+{
+	struct odb_helper *o;
+
+	external_odb_init();
+
+	for (o = helpers; o; o = o->next) {
+		if (odb_helper_get_direct(o, sha1) < 0)
+			continue;
+		return 0;
+	}
+
+	return -1;
+}
