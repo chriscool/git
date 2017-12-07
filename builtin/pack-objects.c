@@ -1027,7 +1027,7 @@ static int want_object_in_pack(const struct object_id *oid,
 			return want;
 	}
 
-	if (external_odb_has_object(sha1))
+	if (external_odb_has_object(oid->hash))
 		return 0;
 
 	for (entry = packed_git_mru.head; entry; entry = entry->next) {
