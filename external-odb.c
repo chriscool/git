@@ -21,11 +21,6 @@ static struct odb_helper *find_or_create_helper(const char *name, int len)
 	return o;
 }
 
-int has_external_odb(void)
-{
-	return !!helpers;
-}
-
 static int external_odb_config(const char *var, const char *value, void *data)
 {
 	struct odb_helper *o;
@@ -53,6 +48,13 @@ static void external_odb_init(void)
 	initialized = 1;
 
 	git_config(external_odb_config, NULL);
+}
+
+int has_external_odb(void)
+{
+	external_odb_init();
+
+	return !!helpers;
 }
 
 const char *external_odb_root(void)
