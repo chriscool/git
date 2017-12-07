@@ -70,3 +70,20 @@ int has_odb_remote(void)
 {
 	return !!find_odb_helper(NULL);
 }
+
+int odb_remote_get_direct(const unsigned char *sha1)
+{
+	struct odb_helper *o;
+
+	trace_printf("trace: odb_remote_get_direct: %s", sha1_to_hex(sha1));
+
+	odb_remote_init();
+
+	for (o = helpers; o; o = o->next) {
+		if (odb_helper_get_direct(o, sha1) < 0)
+			continue;
+		return 0;
+	}
+
+	return -1;
+}
