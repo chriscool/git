@@ -26,6 +26,7 @@
 #include "run-command.h"
 #include "connected.h"
 #include "packfile.h"
+#include "list-objects-filter-options.h"
 
 /*
  * Overall FIXMEs:
@@ -61,6 +62,7 @@ static struct string_list option_initial_refspec = STRING_LIST_INIT_NODUP;
 static int option_dissociate;
 static int max_jobs = -1;
 static struct string_list option_recurse_submodules = STRING_LIST_INIT_NODUP;
+static struct list_objects_filter_options filter_options;
 
 static int recurse_submodules_cb(const struct option *opt,
 				 const char *arg, int unset)
@@ -138,6 +140,7 @@ static struct option builtin_clone_options[] = {
 			TRANSPORT_FAMILY_IPV4),
 	OPT_SET_INT('6', "ipv6", &family, N_("use IPv6 addresses only"),
 			TRANSPORT_FAMILY_IPV6),
+	OPT_PARSE_LIST_OBJECTS_FILTER(&filter_options),
 	OPT_END()
 };
 
@@ -939,6 +942,7 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 	struct refspec *initial_refspecs;
 	int is_initial;
 	int saved_use_external_odb;
+	fetch_if_missing = 0;
 
 	packet_trace_identity("clone");
 	argc = parse_options(argc, argv, prefix, builtin_clone_options,
@@ -1131,6 +1135,8 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 			warning(_("--shallow-since is ignored in local clones; use file:// instead."));
 		if (option_not.nr)
 			warning(_("--shallow-exclude is ignored in local clones; use file:// instead."));
+		if (filter_options.choice)
+			warning(_("--filter is ignored in local clones; use file:// instead."));
 		if (!access(mkpath("%s/shallow", path), F_OK)) {
 			if (option_local > 0)
 				warning(_("source repository is shallow, ignoring --local"));
@@ -1159,7 +1165,13 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 		transport_set_option(transport, TRANS_OPT_UPLOADPACK,
 				     option_upload_pack);
 
-	if (transport->smart_options && !deepen)
+	if (filter_options.choice) {
+		transport_set_option(transport, TRANS_OPT_LIST_OBJECTS_FILTER,
+				     filter_options.filter_spec);
+		transport_set_option(transport, TRANS_OPT_FROM_PROMISOR, "1");
+	}
+
+	if (transport->smart_options && !deepen && !filter_options.choice)
 		transport->smart_options->check_self_contained_and_connected = 1;
 
 	refs = transport_get_remote_refs(transport);
@@ -1227,6 +1239,9 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 	write_refspec_config(src_ref_prefix, our_head_points_at,
 			remote_head_points_at, &branch_top);
 
+	if (filter_options.choice)
+		partial_clone_register("origin", &filter_options);
+
 	if (is_local)
 		clone_local(path, git_dir);
 	else if (refs && complete_refs_before_fetch)
@@ -1235,7 +1250,8 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 	is_initial = !refs || option_initial_refspec.nr == 0;
 	update_remote_refs(refs, mapped_refs, remote_head_points_at,
 			   branch_top.buf, reflog_msg.buf, transport,
-			   !is_local, is_initial);
+			   !is_local && !filter_options.choice,
+			   is_initial);
 
 	update_head(our_head_points_at, remote_head, reflog_msg.buf);
 
@@ -1256,6 +1272,7 @@ int cmd_clone(int argc, const char **argv, const char *prefix)
 	}
 
 	junk_mode = JUNK_LEAVE_REPO;
+	fetch_if_missing = 1;
 	err = checkout(submodule_progress);
 
 	strbuf_release(&reflog_msg);
