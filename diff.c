@@ -4536,12 +4536,12 @@ int diff_opt_parse(struct diff_options *options,
 
 	/* renames options */
 	else if (starts_with(arg, "-B") ||
-		 skip_to_optional_val(arg, "--break-rewrites", &optarg)) {
+		 skip_to_optional_val(arg, "--break-rewrites", NULL)) {
 		if ((options->break_opt = diff_scoreopt_parse(arg)) == -1)
 			return error("invalid argument to -B: %s", arg+2);
 	}
 	else if (starts_with(arg, "-M") ||
-		 skip_to_optional_val(arg, "--find-renames", &optarg)) {
+		 skip_to_optional_val(arg, "--find-renames", NULL)) {
 		if ((options->rename_score = diff_scoreopt_parse(arg)) == -1)
 			return error("invalid argument to -M: %s", arg+2);
 		options->detect_rename = DIFF_DETECT_RENAME;
@@ -4550,7 +4550,7 @@ int diff_opt_parse(struct diff_options *options,
 		options->irreversible_delete = 1;
 	}
 	else if (starts_with(arg, "-C") ||
-		 skip_to_optional_val(arg, "--find-copies", &optarg)) {
+		 skip_to_optional_val(arg, "--find-copies", NULL)) {
 		if (options->detect_rename == DIFF_DETECT_COPY)
 			options->flags.find_copies_harder = 1;
 		if ((options->rename_score = diff_scoreopt_parse(arg)) == -1)
