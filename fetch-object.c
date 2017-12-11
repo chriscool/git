@@ -5,6 +5,10 @@
 #include "transport.h"
 #include "fetch-object.h"
 
+/*
+ * TODO Investigate having fetch_object() return error/success,
+ * changing callers.
+ */
 void fetch_object(const char *remote_name, const unsigned char *sha1)
 {
 	struct remote *remote;
