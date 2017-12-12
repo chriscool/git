@@ -48,11 +48,11 @@ static int odb_helper_start(struct odb_helper *o,
 	memset(cmd, 0, sizeof(*cmd));
 	argv_array_init(&cmd->argv);
 
-	if (!o->cmd)
+	if (!o->dealer)
 		return -1;
 
 	va_start(ap, fmt);
-	prepare_helper_command(&cmd->argv, o->cmd, fmt, ap);
+	prepare_helper_command(&cmd->argv, o->dealer, fmt, ap);
 	va_end(ap);
 
 	cmd->child.argv = cmd->argv.argv;
@@ -275,7 +275,7 @@ int odb_helper_get_direct(struct odb_helper *o,
 	int res = 0;
 	uint64_t start = getnanotime();
 
-	fetch_object(o->cmd, sha1);
+	fetch_object(o->dealer, sha1);
 
 	trace_performance_since(start, "odb_helper_get_direct");
 
