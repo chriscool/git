@@ -1,10 +1,13 @@
 #ifndef ODB_HELPER_H
 #define ODB_HELPER_H
 
+#include "odb-remote.h"
+
 struct odb_helper {
 	const char *name;
 	const char *dealer;
 	const char *partial_clone_filter;
+	enum odb_helper_type type;
 
 	struct odb_helper_object {
 		struct object_id oid;
