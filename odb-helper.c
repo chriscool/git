@@ -161,6 +161,9 @@ static struct odb_helper_object *odb_helper_lookup(struct odb_helper *o,
 
 int odb_helper_has_object(struct odb_helper *o, const unsigned char *sha1)
 {
+	if (o->type == ODB_HELPER_GIT_REMOTE)
+		return 1;
+
 	return !!odb_helper_lookup(o, sha1);
 }
 
