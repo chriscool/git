@@ -1390,7 +1390,7 @@ static inline void fetch_one_setup_partial(struct remote *remote)
 	 * We are currently limited to only ONE promisor remote and only
 	 * allow partial-fetches from the promisor remote.
 	 */
-	if (!find_odb_helper(remote->name)) {
+	if (!find_odb_helper(remote->name, ODB_HELPER_GIT_REMOTE)) {
 		if (filter_options.choice)
 			die(_("--filter can only be used with the remote configured in core.partialClone"));
 		return;
