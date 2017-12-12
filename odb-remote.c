@@ -33,8 +33,10 @@ static int odb_remote_config(const char *var, const char *value, void *data)
 
 	o = find_or_create_helper(name, namelen);
 
-	if (!strcmp(subkey, "promisorremote"))
+	if (!strcmp(subkey, "promisorremote")) {
+		o->type = ODB_HELPER_GIT_REMOTE;
 		return git_config_string(&o->dealer, var, value);
+	}
 	if (!strcmp(subkey, "partialclonefilter"))
 		return git_config_string(&o->partial_clone_filter, var, value);
 
@@ -62,25 +64,26 @@ inline void odb_remote_reinit(void)
 	odb_remote_do_init(1);
 }
 
-struct odb_helper *find_odb_helper(const char *dealer)
+struct odb_helper *find_odb_helper(const char *dealer, enum odb_helper_type type)
 {
-       struct odb_helper *o;
+	struct odb_helper *o;
 
-       odb_remote_init();
+	odb_remote_init();
 
-       if (!dealer)
-	       return helpers;
+	if (!dealer)
+		return helpers;
 
-       for (o = helpers; o; o = o->next)
-	       if (!strcmp(o->dealer, dealer))
-		       return o;
+	for (o = helpers; o; o = o->next)
+		if (!strcmp(o->dealer, dealer) &&
+		    (o->type == type || o->type == ODB_HELPER_ANY))
+			return o;
 
-       return NULL;
+	return NULL;
 }
 
 int has_odb_remote(void)
 {
-	return !!find_odb_helper(NULL);
+	return !!find_odb_helper(NULL, ODB_HELPER_ANY);
 }
 
 const char *odb_remote_root(void)
