@@ -1,6 +1,8 @@
 #ifndef ODB_HELPER_H
 #define ODB_HELPER_H
 
+#include "remote-odb.h"
+
 /*
  * An odb helper is a way to access a remote odb.
  *
@@ -11,6 +13,7 @@ struct odb_helper {
 	const char *name;                 /* odb.<NAME>.* */
 	const char *remote;               /* odb.<NAME>.promisorRemote */
 	const char *partial_clone_filter; /* odb.<NAME>.partialCloneFilter */
+	enum odb_helper_type type;
 
 	struct odb_helper_object {
 		struct object_id oid;
