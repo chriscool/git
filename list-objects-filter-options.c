@@ -123,7 +123,7 @@ void partial_clone_register(
 	char *filter_name;
 
 	/* Check if it is already registered */
-	if (find_odb_helper(remote))
+	if (find_odb_helper(remote, ODB_HELPER_GIT_REMOTE))
 		return;
 
 	git_config_set("core.repositoryformatversion", "1");
@@ -149,7 +149,7 @@ void partial_clone_get_default_filter_spec(
 	struct list_objects_filter_options *filter_options,
 	const char *remote)
 {
-	struct odb_helper *helper = find_odb_helper(remote);
+	struct odb_helper *helper = find_odb_helper(remote, ODB_HELPER_GIT_REMOTE);
 
 	/*
 	 * Parse default value, but silently ignore it if it is invalid.
