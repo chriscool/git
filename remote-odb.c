@@ -21,12 +21,14 @@ static struct odb_helper *find_or_create_helper(const char *name, int len)
 	return o;
 }
 
-static struct odb_helper *do_find_odb_helper(const char *remote)
+static struct odb_helper *do_find_odb_helper(const char *remote,
+					     enum odb_helper_type type)
 {
 	struct odb_helper *o;
 
 	for (o = helpers; o; o = o->next)
-		if (o->remote && !strcmp(o->remote, remote))
+		if (o->remote && !strcmp(o->remote, remote) &&
+		    (type == ODB_HELPER_ANY || type == o->type))
 			return o;
 
 	return NULL;
@@ -51,11 +53,12 @@ static int remote_odb_config(const char *var, const char *value, void *data)
 		if (res)
 			return res;
 
-		if (do_find_odb_helper(remote))
+		if (do_find_odb_helper(remote, ODB_HELPER_ANY))
 			return error(_("when parsing config key '%s' "
 				       "helper for remote '%s' already exists"),
 				     var, remote);
 
+		o->type = ODB_HELPER_GIT_REMOTE;
 		o->remote = remote;
 
 		return 0;
@@ -87,7 +90,8 @@ inline void remote_odb_reinit(void)
 	remote_odb_do_init(1);
 }
 
-struct odb_helper *find_odb_helper(const char *remote)
+struct odb_helper *find_odb_helper(const char *remote,
+				   enum odb_helper_type type)
 {
 	struct odb_helper *o;
 
@@ -96,12 +100,12 @@ struct odb_helper *find_odb_helper(const char *remote)
 	if (!remote)
 		return helpers;
 
-	return do_find_odb_helper(remote);
+	return do_find_odb_helper(remote, type);
 }
 
 int has_remote_odb(void)
 {
-	return !!find_odb_helper(NULL);
+	return !!find_odb_helper(NULL, ODB_HELPER_ANY);
 }
 
 const char *remote_odb_root(void)
