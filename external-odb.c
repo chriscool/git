@@ -33,10 +33,14 @@ static int external_odb_config(const char *var, const char *value, void *data)
 
 	o = find_or_create_helper(name, namelen);
 
-	if (!strcmp(subkey, "promisorremote"))
+	if (!strcmp(subkey, "promisorremote")) {
+		o->type = ODB_HELPER_GIT_REMOTE;
 		return git_config_string(&o->dealer, var, value);
-	else if (!strcmp(subkey, "scriptcommand"))
+	}
+	if (!strcmp(subkey, "scriptcommand")) {
+		o->type = ODB_HELPER_SCRIPT_CMD;
 		return git_config_string(&o->dealer, var, value);
+	}
 
 	return 0;
 }
