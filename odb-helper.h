@@ -1,6 +1,8 @@
 #ifndef ODB_HELPER_H
 #define ODB_HELPER_H
 
+#include "odb-remote.h"
+
 /*
  * Way to access an odb remote.
  */
@@ -8,6 +10,7 @@ struct odb_helper {
 	const char *name;       /* from odb.<NAME>.<property> config entries */
 	const char *remote;     /* remote storing promised objects */
 	const char *partial_clone_filter; /* odb.<name>.partialCloneFilter */
+	enum odb_helper_type type;
 
 	struct odb_helper_object {
 		struct object_id oid;
