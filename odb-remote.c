@@ -81,6 +81,19 @@ int has_odb_remote(void)
 	return !!find_odb_helper(NULL);
 }
 
+struct odb_helper *find_odb_helper(const char *dealer, enum odb_helper_type type)
+{
+	struct odb_helper *o;
+
+	odb_remote_init();
+
+	for (o = helpers; o; o = o->next)
+		if (!strcmp(o->dealer, dealer) && o->type == type)
+			return o;
+
+	return NULL;
+}
+
 const char *odb_remote_root(void)
 {
 	static const char *root;
