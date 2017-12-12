@@ -1,7 +1,17 @@
 #ifndef ODB_REMOTE_H
 #define ODB_REMOTE_H
 
+enum odb_helper_type {
+	ODB_HELPER_NONE = 0,
+	ODB_HELPER_GIT_REMOTE,
+	ODB_HELPER_SCRIPT_CMD,
+	ODB_HELPER_SUBPROCESS_CMD,
+	OBJ_HELPER_MAX
+};
+
 extern int has_odb_remote(void);
+extern struct odb_helper *find_odb_helper(const char *dealer,
+					  enum odb_helper_type type);
 extern const char *odb_remote_root(void);
 extern int odb_remote_has_object(const unsigned char *sha1);
 extern int odb_remote_get_direct(const unsigned char *sha1);
