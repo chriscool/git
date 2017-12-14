@@ -50,13 +50,6 @@ static void external_odb_init(void)
 	git_config(external_odb_config, NULL);
 }
 
-int has_external_odb(void)
-{
-	external_odb_init();
-
-	return !!helpers;
-}
-
 const char *external_odb_root(void)
 {
 	static const char *root;
