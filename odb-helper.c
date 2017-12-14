@@ -53,7 +53,7 @@ int odb_helper_has_object(struct odb_helper *o, const unsigned char *sha1)
 	return !!odb_helper_lookup(o, sha1);
 }
 
-int odb_helper_get_object(struct odb_helper *o,
+int odb_helper_get_direct(struct odb_helper *o,
 			  const unsigned char *sha1,
 			  int fd)
 {
@@ -62,7 +62,7 @@ int odb_helper_get_object(struct odb_helper *o,
 
 	fetch_object(o->cmd, sha1);
 
-	trace_performance_since(start, "odb_helper_get_object");
+	trace_performance_since(start, "odb_helper_get_direct");
 
 	return res;
 }
