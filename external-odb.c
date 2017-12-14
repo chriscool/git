@@ -73,25 +73,15 @@ int external_odb_has_object(const unsigned char *sha1)
 	return 0;
 }
 
-static int external_odb_do_get_object(const unsigned char *sha1)
+int external_odb_get_direct(const unsigned char *sha1)
 {
 	struct odb_helper *o;
 
 	for (o = helpers; o; o = o->next) {
-		if (odb_helper_get_object(o, sha1, 0) < 0)
+		if (odb_helper_get_direct(o, sha1, 0) < 0)
 			continue;
 		return 0;
 	}
 
 	return -1;
-}
-
-int external_odb_get_object(const unsigned char *sha1)
-{
-/*
-	if (!external_odb_has_object(sha1))
-		return -1;
-*/
-
-	return external_odb_do_get_object(sha1);
 }
