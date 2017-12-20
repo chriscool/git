@@ -36,6 +36,7 @@ static int external_odb_config(const char *var, const char *value, void *data)
 	if (!strcmp(subkey, "promisorremote")) {
 		o->type = ODB_HELPER_GIT_REMOTE;
 		o->supported_capabilities |= ODB_HELPER_CAP_HAVE;
+		o->supported_capabilities |= ODB_HELPER_CAP_GET_DIRECT;
 		return git_config_string(&o->cmd, var, value);
 	} else if (!strcmp(subkey, "scriptcommand")) {
 		o->type = ODB_HELPER_SCRIPT_CMD;
@@ -140,6 +141,8 @@ int external_odb_get_direct(const unsigned char *sha1)
 	external_odb_init();
 
 	for (o = helpers; o; o = o->next) {
+		if (!(o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT))
+			continue;
 		if (odb_helper_get_direct(o, sha1, 0) < 0)
 			continue;
 		return 0;
