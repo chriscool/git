@@ -194,8 +194,8 @@ sub print_codespeed_results {
 	}
 
 	my $environment;
-	if (exists $ENV{GIT_TEST_REPO_NAME} and $ENV{GIT_TEST_REPO_NAME} ne "") {
-		$environment = $ENV{GIT_TEST_REPO_NAME};
+	if (exists $ENV{GIT_PERF_REPO_NAME} and $ENV{GIT_PERF_REPO_NAME} ne "") {
+		$environment = $ENV{GIT_PERF_REPO_NAME};
 	} elsif (exists $ENV{GIT_TEST_INSTALLED} and $ENV{GIT_TEST_INSTALLED} ne "") {
 		$environment = $ENV{GIT_TEST_INSTALLED};
 		$environment =~ s|/bin-wrappers$||;
