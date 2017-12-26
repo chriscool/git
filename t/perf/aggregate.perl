@@ -186,12 +186,11 @@ sub print_codespeed_results {
 
 	my $project = "Git";
 
-	my $executable;
-	if ($results_section eq "") {
-		$executable = `uname -s -m`;
-		chomp $executable;
-	} else {
-		$executable = $results_section;
+	my $executable = `uname -s -m`;
+	chomp $executable;
+
+	if ($results_section ne "") {
+		$executable .= ", " . $results_section;
 	}
 
 	my $environment;
