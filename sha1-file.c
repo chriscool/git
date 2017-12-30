@@ -759,11 +759,20 @@ int check_and_freshen_file(const char *fn, int freshen)
 static int check_and_freshen_local(const struct object_id *oid, int freshen)
 {
 	static struct strbuf buf = STRBUF_INIT;
+	int ret;
+	int tried_hook = 0;
 
 	strbuf_reset(&buf);
 	sha1_file_name(the_repository, &buf, oid->hash);
 
-	return check_and_freshen_file(buf.buf, freshen);
+retry:
+	ret = check_and_freshen_file(buf.buf, freshen);
+	if (!ret && !tried_hook) {
+		tried_hook = 1;
+		if (!remote_odb_get_direct(oid, 1))
+			goto retry;
+	}
+	return ret;
 }
 
 static int check_and_freshen_nonlocal(const struct object_id *oid, int freshen)
@@ -775,7 +784,7 @@ static int check_and_freshen_nonlocal(const struct object_id *oid, int freshen)
 		if (check_and_freshen_file(path, freshen))
 			return 1;
 	}
-	return 0;
+	return remote_odb_has_object(oid->hash);
 }
 
 static int check_and_freshen(const struct object_id *oid, int freshen)
