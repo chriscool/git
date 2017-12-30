@@ -732,11 +732,20 @@ int check_and_freshen_file(const char *fn, int freshen)
 static int check_and_freshen_local(const unsigned char *sha1, int freshen)
 {
 	static struct strbuf buf = STRBUF_INIT;
+	int ret;
+	int tried_hook = 0;
 
 	strbuf_reset(&buf);
 	sha1_file_name(&buf, sha1);
 
-	return check_and_freshen_file(buf.buf, freshen);
+retry:
+	ret = check_and_freshen_file(buf.buf, freshen);
+	if (!ret && !tried_hook) {
+		tried_hook = 1;
+		if (!external_odb_get_direct(sha1))
+			goto retry;
+	}
+	return ret;
 }
 
 static int check_and_freshen_nonlocal(const unsigned char *sha1, int freshen)
