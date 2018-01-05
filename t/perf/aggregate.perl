@@ -3,6 +3,7 @@
 use lib '../../perl/blib/lib';
 use strict;
 use warnings;
+use JSON;
 use Git;
 
 sub get_times {
@@ -226,7 +227,6 @@ sub print_codespeed_results {
 		}
 	}
 
-	use JSON;
 	print to_json(\@data, {utf8 => 1, pretty => 1}), "\n";
 }
 
