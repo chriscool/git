@@ -226,9 +226,6 @@ sub print_codespeed_results {
 		}
 	}
 
-	#use Data::Dumper qw/ Dumper /;
-	#print Dumper(\@data);
-
 	use JSON;
 	print to_json(\@data, {utf8 => 1, pretty => 1}), "\n";
 }
