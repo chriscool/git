@@ -323,8 +323,14 @@ static void fill_sha1_path(struct strbuf *buf, const unsigned char *sha1)
 
 void sha1_file_name(struct strbuf *buf, const unsigned char *sha1)
 {
-	strbuf_addf(buf, "%s/", get_object_directory());
+	const char *obj_dir = get_object_directory();
+	size_t extra = strlen(obj_dir) + 1 + GIT_MAX_HEXSZ;
 
+	if (extra > strbuf_avail(buf))
+		strbuf_grow(buf, extra);
+
+	strbuf_addstr(buf, obj_dir);
+	strbuf_addch(buf, '/');
 	fill_sha1_path(buf, sha1);
 }
 
