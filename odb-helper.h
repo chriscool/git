@@ -3,14 +3,6 @@
 
 #include "external-odb.h"
 
-enum odb_helper_type {
-	ODB_HELPER_NONE = 0,
-	ODB_HELPER_GIT_REMOTE,
-	ODB_HELPER_SCRIPT_CMD,
-	ODB_HELPER_SUBPROCESS_CMD,
-	OBJ_HELPER_MAX
-};
-
 #define ODB_HELPER_CAP_GET_GIT_OBJ    (1u<<0)
 #define ODB_HELPER_CAP_GET_RAW_OBJ    (1u<<1)
 #define ODB_HELPER_CAP_GET_DIRECT     (1u<<2)
