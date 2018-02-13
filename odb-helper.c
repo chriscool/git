@@ -354,7 +354,8 @@ int odb_helper_get_many_direct(struct odb_helper *o,
 
 	start = getnanotime();
 
-	fetch_objects(o->dealer, to_get);
+	if (o->type == ODB_HELPER_GIT_REMOTE)
+		fetch_objects(o->dealer, to_get);
 
 	trace_performance_since(start, "odb_helper_get_many_direct");
 
