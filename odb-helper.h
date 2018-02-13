@@ -39,5 +39,7 @@ extern int odb_helper_get_object(struct odb_helper *o,
 				 int fd);
 extern int odb_helper_get_direct(struct odb_helper *o,
 				 const unsigned char *sha1);
+extern int odb_helper_get_many_direct(struct odb_helper *o,
+				      const struct oid_array *to_get);
 
 #endif /* ODB_HELPER_H */
