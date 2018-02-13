@@ -191,6 +191,8 @@ int odb_remote_get_many_direct(const struct oid_array *to_get)
 	odb_remote_init();
 
 	for (o = helpers; o; o = o->next) {
+		if (!(o->supported_capabilities & ODB_HELPER_CAP_GET_DIRECT))
+			continue;
 		if (odb_helper_get_many_direct(o, to_get) < 0)
 			continue;
 		return 0;
