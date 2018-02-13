@@ -1,13 +1,7 @@
 #ifndef ODB_HELPER_H
 #define ODB_HELPER_H
 
-enum odb_helper_type {
-	ODB_HELPER_NONE = 0,
-	ODB_HELPER_GIT_REMOTE,
-	ODB_HELPER_SCRIPT_CMD,
-	ODB_HELPER_PROCESS_CMD,
-	OBJ_HELPER_MAX
-};
+#include "external-odb.h"
 
 struct odb_helper {
 	const char *name;
