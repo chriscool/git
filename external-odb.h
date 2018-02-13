@@ -1,7 +1,13 @@
 #ifndef EXTERNAL_ODB_H
 #define EXTERNAL_ODB_H
 
-#include "odb-helper.h"
+enum odb_helper_type {
+	ODB_HELPER_NONE = 0,
+	ODB_HELPER_GIT_REMOTE,
+	ODB_HELPER_SCRIPT_CMD,
+	ODB_HELPER_SUBPROCESS_CMD,
+	OBJ_HELPER_MAX
+};
 
 extern void external_odb_reinit(void);
 extern int has_external_odb(void);
