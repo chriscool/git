@@ -879,6 +879,22 @@ int odb_helper_get_direct(struct odb_helper *o,
 	return res;
 }
 
+int odb_helper_get_many_direct(struct odb_helper *o,
+			       const struct oid_array *to_get)
+{
+	int res = 0;
+	uint64_t start;
+
+	start = getnanotime();
+
+	if (o->type == ODB_HELPER_GIT_REMOTE)
+		fetch_objects(o->dealer, to_get);
+
+	trace_performance_since(start, "odb_helper_get_many_direct");
+
+	return res;
+}
+
 static int get_object_script(struct odb_helper *o, const unsigned char *sha1, int fd)
 {
 	if (o->supported_capabilities & ODB_HELPER_CAP_GET_GIT_OBJ)
