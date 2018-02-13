@@ -74,14 +74,14 @@ int has_external_odb(void)
 	return !!helpers;
 }
 
-struct odb_helper *find_odb_helper(const char *dealer)
+struct odb_helper *find_odb_helper(const char *dealer, enum odb_helper_type type)
 {
 	struct odb_helper *o;
 
 	external_odb_init();
 
 	for (o = helpers; o; o = o->next)
-		if (!strcmp(o->dealer, dealer))
+		if (!strcmp(o->dealer, dealer) && o->type == type)
 			return o;
 
 	return NULL;
