@@ -87,3 +87,20 @@ int odb_remote_get_direct(const unsigned char *sha1)
 
 	return -1;
 }
+
+int odb_remote_get_many_direct(const struct oid_array *to_get)
+{
+	struct odb_helper *o;
+
+	trace_printf("trace: odb_remote_get_many_direct: nr: %d", to_get->nr);
+
+	odb_remote_init();
+
+	for (o = helpers; o; o = o->next) {
+		if (odb_helper_get_many_direct(o, to_get) < 0)
+			continue;
+		return 0;
+	}
+
+	return -1;
+}
