@@ -74,6 +74,19 @@ int has_external_odb(void)
 	return !!helpers;
 }
 
+struct odb_helper *find_odb_helper(const char *dealer)
+{
+	struct odb_helper *o;
+
+	external_odb_init();
+
+	for (o = helpers; o; o = o->next)
+		if (!strcmp(o->dealer, dealer))
+			return o;
+
+	return NULL;
+}
+
 const char *external_odb_root(void)
 {
 	static const char *root;
