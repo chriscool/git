@@ -39,15 +39,25 @@ static int external_odb_config(const char *var, const char *value, void *data)
 	return 0;
 }
 
-static void external_odb_init(void)
+static void external_odb_do_init(int force)
 {
 	static int initialized;
 
-	if (initialized || !use_external_odb)
+	if ((!force && initialized) || !use_external_odb)
 		return;
 	initialized = 1;
 
 	git_config(external_odb_config, NULL);
+}
+
+static inline void external_odb_init(void)
+{
+	external_odb_do_init(0);
+}
+
+inline void external_odb_reinit(void)
+{
+	external_odb_do_init(1);
 }
 
 int has_external_odb(void)
