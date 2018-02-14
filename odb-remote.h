@@ -9,6 +9,7 @@ enum odb_helper_type {
 	OBJ_HELPER_MAX
 };
 
+extern void odb_remote_reinit(void);
 extern int has_odb_remote(void);
 extern struct odb_helper *find_odb_helper(const char *dealer,
 					  enum odb_helper_type type);
