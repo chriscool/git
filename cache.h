@@ -930,7 +930,6 @@ extern const char *core_partial_clone_filter_default;
 struct repository_format {
 	int version;
 	int precious_objects;
-	char *partial_clone; /* value of extensions.partialclone */
 	int is_bare;
 	int hash_algo;
 	char *work_tree;
