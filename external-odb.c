@@ -51,12 +51,12 @@ static int external_odb_config(const char *var, const char *value, void *data)
 	return 0;
 }
 
-static void external_odb_init(void)
+static void external_odb_do_init(int force)
 {
 	static int initialized;
 	struct odb_helper *o;
 
-	if (initialized || !use_external_odb)
+	if ((!force && initialized) || !use_external_odb)
 		return;
 	initialized = 1;
 
@@ -64,6 +64,16 @@ static void external_odb_init(void)
 
 	for (o = helpers; o; o = o->next)
 		odb_helper_init(o);
+}
+
+static inline void external_odb_init(void)
+{
+	external_odb_do_init(0);
+}
+
+inline void external_odb_reinit(void)
+{
+	external_odb_do_init(1);
 }
 
 int has_external_odb(void)
