@@ -138,6 +138,9 @@ void partial_clone_register(
 		xstrdup(filter_options->filter_spec);
 	git_config_set("core.partialclonefilter",
 		       core_partial_clone_filter_default);
+
+	/* Make sure the config info are reset */
+	external_odb_reinit();
 }
 
 void partial_clone_get_default_filter_spec(
