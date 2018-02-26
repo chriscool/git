@@ -1324,8 +1324,7 @@ int sha1_object_info_extended(const unsigned char *sha1, struct object_info *oi,
 		/* Check if it is a missing object */
 		if (fetch_if_missing && has_external_odb() &&
 		    !already_retried) {
-			if (!external_odb_get_direct(real))
-				return 0;
+			external_odb_get_direct(real);
 			already_retried = 1;
 			continue;
 		}
