@@ -547,15 +547,15 @@ static void find_abbrev_len_for_pack(struct packed_git *p,
 	 */
 	mad->init_len = 0;
 	if (!match) {
-		nth_packed_object_oid(&oid, p, first);
-		extend_abbrev_len(&oid, mad);
+		if (nth_packed_object_oid(&oid, p, first))
+			extend_abbrev_len(&oid, mad);
 	} else if (first < num - 1) {
-		nth_packed_object_oid(&oid, p, first + 1);
-		extend_abbrev_len(&oid, mad);
+		if (nth_packed_object_oid(&oid, p, first + 1))
+			extend_abbrev_len(&oid, mad);
 	}
 	if (first > 0) {
-		nth_packed_object_oid(&oid, p, first - 1);
-		extend_abbrev_len(&oid, mad);
+		if (nth_packed_object_oid(&oid, p, first - 1))
+			extend_abbrev_len(&oid, mad);
 	}
 	mad->init_len = mad->cur_len;
 }
