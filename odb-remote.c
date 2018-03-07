@@ -48,6 +48,8 @@ static int odb_remote_config(const char *var, const char *value, void *data)
 		o->type = ODB_HELPER_SUBPROCESS_CMD;
 		return git_config_string(&o->dealer, var, value);
 	}
+	if (!strcmp(subkey, "partialclonefilter"))
+		return git_config_string(&o->partial_clone_filter, var, value);
 
 	return 0;
 }
