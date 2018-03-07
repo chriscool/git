@@ -214,7 +214,7 @@ static ssize_t read_packetized_raw_object_to_fd(struct odb_helper *o,
 	git_SHA1_Init(&hash);
 
 	/* First header.. */
-	hdrlen = xsnprintf(hdr, sizeof(hdr), "%s %lu", typename(type), size) + 1;
+	hdrlen = xsnprintf(hdr, sizeof(hdr), "%s %lu", type_name(type), size) + 1;
 	stream.next_in = (unsigned char *)hdr;
 	stream.avail_in = hdrlen;
 	while (git_deflate(&stream, 0) == Z_OK)
@@ -792,7 +792,7 @@ static int odb_helper_get_raw_object(struct odb_helper *o,
 	git_SHA1_Init(&hash);
 
 	/* First header.. */
-	hdrlen = xsnprintf(hdr, sizeof(hdr), "%s %lu", typename(obj->type), obj->size) + 1;
+	hdrlen = xsnprintf(hdr, sizeof(hdr), "%s %lu", type_name(obj->type), obj->size) + 1;
 	stream.next_in = (unsigned char *)hdr;
 	stream.avail_in = hdrlen;
 	while (git_deflate(&stream, 0) == Z_OK)
