@@ -7,6 +7,7 @@
 struct odb_helper {
 	const char *name;       /* from odb.<NAME>.<property> config entries */
 	const char *remote;     /* remote storing promised objects */
+	const char *partial_clone_filter; /* odb.<name>.partialCloneFilter */
 
 	struct odb_helper *next;
 };
