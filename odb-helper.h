@@ -4,6 +4,7 @@
 struct odb_helper {
 	const char *name;
 	const char *dealer;
+	const char *partial_clone_filter;
 
 	struct odb_helper *next;
 };
