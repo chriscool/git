@@ -35,6 +35,8 @@ static int remote_odb_config(const char *var, const char *value, void *data)
 
 	if (!strcmp(subkey, "promisorremote"))
 		return git_config_string(&o->remote, var, value);
+	if (!strcmp(subkey, "partialclonefilter"))
+		return git_config_string(&o->partial_clone_filter, var, value);
 
 	return 0;
 }
