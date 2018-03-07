@@ -16,6 +16,7 @@ struct odb_helper {
 	const char *dealer;
 	enum odb_helper_type type;
 	unsigned int supported_capabilities;
+	const char *partial_clone_filter;
 
 	struct odb_helper_object {
 		struct object_id oid;
