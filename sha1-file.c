@@ -676,6 +676,24 @@ int foreach_alt_odb(alt_odb_fn fn, void *cb)
 	return r;
 }
 
+void prepare_external_alt_odb(struct repository *r)
+{
+	static int linked_external;
+	const char *path;
+
+	if (!use_odb_remote)
+		return;
+
+	if (linked_external)
+		return;
+
+	path = odb_remote_root();
+	if (!access(path, F_OK)) {
+		link_alt_odb_entry(r, path, NULL, 0, "");
+		linked_external = 1;
+	}
+}
+
 void prepare_alt_odb(struct repository *r)
 {
 	if (r->objects->alt_odb_tail)
@@ -685,6 +703,7 @@ void prepare_alt_odb(struct repository *r)
 	link_alt_odb_entries(r, r->objects->alternate_db, PATH_SEP, NULL, 0);
 
 	read_info_alternates(r, r->objects->objectdir, 0);
+	prepare_external_alt_odb(r);
 }
 
 /* Returns 1 if we have successfully freshened the file, 0 otherwise. */
