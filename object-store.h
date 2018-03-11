@@ -30,6 +30,7 @@ void prepare_alt_odb(struct repository *r);
 char *compute_alternate_path(const char *path, struct strbuf *err);
 typedef int alt_odb_fn(struct alternate_object_database *, void *);
 int foreach_alt_odb(alt_odb_fn, void*);
+void prepare_external_alt_odb(struct repository *r);
 
 /*
  * Allocate a "struct alternate_object_database" but do _not_ actually
