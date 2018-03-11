@@ -83,6 +83,14 @@ int has_odb_remote(void)
 	return !!find_odb_helper(NULL);
 }
 
+const char *odb_remote_root(void)
+{
+	static const char *root;
+	if (!root)
+		root = git_pathdup("objects/external");
+	return root;
+}
+
 int odb_remote_has_object(const unsigned char *sha1)
 {
 	struct odb_helper *o;
