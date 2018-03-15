@@ -26,6 +26,7 @@
 #include "pack-objects.h"
 #include "blob.h"
 #include "tree.h"
+#include "odb-remote.h"
 
 #define FAILED_RUN "failed to run %s"
 
@@ -619,7 +620,7 @@ int cmd_gc(int argc, const char **argv, const char *prefix)
 			argv_array_push(&prune, prune_expire);
 			if (quiet)
 				argv_array_push(&prune, "--no-progress");
-			if (repository_format_partial_clone)
+			if (has_odb_remote())
 				argv_array_push(&prune,
 						"--exclude-promisor-objects");
 			if (run_command_v_opt(prune.argv, RUN_GIT_CMD))
