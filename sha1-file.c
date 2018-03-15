@@ -31,6 +31,7 @@
 #include "packfile.h"
 #include "fetch-object.h"
 #include "object-store.h"
+#include "odb-remote.h"
 
 /* The maximum size for an object header. */
 #define MAX_HEADER_LEN 32
@@ -1286,13 +1287,13 @@ int oid_object_info_extended(const struct object_id *oid, struct object_info *oi
 		}
 
 		/* Check if it is a missing object */
-		if (fetch_if_missing && repository_format_partial_clone &&
+		if (fetch_if_missing && has_odb_remote() &&
 		    !already_retried) {
 			/*
-			 * TODO Investigate haveing fetch_object() return
-			 * TODO error/success and stopping the music here.
+			 * TODO Investigate checking odb_remote_get_direct()
+			 * TODO return value and stopping in case of error.
 			 */
-			fetch_object(repository_format_partial_clone, real->hash);
+			odb_remote_get_direct(real->hash);
 			already_retried = 1;
 			continue;
 		}
