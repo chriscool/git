@@ -37,12 +37,17 @@ sub format_times {
 }
 
 my (@dirs, %dirnames, %dirabbrevs, %prefixes, @tests,
-    $codespeed, $subsection, $reponame);
+    $codespeed, $sortbyregression, $subsection, $reponame);
 while (scalar @ARGV) {
 	my $arg = $ARGV[0];
 	my $dir;
 	if ($arg eq "--codespeed") {
 		$codespeed = 1;
+		shift @ARGV;
+		next;
+	}
+	if ($arg eq "--sortbyregression") {
+		$sortbyregression = 1;
 		shift @ARGV;
 		next;
 	}
@@ -206,6 +211,48 @@ sub print_default_results {
 	}
 }
 
+sub print_sortbyregression_results {
+	my ($subsection) = @_;
+
+	my %times;
+	my @evolutions;
+	for my $t (@subtests) {
+		my ($prevr, $prevu, $prevs, $prevrev);
+		for my $i (0..$#dirs) {
+			my $d = $dirs[$i];
+			$times{$prefixes{$d}.$t} = [get_times("$resultsdir/$prefixes{$d}$t.times")];
+			my ($r, $u, $s) = @{$times{$prefixes{$d}.$t}};
+			if ($i > 0 and defined $r and defined $prevr and $prevr > 0) {
+			    my $percent = 100.0 * ($r - $prevr) / $prevr;
+			    push @evolutions, { "percent"  => $percent,
+						"test"     => $t,
+						"prevrev"  => $prevrev,
+						"rev"      => $d,
+						"prevr"    => $prevr,
+						"r"        => $r,
+						"prevu"    => $prevu,
+						"u"        => $u,
+						"prevs"    => $prevs,
+						"s"        => $s};
+
+			}
+			($prevr, $prevu, $prevs, $prevrev) = ($r, $u, $s, $d);
+		}
+	}
+
+	my @sorted_evolutions = sort { $b->{percent} <=> $a->{percent} } @evolutions;
+
+	for my $e (@sorted_evolutions) {
+	    printf "%+.1f%%", $e->{percent};
+	    print " " . $e->{test};
+	    print " " . format_times($e->{prevr}, $e->{prevu}, $e->{prevs});
+	    print " " . format_times($e->{r}, $e->{u}, $e->{s});
+	    print " " . $e->{prevrev};
+	    print " " . $e->{rev};
+	    print "\n";
+	}
+}
+
 sub print_codespeed_results {
 	my ($subsection) = @_;
 
@@ -260,6 +307,8 @@ binmode STDOUT, ":utf8" or die "PANIC on binmode: $!";
 
 if ($codespeed) {
 	print_codespeed_results($subsection);
+} elsif ($sortbyregression) {
+	print_sortbyregression_results($subsection);
 } else {
 	print_default_results();
 }
