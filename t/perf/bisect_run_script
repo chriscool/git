@@ -1,0 +1,28 @@
+#!/bin/sh
+
+script="$1"
+test_number="$2"
+info_dir="$3"
+subsection="$4"
+
+die () {
+	echo >&2 "error: $*"
+	exit 1
+}
+
+bisect_head=$(git rev-parse --verify BISECT_HEAD) || die "Failed to find BISECT_HEAD ref"
+
+script_number=$(echo "$script" | sed -e "s/^p\([0-9]*\).*\$/\1/") || die "Failed to get script number for '$script'"
+
+oldtime=$(cat "$info_dir/oldtime") || die "Failed to access '$info_dir/oldtime'"
+newtime=$(cat "$info_dir/newtime") || die "Failed to access '$info_dir/newtime'"
+
+cd t/perf || die "Failed to cd into 't/perf'"
+
+result_file="/tmp/perf_${script_number}_results.txt"
+
+./run "$bisect_head" "$script" >"$result_file" || die "Failed to run perf test '$script'"
+
+sed -n "s/^$script_number\.$test_number:.*\([0-9]\+\.[0-9]\+\)(.*).*\$/\1/p" "$result_file"
+
+
