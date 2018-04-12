@@ -1310,16 +1310,16 @@ int oid_object_info_extended(struct repository *r, const struct object_id *oid,
 		}
 
 		/* Check if it is a missing object */
-		if (fetch_if_missing && has_odb_remote() &&
+		if (fetch_if_missing && has_remote_odb() &&
 		    !already_retried && r == the_repository) {
 			/*
-			 * TODO Investigate checking odb_remote_get_direct()
+			 * TODO Investigate checking remote_odb_get_direct()
 			 * TODO return value and stopping on error here.
 			 * TODO Pass a repository struct through
-			 * odb_remote_get_direct(), such that arbitrary
+			 * remote_odb_get_direct(), such that arbitrary
 			 * repositories work.
 			 */
-			odb_remote_get_direct(real->hash);
+			remote_odb_get_direct(real->hash);
 			already_retried = 1;
 			continue;
 		}

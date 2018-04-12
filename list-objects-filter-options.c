@@ -142,7 +142,7 @@ void partial_clone_register(
 	free(filter_name);
 
 	/* Make sure the config info are reset */
-	odb_remote_reinit();
+	remote_odb_reinit();
 }
 
 void partial_clone_get_default_filter_spec(
