@@ -83,6 +83,18 @@ int has_odb_remote(void)
 	return !!find_odb_helper(NULL);
 }
 
+int odb_remote_has_object(const unsigned char *sha1)
+{
+	struct odb_helper *o;
+
+	odb_remote_init();
+
+	for (o = helpers; o; o = o->next)
+		if (odb_helper_has_object(o, sha1))
+			return 1;
+	return 0;
+}
+
 int odb_remote_get_direct(const unsigned char *sha1)
 {
 	struct odb_helper *o;
