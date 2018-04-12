@@ -4,6 +4,7 @@
 extern void odb_remote_reinit(void);
 extern struct odb_helper *find_odb_helper(const char *dealer);
 extern int has_odb_remote(void);
+extern int odb_remote_has_object(const unsigned char *sha1);
 extern int odb_remote_get_direct(const unsigned char *sha1);
 extern int odb_remote_get_many_direct(const struct oid_array *to_get);
 
