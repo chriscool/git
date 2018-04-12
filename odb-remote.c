@@ -57,3 +57,15 @@ const char *external_odb_root(void)
 		root = git_pathdup("objects/external");
 	return root;
 }
+
+int external_odb_has_object(const unsigned char *sha1)
+{
+	struct odb_helper *o;
+
+	external_odb_init();
+
+	for (o = helpers; o; o = o->next)
+		if (odb_helper_has_object(o, sha1))
+			return 1;
+	return 0;
+}
