@@ -686,7 +686,7 @@ void prepare_external_alt_odb(struct repository *r)
 	if (linked_external)
 		return;
 
-	path = external_odb_root();
+	path = odb_remote_root();
 	if (!access(path, F_OK)) {
 		link_alt_odb_entry(r, path, NULL, 0, "");
 		linked_external = 1;
