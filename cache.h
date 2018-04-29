@@ -413,6 +413,7 @@ static inline enum object_type object_type(unsigned int mode)
 #define CEILING_DIRECTORIES_ENVIRONMENT "GIT_CEILING_DIRECTORIES"
 #define NO_REPLACE_OBJECTS_ENVIRONMENT "GIT_NO_REPLACE_OBJECTS"
 #define GIT_REPLACE_REF_BASE_ENVIRONMENT "GIT_REPLACE_REF_BASE"
+#define NO_ODB_REMOTE_ENVIRONMENT "GIT_NO_ODB_REMOTE"
 #define GITATTRIBUTES_FILE ".gitattributes"
 #define INFOATTRIBUTES_FILE "info/attributes"
 #define ATTRIBUTE_MACRO_PREFIX "[attr]"
@@ -803,6 +804,14 @@ void reset_shared_repository(void);
  */
 extern int check_replace_refs;
 extern char *git_replace_ref_base;
+
+/*
+ * Do odb remotes need to be used this run?  This variable is
+ * initialized to true unless $GIT_NO_ODB_REMOTE is set, but it maybe
+ * set to false by some commands that do not want odb remotes to be
+ * active.
+ */
+extern int use_odb_remote;
 
 extern int fsync_object_files;
 extern int core_preload_index;
