@@ -39,15 +39,25 @@ static int odb_remote_config(const char *var, const char *value, void *data)
 	return 0;
 }
 
-static void odb_remote_init(void)
+static void odb_remote_do_init(int force)
 {
 	static int initialized;
 
-	if (initialized)
+	if (!force && initialized)
 		return;
 	initialized = 1;
 
 	git_config(odb_remote_config, NULL);
+}
+
+static inline void odb_remote_init(void)
+{
+	odb_remote_do_init(0);
+}
+
+inline void odb_remote_reinit(void)
+{
+	odb_remote_do_init(1);
 }
 
 struct odb_helper *find_odb_helper(const char *remote)
