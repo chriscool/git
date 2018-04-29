@@ -43,11 +43,18 @@ static void odb_remote_init(void)
 {
 	static int initialized;
 
-	if (initialized)
+	if (initialized || !use_odb_remote)
 		return;
 	initialized = 1;
 
 	git_config(odb_remote_config, NULL);
+}
+
+int has_odb_remote(void)
+{
+	odb_remote_init();
+
+	return !!helpers;
 }
 
 const char *odb_remote_root(void)
