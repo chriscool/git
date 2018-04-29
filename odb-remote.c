@@ -50,6 +50,13 @@ static void odb_remote_init(void)
 	git_config(odb_remote_config, NULL);
 }
 
+int has_odb_remote(void)
+{
+	odb_remote_init();
+
+	return !!helpers;
+}
+
 const char *odb_remote_root(void)
 {
 	static const char *root;
