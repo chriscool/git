@@ -12,8 +12,6 @@ enum odb_helper_type {
 extern void odb_remote_reinit(void);
 extern struct odb_helper *find_odb_helper(const char *dealer);
 extern int has_odb_remote(void);
-extern struct odb_helper *find_odb_helper(const char *dealer,
-					  enum odb_helper_type type);
 extern const char *odb_remote_root(void);
 extern int odb_remote_has_object(const unsigned char *sha1);
 extern int odb_remote_get_direct(const unsigned char *sha1);
