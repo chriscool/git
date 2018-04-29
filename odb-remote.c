@@ -43,7 +43,7 @@ static void odb_remote_do_init(int force)
 {
 	static int initialized;
 
-	if (!force && initialized)
+	if ((!force && initialized) || !use_odb_remote)
 		return;
 	initialized = 1;
 
