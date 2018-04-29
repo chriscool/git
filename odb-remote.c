@@ -50,6 +50,27 @@ static void odb_remote_init(void)
 	git_config(odb_remote_config, NULL);
 }
 
+struct odb_helper *find_odb_helper(const char *dealer)
+{
+       struct odb_helper *o;
+
+       odb_remote_init();
+
+       if (!dealer)
+	       return helpers;
+
+       for (o = helpers; o; o = o->next)
+	       if (!strcmp(o->dealer, dealer))
+		       return o;
+
+       return NULL;
+}
+
+int has_odb_remote(void)
+{
+	return !!find_odb_helper(NULL);
+}
+
 const char *odb_remote_root(void)
 {
 	static const char *root;
