@@ -340,4 +340,33 @@ test_expect_success 'fetching of missing objects from an HTTP server' '
 
 stop_httpd
 
+test_expect_success 'fetching of missing objects from 2 odb remotes' '
+	rm -rf repo &&
+	test_create_repo server1 &&
+	test_commit -C server1 foo &&
+	git -C server1 repack -a -d --write-bitmap-index &&
+
+	git clone "file://$(pwd)/server1" server2 &&
+	test_commit -C server2 bar &&
+	HASH2=$(git -C server2 rev-parse bar) &&
+
+	git clone "file://$(pwd)/server1" repo &&
+	HASH=$(git -C repo rev-parse foo) &&
+	rm -rf repo/.git/objects/* &&
+
+	git -C repo config core.repositoryformatversion 1 &&
+	git -C repo config odb.magic1.promisorRemote "origin" &&
+	git -C repo remote add "server2" "file://$(pwd)/server2" &&
+	git -C repo config odb.magic2.promisorRemote "server2" &&
+	git -C repo cat-file -p "$HASH" &&
+	git -C repo cat-file -p "$HASH2" &&
+
+	# Ensure that the .promisor file is written, and check that its
+	# associated packfile contains the object
+	ls repo/.git/objects/pack/pack-*.promisor >promisorlist &&
+	test_line_count = 1 promisorlist &&
+	IDX=$(cat promisorlist | sed "s/promisor$/idx/") &&
+	git verify-pack --verbose "$IDX" | grep "$HASH"
+'
+
 test_done
