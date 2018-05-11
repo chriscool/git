@@ -1290,8 +1290,8 @@ int oid_object_info_extended(const struct object_id *oid, struct object_info *oi
 		if (fetch_if_missing && repository_format_partial_clone &&
 		    !already_retried) {
 			/*
-			 * TODO Investigate haveing fetch_object() return
-			 * TODO error/success and stopping the music here.
+			 * TODO Investigate checking fetch_object() return
+			 * TODO value and stopping on error here.
 			 */
 			fetch_object(repository_format_partial_clone, real->hash);
 			already_retried = 1;
