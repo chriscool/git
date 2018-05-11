@@ -348,6 +348,7 @@ test_expect_success 'fetching of missing objects from 2 odb remotes' '
 
 	git clone "file://$(pwd)/server1" server2 &&
 	test_commit -C server2 bar &&
+	git -C server2 repack -a -d --write-bitmap-index &&
 	HASH2=$(git -C server2 rev-parse bar) &&
 
 	git clone "file://$(pwd)/server1" repo &&
@@ -361,12 +362,14 @@ test_expect_success 'fetching of missing objects from 2 odb remotes' '
 	git -C repo cat-file -p "$HASH" &&
 	git -C repo cat-file -p "$HASH2" &&
 
-	# Ensure that the .promisor file is written, and check that its
-	# associated packfile contains the object
+	# Ensure that the .promisor files are written, and check that the
+	# associated packfile contains the objects
 	ls repo/.git/objects/pack/pack-*.promisor >promisorlist &&
-	test_line_count = 1 promisorlist &&
-	IDX=$(cat promisorlist | sed "s/promisor$/idx/") &&
-	git verify-pack --verbose "$IDX" | grep "$HASH"
+	test_line_count = 2 promisorlist &&
+	IDX1=$(cat promisorlist | head -1 | sed "s/promisor$/idx/") &&
+	IDX2=$(cat promisorlist | tail -1 | sed "s/promisor$/idx/") &&
+	git verify-pack --verbose "$IDX1" "$IDX2" | grep "$HASH" &&
+	git verify-pack --verbose "$IDX1" "$IDX2" | grep "$HASH2"
 '
 
 test_done
