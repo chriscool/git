@@ -19,10 +19,10 @@ struct odb_helper *odb_helper_new(const char *name, int namelen)
 int odb_helper_get_direct(struct odb_helper *o,
 			  const unsigned char *sha1)
 {
-	int res = 0;
+	int res;
 	uint64_t start = getnanotime();
 
-	fetch_object(o->dealer, sha1);
+	res = fetch_object(o->dealer, sha1);
 
 	trace_performance_since(start, "odb_helper_get_direct");
 
@@ -32,12 +32,12 @@ int odb_helper_get_direct(struct odb_helper *o,
 int odb_helper_get_many_direct(struct odb_helper *o,
 			       const struct oid_array *to_get)
 {
-	int res = 0;
+	int res;
 	uint64_t start;
 
 	start = getnanotime();
 
-	fetch_objects(o->dealer, to_get);
+	res = fetch_objects(o->dealer, to_get);
 
 	trace_performance_since(start, "odb_helper_get_many_direct");
 
