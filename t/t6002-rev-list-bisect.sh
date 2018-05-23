@@ -263,4 +263,54 @@ test_expect_success 'rev-parse --bisect can default to good/bad refs' '
 	test_cmp expect.sorted actual.sorted
 '
 
+# We generate the following commit graph:
+#
+#   B ------ C
+#  /          \
+# A            FX
+#  \          /
+#   D - CC - EX
+
+test_expect_success 'setup' '
+  test_commit Z &&
+  test_commit M1 &&
+  git reset --hard Z &&
+  test_commit M2 &&
+  test_merge A M1 &&
+  test_commit B &&
+  test_commit C &&
+  git reset --hard A &&
+  test_commit D &&
+  test_commit CC &&
+  test_commit EX &&
+  test_merge FX C
+'
+
+test_output_expect_success "--bisect --first-parent" 'git rev-list --bisect --first-parent FX ^A' <<EOF
+$(git rev-parse CC)
+EOF
+
+test_output_expect_success "--first-parent" 'git rev-list --first-parent FX ^A' <<EOF
+$(git rev-parse FX)
+$(git rev-parse EX)
+$(git rev-parse CC)
+$(git rev-parse D)
+EOF
+
+test_output_expect_success "--bisect-vars --first-parent" 'git rev-list --bisect-vars --first-parent FX ^A' <<EOF
+bisect_rev='$(git rev-parse CC)'
+bisect_nr=1
+bisect_good=1
+bisect_bad=1
+bisect_all=4
+bisect_steps=1
+EOF
+
+test_output_expect_success "--bisect-all --first-parent" 'git rev-list --bisect-all --first-parent FX ^A' <<EOF
+$(git rev-parse CC) (dist=2)
+$(git rev-parse EX) (dist=1)
+$(git rev-parse D) (dist=1)
+$(git rev-parse FX) (dist=0)
+EOF
+
 test_done
