@@ -101,7 +101,7 @@ static struct ref_store *files2_ref_store_create(const char *gitdir,
 	struct ref_store *ref_store = (struct ref_store *)refs;
 	struct strbuf sb = STRBUF_INIT;
 
-	base_ref_store_init(ref_store, &refs_be_files);
+	base_ref_store_init(ref_store, &refs2_be_files);
 	refs->store_flags = flags;
 
 	refs->gitdir = xstrdup(gitdir);
@@ -144,7 +144,7 @@ static struct files_ref_store *files2_downcast(struct ref_store *ref_store,
 {
 	struct files_ref_store *refs;
 
-	if (ref_store->be != &refs_be_files)
+	if (ref_store->be != &refs2_be_files)
 		BUG("ref_store is type \"%s\" not \"files\" in %s",
 		    ref_store->be->name, caller);
 
