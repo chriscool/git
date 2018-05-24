@@ -3109,6 +3109,12 @@ static int files2_init_db(struct ref_store *ref_store, struct strbuf *err)
 	struct strbuf sb = STRBUF_INIT;
 
 	/*
+	 * Create .git/refs2
+	 */
+	safe_create_dir(git_path("refs2"), 1);
+	adjust_shared_perm(git_path("refs2"));
+
+	/*
 	 * Create .git/refs2/{heads,tags}
 	 */
 	files2_ref_path(refs, &sb, "refs2/heads");
