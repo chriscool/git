@@ -94,8 +94,8 @@ static void clear_loose_ref_cache(struct files_ref_store *refs)
  * Create a new submodule ref cache and add it to the internal
  * set of caches.
  */
-static struct ref_store *files_ref_store_create(const char *gitdir,
-						unsigned int flags)
+static struct ref_store *files2_ref_store_create(const char *gitdir,
+						 unsigned int flags)
 {
 	struct files_ref_store *refs = xcalloc(1, sizeof(*refs));
 	struct ref_store *ref_store = (struct ref_store *)refs;
@@ -123,8 +123,8 @@ static struct ref_store *files_ref_store_create(const char *gitdir,
  * Die if refs is not the main ref store. caller is used in any
  * necessary error messages.
  */
-static void files_assert_main_repository(struct files_ref_store *refs,
-					 const char *caller)
+static void files2_assert_main_repository(struct files_ref_store *refs,
+					  const char *caller)
 {
 	if (refs->store_flags & REF_STORE_MAIN)
 		return;
@@ -138,9 +138,9 @@ static void files_assert_main_repository(struct files_ref_store *refs,
  * store_flags to ensure the ref_store has all required capabilities.
  * "caller" is used in any necessary error messages.
  */
-static struct files_ref_store *files_downcast(struct ref_store *ref_store,
-					      unsigned int required_flags,
-					      const char *caller)
+static struct files_ref_store *files2_downcast(struct ref_store *ref_store,
+					       unsigned int required_flags,
+					       const char *caller)
 {
 	struct files_ref_store *refs;
 
@@ -157,9 +157,9 @@ static struct files_ref_store *files_downcast(struct ref_store *ref_store,
 	return refs;
 }
 
-static void files_reflog_path(struct files_ref_store *refs,
-			      struct strbuf *sb,
-			      const char *refname)
+static void files2_reflog_path(struct files_ref_store *refs,
+			       struct strbuf *sb,
+			       const char *refname)
 {
 	switch (ref_type(refname)) {
 	case REF_TYPE_PER_WORKTREE:
@@ -175,7 +175,7 @@ static void files_reflog_path(struct files_ref_store *refs,
 	}
 }
 
-static void files_ref_path(struct files_ref_store *refs,
+static void files2_ref_path(struct files_ref_store *refs,
 			   struct strbuf *sb,
 			   const char *refname)
 {
@@ -202,7 +202,7 @@ static void loose_fill_ref_dir(struct ref_store *ref_store,
 			       struct ref_dir *dir, const char *dirname)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_READ, "fill_ref_dir");
+		files2_downcast(ref_store, REF_STORE_READ, "fill_ref_dir");
 	DIR *d;
 	struct dirent *de;
 	int dirnamelen = strlen(dirname);
@@ -210,7 +210,7 @@ static void loose_fill_ref_dir(struct ref_store *ref_store,
 	struct strbuf path = STRBUF_INIT;
 	size_t path_baselen;
 
-	files_ref_path(refs, &path, dirname);
+	files2_ref_path(refs, &path, dirname);
 	path_baselen = path.len;
 
 	d = opendir(path.buf);
@@ -315,12 +315,12 @@ static struct ref_cache *get_loose_ref_cache(struct files_ref_store *refs)
 	return refs->loose;
 }
 
-static int files_read_raw_ref(struct ref_store *ref_store,
+static int files2_read_raw_ref(struct ref_store *ref_store,
 			      const char *refname, struct object_id *oid,
 			      struct strbuf *referent, unsigned int *type)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_READ, "read_raw_ref");
+		files2_downcast(ref_store, REF_STORE_READ, "read_raw_ref");
 	struct strbuf sb_contents = STRBUF_INIT;
 	struct strbuf sb_path = STRBUF_INIT;
 	const char *path;
@@ -335,7 +335,7 @@ static int files_read_raw_ref(struct ref_store *ref_store,
 	*type = 0;
 	strbuf_reset(&sb_path);
 
-	files_ref_path(refs, &sb_path, refname);
+	files2_ref_path(refs, &sb_path, refname);
 
 	path = sb_path.buf;
 
@@ -514,7 +514,7 @@ static int lock_raw_ref(struct files_ref_store *refs,
 	int ret = TRANSACTION_GENERIC_ERROR;
 
 	assert(err);
-	files_assert_main_repository(refs, "lock_raw_ref");
+	files2_assert_main_repository(refs, "lock_raw_ref");
 
 	*type = 0;
 
@@ -523,7 +523,7 @@ static int lock_raw_ref(struct files_ref_store *refs,
 	*lock_p = lock = xcalloc(1, sizeof(*lock));
 
 	lock->ref_name = xstrdup(refname);
-	files_ref_path(refs, &ref_file, refname);
+	files2_ref_path(refs, &ref_file, refname);
 
 retry:
 	switch (safe_create_leading_directories(ref_file.buf)) {
@@ -600,7 +600,7 @@ retry:
 	 * fear that its value will change.
 	 */
 
-	if (files_read_raw_ref(&refs->base, refname,
+	if (files2_read_raw_ref(&refs->base, refname,
 			       &lock->old_oid, referent, type)) {
 		if (errno == ENOENT) {
 			if (mustexist) {
@@ -704,7 +704,7 @@ struct files_ref_iterator {
 	unsigned int flags;
 };
 
-static int files_ref_iterator_advance(struct ref_iterator *ref_iterator)
+static int files2_ref_iterator_advance(struct ref_iterator *ref_iterator)
 {
 	struct files_ref_iterator *iter =
 		(struct files_ref_iterator *)ref_iterator;
@@ -734,7 +734,7 @@ static int files_ref_iterator_advance(struct ref_iterator *ref_iterator)
 	return ok;
 }
 
-static int files_ref_iterator_peel(struct ref_iterator *ref_iterator,
+static int files2_ref_iterator_peel(struct ref_iterator *ref_iterator,
 				   struct object_id *peeled)
 {
 	struct files_ref_iterator *iter =
@@ -743,7 +743,7 @@ static int files_ref_iterator_peel(struct ref_iterator *ref_iterator,
 	return ref_iterator_peel(iter->iter0, peeled);
 }
 
-static int files_ref_iterator_abort(struct ref_iterator *ref_iterator)
+static int files2_ref_iterator_abort(struct ref_iterator *ref_iterator)
 {
 	struct files_ref_iterator *iter =
 		(struct files_ref_iterator *)ref_iterator;
@@ -757,12 +757,12 @@ static int files_ref_iterator_abort(struct ref_iterator *ref_iterator)
 }
 
 static struct ref_iterator_vtable files_ref_iterator_vtable = {
-	files_ref_iterator_advance,
-	files_ref_iterator_peel,
-	files_ref_iterator_abort
+	files2_ref_iterator_advance,
+	files2_ref_iterator_peel,
+	files2_ref_iterator_abort
 };
 
-static struct ref_iterator *files_ref_iterator_begin(
+static struct ref_iterator *files2_ref_iterator_begin(
 		struct ref_store *ref_store,
 		const char *prefix, unsigned int flags)
 {
@@ -775,7 +775,7 @@ static struct ref_iterator *files_ref_iterator_begin(
 	if (!(flags & DO_FOR_EACH_INCLUDE_BROKEN))
 		required_flags |= REF_STORE_ODB;
 
-	refs = files_downcast(ref_store, required_flags, "ref_iterator_begin");
+	refs = files2_downcast(ref_store, required_flags, "ref_iterator_begin");
 
 	/*
 	 * We must make sure that all loose refs are read before
@@ -805,7 +805,7 @@ static struct ref_iterator *files_ref_iterator_begin(
 	 * overrides it, and we don't want to emit an error message in
 	 * this case. So ask the packed_ref_store for all of its
 	 * references, and (if needed) do our own check for broken
-	 * ones in files_ref_iterator_advance(), after we have merged
+	 * ones in files2_ref_iterator_advance(), after we have merged
 	 * the packed and loose references.
 	 */
 	packed_iter = refs_ref_iterator_begin(
@@ -898,7 +898,7 @@ static struct ref_lock *lock_ref_oid_basic(struct files_ref_store *refs,
 	int resolve_flags = RESOLVE_REF_NO_RECURSE;
 	int resolved;
 
-	files_assert_main_repository(refs, "lock_ref_oid_basic");
+	files2_assert_main_repository(refs, "lock_ref_oid_basic");
 	assert(err);
 
 	lock = xcalloc(1, sizeof(struct ref_lock));
@@ -908,7 +908,7 @@ static struct ref_lock *lock_ref_oid_basic(struct files_ref_store *refs,
 	if (flags & REF_DELETING)
 		resolve_flags |= RESOLVE_REF_ALLOW_BAD_NAME;
 
-	files_ref_path(refs, &ref_file, refname);
+	files2_ref_path(refs, &ref_file, refname);
 	resolved = !!refs_resolve_ref_unsafe(&refs->base,
 					     refname, resolve_flags,
 					     &lock->old_oid, type);
@@ -1026,12 +1026,12 @@ static void try_remove_empty_parents(struct files_ref_store *refs,
 		strbuf_setlen(&buf, q - buf.buf);
 
 		strbuf_reset(&sb);
-		files_ref_path(refs, &sb, buf.buf);
+		files2_ref_path(refs, &sb, buf.buf);
 		if ((flags & REMOVE_EMPTY_PARENTS_REF) && rmdir(sb.buf))
 			flags &= ~REMOVE_EMPTY_PARENTS_REF;
 
 		strbuf_reset(&sb);
-		files_reflog_path(refs, &sb, buf.buf);
+		files2_reflog_path(refs, &sb, buf.buf);
 		if ((flags & REMOVE_EMPTY_PARENTS_REFLOG) && rmdir(sb.buf))
 			flags &= ~REMOVE_EMPTY_PARENTS_REFLOG;
 	}
@@ -1109,10 +1109,10 @@ static int should_pack_ref(const char *refname,
 	return 1;
 }
 
-static int files_pack_refs(struct ref_store *ref_store, unsigned int flags)
+static int files2_pack_refs(struct ref_store *ref_store, unsigned int flags)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_WRITE | REF_STORE_ODB,
+		files2_downcast(ref_store, REF_STORE_WRITE | REF_STORE_ODB,
 			       "pack_refs");
 	struct ref_iterator *iter;
 	int ok;
@@ -1171,11 +1171,11 @@ static int files_pack_refs(struct ref_store *ref_store, unsigned int flags)
 	return 0;
 }
 
-static int files_delete_refs(struct ref_store *ref_store, const char *msg,
+static int files2_delete_refs(struct ref_store *ref_store, const char *msg,
 			     struct string_list *refnames, unsigned int flags)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_WRITE, "delete_refs");
+		files2_downcast(ref_store, REF_STORE_WRITE, "delete_refs");
 	struct strbuf err = STRBUF_INIT;
 	int i, result = 0;
 
@@ -1261,8 +1261,8 @@ static int rename_tmp_log(struct files_ref_store *refs, const char *newrefname)
 	struct rename_cb cb;
 	int ret;
 
-	files_reflog_path(refs, &path, newrefname);
-	files_reflog_path(refs, &tmp, TMP_RENAMED_LOG);
+	files2_reflog_path(refs, &path, newrefname);
+	files2_reflog_path(refs, &tmp, TMP_RENAMED_LOG);
 	cb.tmp_renamed_log = tmp.buf;
 	ret = raceproof_create_file(path.buf, rename_tmp_log_callback, &cb);
 	if (ret) {
@@ -1286,12 +1286,12 @@ static int commit_ref_update(struct files_ref_store *refs,
 			     const struct object_id *oid, const char *logmsg,
 			     struct strbuf *err);
 
-static int files_copy_or_rename_ref(struct ref_store *ref_store,
+static int files2_copy_or_rename_ref(struct ref_store *ref_store,
 			    const char *oldrefname, const char *newrefname,
 			    const char *logmsg, int copy)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_WRITE, "rename_ref");
+		files2_downcast(ref_store, REF_STORE_WRITE, "rename_ref");
 	struct object_id oid, orig_oid;
 	int flag = 0, logmoved = 0;
 	struct ref_lock *lock;
@@ -1302,9 +1302,9 @@ static int files_copy_or_rename_ref(struct ref_store *ref_store,
 	int log, ret;
 	struct strbuf err = STRBUF_INIT;
 
-	files_reflog_path(refs, &sb_oldref, oldrefname);
-	files_reflog_path(refs, &sb_newref, newrefname);
-	files_reflog_path(refs, &tmp_renamed_log, TMP_RENAMED_LOG);
+	files2_reflog_path(refs, &sb_oldref, oldrefname);
+	files2_reflog_path(refs, &sb_newref, newrefname);
+	files2_reflog_path(refs, &tmp_renamed_log, TMP_RENAMED_LOG);
 
 	log = !lstat(sb_oldref.buf, &loginfo);
 	if (log && S_ISLNK(loginfo.st_mode)) {
@@ -1367,7 +1367,7 @@ static int files_copy_or_rename_ref(struct ref_store *ref_store,
 			struct strbuf path = STRBUF_INIT;
 			int result;
 
-			files_ref_path(refs, &path, newrefname);
+			files2_ref_path(refs, &path, newrefname);
 			result = remove_empty_directories(&path);
 			strbuf_release(&path);
 
@@ -1443,19 +1443,19 @@ static int files_copy_or_rename_ref(struct ref_store *ref_store,
 	return ret;
 }
 
-static int files_rename_ref(struct ref_store *ref_store,
+static int files2_rename_ref(struct ref_store *ref_store,
 			    const char *oldrefname, const char *newrefname,
 			    const char *logmsg)
 {
-	return files_copy_or_rename_ref(ref_store, oldrefname,
+	return files2_copy_or_rename_ref(ref_store, oldrefname,
 				 newrefname, logmsg, 0);
 }
 
-static int files_copy_ref(struct ref_store *ref_store,
+static int files2_copy_ref(struct ref_store *ref_store,
 			    const char *oldrefname, const char *newrefname,
 			    const char *logmsg)
 {
-	return files_copy_or_rename_ref(ref_store, oldrefname,
+	return files2_copy_or_rename_ref(ref_store, oldrefname,
 				 newrefname, logmsg, 1);
 }
 
@@ -1522,7 +1522,7 @@ static int log_ref_setup(struct files_ref_store *refs,
 	struct strbuf logfile_sb = STRBUF_INIT;
 	char *logfile;
 
-	files_reflog_path(refs, &logfile_sb, refname);
+	files2_reflog_path(refs, &logfile_sb, refname);
 	logfile = strbuf_detach(&logfile_sb, NULL);
 
 	if (force_create || should_autocreate_reflog(refname)) {
@@ -1569,12 +1569,12 @@ error:
 	return -1;
 }
 
-static int files_create_reflog(struct ref_store *ref_store,
+static int files2_create_reflog(struct ref_store *ref_store,
 			       const char *refname, int force_create,
 			       struct strbuf *err)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_WRITE, "create_reflog");
+		files2_downcast(ref_store, REF_STORE_WRITE, "create_reflog");
 	int fd;
 
 	if (log_ref_setup(refs, refname, force_create, &fd, err))
@@ -1612,7 +1612,7 @@ static int log_ref_write_fd(int fd, const struct object_id *old_oid,
 	return 0;
 }
 
-static int files_log_ref_write(struct files_ref_store *refs,
+static int files2_log_ref_write(struct files_ref_store *refs,
 			       const char *refname, const struct object_id *old_oid,
 			       const struct object_id *new_oid, const char *msg,
 			       int flags, struct strbuf *err)
@@ -1637,7 +1637,7 @@ static int files_log_ref_write(struct files_ref_store *refs,
 		struct strbuf sb = STRBUF_INIT;
 		int save_errno = errno;
 
-		files_reflog_path(refs, &sb, refname);
+		files2_reflog_path(refs, &sb, refname);
 		strbuf_addf(err, "unable to append to '%s': %s",
 			    sb.buf, strerror(save_errno));
 		strbuf_release(&sb);
@@ -1648,7 +1648,7 @@ static int files_log_ref_write(struct files_ref_store *refs,
 		struct strbuf sb = STRBUF_INIT;
 		int save_errno = errno;
 
-		files_reflog_path(refs, &sb, refname);
+		files2_reflog_path(refs, &sb, refname);
 		strbuf_addf(err, "unable to append to '%s': %s",
 			    sb.buf, strerror(save_errno));
 		strbuf_release(&sb);
@@ -1705,10 +1705,10 @@ static int commit_ref_update(struct files_ref_store *refs,
 			     const struct object_id *oid, const char *logmsg,
 			     struct strbuf *err)
 {
-	files_assert_main_repository(refs, "commit_ref_update");
+	files2_assert_main_repository(refs, "commit_ref_update");
 
 	clear_loose_ref_cache(refs);
-	if (files_log_ref_write(refs, lock->ref_name,
+	if (files2_log_ref_write(refs, lock->ref_name,
 				&lock->old_oid, oid,
 				logmsg, 0, err)) {
 		char *old_msg = strbuf_detach(err, NULL);
@@ -1741,7 +1741,7 @@ static int commit_ref_update(struct files_ref_store *refs,
 		if (head_ref && (head_flag & REF_ISSYMREF) &&
 		    !strcmp(head_ref, lock->ref_name)) {
 			struct strbuf log_err = STRBUF_INIT;
-			if (files_log_ref_write(refs, "HEAD",
+			if (files2_log_ref_write(refs, "HEAD",
 						&lock->old_oid, oid,
 						logmsg, 0, &log_err)) {
 				error("%s", log_err.buf);
@@ -1784,7 +1784,7 @@ static void update_symref_reflog(struct files_ref_store *refs,
 	if (logmsg &&
 	    !refs_read_ref_full(&refs->base, target,
 				RESOLVE_REF_READING, &new_oid, NULL) &&
-	    files_log_ref_write(refs, refname, &lock->old_oid,
+	    files2_log_ref_write(refs, refname, &lock->old_oid,
 				&new_oid, logmsg, 0, &err)) {
 		error("%s", err.buf);
 		strbuf_release(&err);
@@ -1814,12 +1814,12 @@ static int create_symref_locked(struct files_ref_store *refs,
 	return 0;
 }
 
-static int files_create_symref(struct ref_store *ref_store,
+static int files2_create_symref(struct ref_store *ref_store,
 			       const char *refname, const char *target,
 			       const char *logmsg)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_WRITE, "create_symref");
+		files2_downcast(ref_store, REF_STORE_WRITE, "create_symref");
 	struct strbuf err = STRBUF_INIT;
 	struct ref_lock *lock;
 	int ret;
@@ -1838,30 +1838,30 @@ static int files_create_symref(struct ref_store *ref_store,
 	return ret;
 }
 
-static int files_reflog_exists(struct ref_store *ref_store,
+static int files2_reflog_exists(struct ref_store *ref_store,
 			       const char *refname)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_READ, "reflog_exists");
+		files2_downcast(ref_store, REF_STORE_READ, "reflog_exists");
 	struct strbuf sb = STRBUF_INIT;
 	struct stat st;
 	int ret;
 
-	files_reflog_path(refs, &sb, refname);
+	files2_reflog_path(refs, &sb, refname);
 	ret = !lstat(sb.buf, &st) && S_ISREG(st.st_mode);
 	strbuf_release(&sb);
 	return ret;
 }
 
-static int files_delete_reflog(struct ref_store *ref_store,
+static int files2_delete_reflog(struct ref_store *ref_store,
 			       const char *refname)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_WRITE, "delete_reflog");
+		files2_downcast(ref_store, REF_STORE_WRITE, "delete_reflog");
 	struct strbuf sb = STRBUF_INIT;
 	int ret;
 
-	files_reflog_path(refs, &sb, refname);
+	files2_reflog_path(refs, &sb, refname);
 	ret = remove_path(sb.buf);
 	strbuf_release(&sb);
 	return ret;
@@ -1907,20 +1907,20 @@ static char *find_beginning_of_line(char *bob, char *scan)
 	return scan;
 }
 
-static int files_for_each_reflog_ent_reverse(struct ref_store *ref_store,
+static int files2_for_each_reflog_ent_reverse(struct ref_store *ref_store,
 					     const char *refname,
 					     each_reflog_ent_fn fn,
 					     void *cb_data)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_READ,
+		files2_downcast(ref_store, REF_STORE_READ,
 			       "for_each_reflog_ent_reverse");
 	struct strbuf sb = STRBUF_INIT;
 	FILE *logfp;
 	long pos;
 	int ret = 0, at_tail = 1;
 
-	files_reflog_path(refs, &sb, refname);
+	files2_reflog_path(refs, &sb, refname);
 	logfp = fopen(sb.buf, "r");
 	strbuf_release(&sb);
 	if (!logfp)
@@ -2021,18 +2021,18 @@ static int files_for_each_reflog_ent_reverse(struct ref_store *ref_store,
 	return ret;
 }
 
-static int files_for_each_reflog_ent(struct ref_store *ref_store,
+static int files2_for_each_reflog_ent(struct ref_store *ref_store,
 				     const char *refname,
 				     each_reflog_ent_fn fn, void *cb_data)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_READ,
+		files2_downcast(ref_store, REF_STORE_READ,
 			       "for_each_reflog_ent");
 	FILE *logfp;
 	struct strbuf sb = STRBUF_INIT;
 	int ret = 0;
 
-	files_reflog_path(refs, &sb, refname);
+	files2_reflog_path(refs, &sb, refname);
 	logfp = fopen(sb.buf, "r");
 	strbuf_release(&sb);
 	if (!logfp)
@@ -2053,7 +2053,7 @@ struct files_reflog_iterator {
 	struct object_id oid;
 };
 
-static int files_reflog_iterator_advance(struct ref_iterator *ref_iterator)
+static int files2_reflog_iterator_advance(struct ref_iterator *ref_iterator)
 {
 	struct files_reflog_iterator *iter =
 		(struct files_reflog_iterator *)ref_iterator;
@@ -2089,13 +2089,13 @@ static int files_reflog_iterator_advance(struct ref_iterator *ref_iterator)
 	return ok;
 }
 
-static int files_reflog_iterator_peel(struct ref_iterator *ref_iterator,
+static int files2_reflog_iterator_peel(struct ref_iterator *ref_iterator,
 				   struct object_id *peeled)
 {
 	BUG("ref_iterator_peel() called for reflog_iterator");
 }
 
-static int files_reflog_iterator_abort(struct ref_iterator *ref_iterator)
+static int files2_reflog_iterator_abort(struct ref_iterator *ref_iterator)
 {
 	struct files_reflog_iterator *iter =
 		(struct files_reflog_iterator *)ref_iterator;
@@ -2108,10 +2108,10 @@ static int files_reflog_iterator_abort(struct ref_iterator *ref_iterator)
 	return ok;
 }
 
-static struct ref_iterator_vtable files_reflog_iterator_vtable = {
-	files_reflog_iterator_advance,
-	files_reflog_iterator_peel,
-	files_reflog_iterator_abort
+static struct ref_iterator_vtable files2_reflog_iterator_vtable = {
+	files2_reflog_iterator_advance,
+	files2_reflog_iterator_peel,
+	files2_reflog_iterator_abort
 };
 
 static struct ref_iterator *reflog_iterator_begin(struct ref_store *ref_store,
@@ -2121,7 +2121,7 @@ static struct ref_iterator *reflog_iterator_begin(struct ref_store *ref_store,
 	struct ref_iterator *ref_iterator = &iter->base;
 	struct strbuf sb = STRBUF_INIT;
 
-	base_ref_iterator_init(ref_iterator, &files_reflog_iterator_vtable, 0);
+	base_ref_iterator_init(ref_iterator, &files2_reflog_iterator_vtable, 0);
 	strbuf_addf(&sb, "%s/logs", gitdir);
 	iter->dir_iterator = dir_iterator_begin(sb.buf);
 	iter->ref_store = ref_store;
@@ -2155,10 +2155,10 @@ static enum iterator_selection reflog_iterator_select(
 		return ITER_DONE;
 }
 
-static struct ref_iterator *files_reflog_iterator_begin(struct ref_store *ref_store)
+static struct ref_iterator *files2_reflog_iterator_begin(struct ref_store *ref_store)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_READ,
+		files2_downcast(ref_store, REF_STORE_READ,
 			       "reflog_iterator_begin");
 
 	if (!strcmp(refs->gitdir, refs->gitcommondir)) {
@@ -2372,7 +2372,7 @@ static int lock_ref_for_update(struct files_ref_store *refs,
 	int ret = 0;
 	struct ref_lock *lock;
 
-	files_assert_main_repository(refs, "lock_ref_for_update");
+	files2_assert_main_repository(refs, "lock_ref_for_update");
 
 	if ((update->flags & REF_HAVE_NEW) && is_null_oid(&update->new_oid))
 		update->flags |= REF_DELETING;
@@ -2512,7 +2512,7 @@ struct files_transaction_backend_data {
  * Unlock any references in `transaction` that are still locked, and
  * mark the transaction closed.
  */
-static void files_transaction_cleanup(struct files_ref_store *refs,
+static void files2_transaction_cleanup(struct files_ref_store *refs,
 				      struct ref_transaction *transaction)
 {
 	size_t i;
@@ -2544,12 +2544,12 @@ static void files_transaction_cleanup(struct files_ref_store *refs,
 	transaction->state = REF_TRANSACTION_CLOSED;
 }
 
-static int files_transaction_prepare(struct ref_store *ref_store,
+static int files2_transaction_prepare(struct ref_store *ref_store,
 				     struct ref_transaction *transaction,
 				     struct strbuf *err)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_WRITE,
+		files2_downcast(ref_store, REF_STORE_WRITE,
 			       "ref_transaction_prepare");
 	size_t i;
 	int ret = 0;
@@ -2696,19 +2696,19 @@ cleanup:
 	string_list_clear(&affected_refnames, 0);
 
 	if (ret)
-		files_transaction_cleanup(refs, transaction);
+		files2_transaction_cleanup(refs, transaction);
 	else
 		transaction->state = REF_TRANSACTION_PREPARED;
 
 	return ret;
 }
 
-static int files_transaction_finish(struct ref_store *ref_store,
+static int files2_transaction_finish(struct ref_store *ref_store,
 				    struct ref_transaction *transaction,
 				    struct strbuf *err)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, 0, "ref_transaction_finish");
+		files2_downcast(ref_store, 0, "ref_transaction_finish");
 	size_t i;
 	int ret = 0;
 	struct strbuf sb = STRBUF_INIT;
@@ -2733,7 +2733,7 @@ static int files_transaction_finish(struct ref_store *ref_store,
 
 		if (update->flags & REF_NEEDS_COMMIT ||
 		    update->flags & REF_LOG_ONLY) {
-			if (files_log_ref_write(refs,
+			if (files2_log_ref_write(refs,
 						lock->ref_name,
 						&lock->old_oid,
 						&update->new_oid,
@@ -2776,7 +2776,7 @@ static int files_transaction_finish(struct ref_store *ref_store,
 		    !(update->flags & REF_LOG_ONLY) &&
 		    !(update->flags & REF_IS_PRUNING)) {
 			strbuf_reset(&sb);
-			files_reflog_path(refs, &sb, update->refname);
+			files2_reflog_path(refs, &sb, update->refname);
 			if (!unlink_or_warn(sb.buf))
 				try_remove_empty_parents(refs, update->refname,
 							 REMOVE_EMPTY_PARENTS_REFLOG);
@@ -2809,7 +2809,7 @@ static int files_transaction_finish(struct ref_store *ref_store,
 			    update->type & REF_ISSYMREF) {
 				/* It is a loose reference. */
 				strbuf_reset(&sb);
-				files_ref_path(refs, &sb, lock->ref_name);
+				files2_ref_path(refs, &sb, lock->ref_name);
 				if (unlink_or_msg(sb.buf, err)) {
 					ret = TRANSACTION_GENERIC_ERROR;
 					goto cleanup;
@@ -2822,7 +2822,7 @@ static int files_transaction_finish(struct ref_store *ref_store,
 	clear_loose_ref_cache(refs);
 
 cleanup:
-	files_transaction_cleanup(refs, transaction);
+	files2_transaction_cleanup(refs, transaction);
 
 	for (i = 0; i < transaction->nr; i++) {
 		struct ref_update *update = transaction->updates[i];
@@ -2843,14 +2843,14 @@ cleanup:
 	return ret;
 }
 
-static int files_transaction_abort(struct ref_store *ref_store,
+static int files2_transaction_abort(struct ref_store *ref_store,
 				   struct ref_transaction *transaction,
 				   struct strbuf *err)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, 0, "ref_transaction_abort");
+		files2_downcast(ref_store, 0, "ref_transaction_abort");
 
-	files_transaction_cleanup(refs, transaction);
+	files2_transaction_cleanup(refs, transaction);
 	return 0;
 }
 
@@ -2862,12 +2862,12 @@ static int ref_present(const char *refname,
 	return string_list_has_string(affected_refnames, refname);
 }
 
-static int files_initial_transaction_commit(struct ref_store *ref_store,
+static int files2_initial_transaction_commit(struct ref_store *ref_store,
 					    struct ref_transaction *transaction,
 					    struct strbuf *err)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_WRITE,
+		files2_downcast(ref_store, REF_STORE_WRITE,
 			       "initial_ref_transaction_commit");
 	size_t i;
 	int ret = 0;
@@ -2989,16 +2989,16 @@ static int expire_reflog_ent(struct object_id *ooid, struct object_id *noid,
 	return 0;
 }
 
-static int files_reflog_expire(struct ref_store *ref_store,
-			       const char *refname, const struct object_id *oid,
-			       unsigned int flags,
-			       reflog_expiry_prepare_fn prepare_fn,
-			       reflog_expiry_should_prune_fn should_prune_fn,
-			       reflog_expiry_cleanup_fn cleanup_fn,
-			       void *policy_cb_data)
+static int files2_reflog_expire(struct ref_store *ref_store,
+				const char *refname, const struct object_id *oid,
+				unsigned int flags,
+				reflog_expiry_prepare_fn prepare_fn,
+				reflog_expiry_should_prune_fn should_prune_fn,
+				reflog_expiry_cleanup_fn cleanup_fn,
+				void *policy_cb_data)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_WRITE, "reflog_expire");
+		files2_downcast(ref_store, REF_STORE_WRITE, "reflog_expire");
 	struct lock_file reflog_lock = LOCK_INIT;
 	struct expire_reflog_cb cb;
 	struct ref_lock *lock;
@@ -3031,7 +3031,7 @@ static int files_reflog_expire(struct ref_store *ref_store,
 		return 0;
 	}
 
-	files_reflog_path(refs, &log_file_sb, refname);
+	files2_reflog_path(refs, &log_file_sb, refname);
 	log_file = strbuf_detach(&log_file_sb, NULL);
 	if (!(flags & EXPIRE_REFLOGS_DRY_RUN)) {
 		/*
@@ -3102,20 +3102,20 @@ static int files_reflog_expire(struct ref_store *ref_store,
 	return -1;
 }
 
-static int files_init_db(struct ref_store *ref_store, struct strbuf *err)
+static int files2_init_db(struct ref_store *ref_store, struct strbuf *err)
 {
 	struct files_ref_store *refs =
-		files_downcast(ref_store, REF_STORE_WRITE, "init_db");
+		files2_downcast(ref_store, REF_STORE_WRITE, "init_db");
 	struct strbuf sb = STRBUF_INIT;
 
 	/*
 	 * Create .git/refs2/{heads,tags}
 	 */
-	files_ref_path(refs, &sb, "refs2/heads");
+	files2_ref_path(refs, &sb, "refs2/heads");
 	safe_create_dir(sb.buf, 1);
 
 	strbuf_reset(&sb);
-	files_ref_path(refs, &sb, "refs2/tags");
+	files2_ref_path(refs, &sb, "refs2/tags");
 	safe_create_dir(sb.buf, 1);
 
 	strbuf_release(&sb);
@@ -3125,27 +3125,27 @@ static int files_init_db(struct ref_store *ref_store, struct strbuf *err)
 struct ref_storage_be refs2_be_files = {
 	NULL,
 	"files",
-	files_ref_store_create,
-	files_init_db,
-	files_transaction_prepare,
-	files_transaction_finish,
-	files_transaction_abort,
-	files_initial_transaction_commit,
+	files2_ref_store_create,
+	files2_init_db,
+	files2_transaction_prepare,
+	files2_transaction_finish,
+	files2_transaction_abort,
+	files2_initial_transaction_commit,
 
-	files_pack_refs,
-	files_create_symref,
-	files_delete_refs,
-	files_rename_ref,
-	files_copy_ref,
+	files2_pack_refs,
+	files2_create_symref,
+	files2_delete_refs,
+	files2_rename_ref,
+	files2_copy_ref,
 
-	files_ref_iterator_begin,
-	files_read_raw_ref,
+	files2_ref_iterator_begin,
+	files2_read_raw_ref,
 
-	files_reflog_iterator_begin,
-	files_for_each_reflog_ent,
-	files_for_each_reflog_ent_reverse,
-	files_reflog_exists,
-	files_create_reflog,
-	files_delete_reflog,
-	files_reflog_expire
+	files2_reflog_iterator_begin,
+	files2_for_each_reflog_ent,
+	files2_for_each_reflog_ent_reverse,
+	files2_reflog_exists,
+	files2_create_reflog,
+	files2_delete_reflog,
+	files2_reflog_expire
 };
