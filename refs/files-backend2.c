@@ -3111,12 +3111,14 @@ static int files2_init_db(struct ref_store *ref_store, struct strbuf *err)
 	/*
 	 * Create .git/refs2
 	 */
-	safe_create_dir(git_path("refs2"), 1);
-	adjust_shared_perm(git_path("refs2"));
+	files2_ref_path(refs, &sb, "refs2");
+	safe_create_dir(sb.buf, 1);
+	adjust_shared_perm(sb.buf);
 
 	/*
 	 * Create .git/refs2/{heads,tags}
 	 */
+	strbuf_reset(&sb);
 	files2_ref_path(refs, &sb, "refs2/heads");
 	safe_create_dir(sb.buf, 1);
 
