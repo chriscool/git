@@ -39,12 +39,12 @@ static enum mmap_strategy mmap_strategy = MMAP_OK;
 struct packed_ref2_store;
 
 /*
- * A `snapshot` represents one snapshot of a `packed-refs` file.
+ * A `snapshot` represents one snapshot of a `packed-refs2` file.
  *
  * Normally, this will be a mmapped view of the contents of the
- * `packed-refs` file at the time the snapshot was created. However,
- * if the `packed-refs` file was not sorted, this might point at heap
- * memory holding the contents of the `packed-refs` file with its
+ * `packed-refs2` file at the time the snapshot was created. However,
+ * if the `packed-refs2` file was not sorted, this might point at heap
+ * memory holding the contents of the `packed-refs2` file with its
  * records sorted by refname.
  *
  * `snapshot` instances are reference counted (via
@@ -65,11 +65,11 @@ struct snapshot {
 	 */
 	struct packed_ref2_store *refs;
 
-	/* Is the `packed-refs` file currently mmapped? */
+	/* Is the `packed-refs2` file currently mmapped? */
 	int mmapped;
 
 	/*
-	 * The contents of the `packed-refs` file:
+	 * The contents of the `packed-refs2` file:
 	 *
 	 * - buf -- a pointer to the start of the memory
 	 * - start -- a pointer to the first byte of actual references
@@ -77,7 +77,7 @@ struct snapshot {
 	 * - eof -- a pointer just past the end of the reference
 	 *   contents
 	 *
-	 * If the `packed-refs` file was already sorted, `buf` points
+	 * If the `packed-refs2` file was already sorted, `buf` points
 	 * at the mmapped contents of the file. If not, it points at
 	 * heap-allocated memory containing the contents, sorted. If
 	 * there were no contents (e.g., because the file didn't
@@ -86,7 +86,7 @@ struct snapshot {
 	char *buf, *start, *eof;
 
 	/*
-	 * What is the peeled state of the `packed-refs` file that
+	 * What is the peeled state of the `packed-refs2` file that
 	 * this snapshot represents? (This is usually determined from
 	 * the file's header.)
 	 */
@@ -101,7 +101,7 @@ struct snapshot {
 	unsigned int referrers;
 
 	/*
-	 * The metadata of the `packed-refs` file from which this
+	 * The metadata of the `packed-refs2` file from which this
 	 * snapshot was created, used to tell if the file has been
 	 * replaced since we read it.
 	 */
@@ -109,7 +109,7 @@ struct snapshot {
 };
 
 /*
- * A `ref_store` representing references stored in a `packed-refs`
+ * A `ref_store` representing references stored in a `packed-refs2`
  * file. It implements the `ref_store` interface, though it has some
  * limitations:
  *
@@ -121,31 +121,31 @@ struct snapshot {
  *
  * On the other hand, it can be locked outside of a reference
  * transaction. In that case, it remains locked even after the
- * transaction is done and the new `packed-refs` file is activated.
+ * transaction is done and the new `packed-refs2` file is activated.
  */
 struct packed_ref2_store {
 	struct ref_store base;
 
 	unsigned int store_flags;
 
-	/* The path of the "packed-refs" file: */
+	/* The path of the "packed-refs2" file: */
 	char *path;
 
 	/*
-	 * A snapshot of the values read from the `packed-refs` file,
+	 * A snapshot of the values read from the `packed-refs2` file,
 	 * if it might still be current; otherwise, NULL.
 	 */
 	struct snapshot *snapshot;
 
 	/*
-	 * Lock used for the "packed-refs" file. Note that this (and
+	 * Lock used for the "packed-refs2" file. Note that this (and
 	 * thus the enclosing `packed_ref2_store`) must not be freed.
 	 */
 	struct lock_file lock;
 
 	/*
 	 * Temporary file used when rewriting new contents to the
-	 * "packed-refs" file. Note that this (and thus the enclosing
+	 * "packed-refs2" file. Note that this (and thus the enclosing
 	 * `packed_ref2_store`) must not be freed.
 	 */
 	struct tempfile *tempfile;
@@ -168,7 +168,7 @@ static void clear_snapshot_buffer(struct snapshot *snapshot)
 {
 	if (snapshot->mmapped) {
 		if (munmap(snapshot->buf, snapshot->eof - snapshot->buf))
-			die_errno("error ummapping packed-refs file %s",
+			die_errno("error ummapping packed-refs2 file %s",
 				  snapshot->refs->path);
 		snapshot->mmapped = 0;
 	} else {
@@ -203,7 +203,7 @@ struct ref_store *packed_ref2_store_create(const char *path,
 	refs->store_flags = store_flags;
 
 	refs->path = xstrdup(path);
-	chdir_notify_reparent("packed-refs", &refs->path);
+	chdir_notify_reparent("packed-refs2", &refs->path);
 
 	return ref_store;
 }
@@ -343,7 +343,7 @@ static void sort_snapshot(struct snapshot *snapshot)
 		eol = memchr(pos, '\n', eof - pos);
 		if (!eol)
 			/* The safety check should prevent this. */
-			BUG("unterminated line found in packed-refs");
+			BUG("unterminated line found in packed-refs2");
 		if (eol - pos < GIT_SHA1_HEXSZ + 2)
 			die_invalid_line(snapshot->refs->path,
 					 pos, eof - pos);
@@ -358,7 +358,7 @@ static void sort_snapshot(struct snapshot *snapshot)
 			eol = memchr(peeled_start, '\n', eof - peeled_start);
 			if (!eol)
 				/* The safety check should prevent this. */
-				BUG("unterminated peeled line found in packed-refs");
+				BUG("unterminated peeled line found in packed-refs2");
 			eol++;
 		}
 
@@ -434,7 +434,7 @@ static const char *find_end_of_record(const char *p, const char *end)
  * LF-terminated, and the refname should start exactly (GIT_SHA1_HEXSZ
  * + 1) bytes past the beginning of the record.
  *
- * But what if the `packed-refs` file contains garbage? We're willing
+ * But what if the `packed-refs2` file contains garbage? We're willing
  * to tolerate not detecting the problem, as long as we don't produce
  * totally garbled output (we can't afford to check the integrity of
  * the whole file during every Git invocation). But we do want to be
@@ -465,7 +465,7 @@ static void verify_buffer_safe(struct snapshot *snapshot)
 
 /*
  * Depending on `mmap_strategy`, either mmap or read the contents of
- * the `packed-refs` file into the snapshot. Return 1 if the file
+ * the `packed-refs2` file into the snapshot. Return 1 if the file
  * existed and was read, or 0 if the file was absent or empty. Die on
  * errors.
  */
@@ -481,7 +481,7 @@ static int load_contents(struct snapshot *snapshot)
 		if (errno == ENOENT) {
 			/*
 			 * This is OK; it just means that no
-			 * "packed-refs" file has been written yet,
+			 * "packed-refs2" file has been written yet,
 			 * which is equivalent to it being empty,
 			 * which is its state when initialized with
 			 * zeros.
@@ -580,7 +580,7 @@ static const char *find_reference_location(struct snapshot *snapshot,
 }
 
 /*
- * Create a newly-allocated `snapshot` of the `packed-refs` file in
+ * Create a newly-allocated `snapshot` of the `packed-refs2` file in
  * its current state and return it. The return value will already have
  * its reference count incremented.
  *
@@ -693,7 +693,7 @@ static struct snapshot *create_snapshot(struct packed_ref2_store *refs)
 
 /*
  * Check that `refs->snapshot` (if present) still reflects the
- * contents of the `packed-refs` file. If not, clear the snapshot.
+ * contents of the `packed-refs2` file. If not, clear the snapshot.
  */
 static void validate_snapshot(struct packed_ref2_store *refs)
 {
@@ -757,7 +757,7 @@ static int packed_read_raw_ref(struct ref_store *ref_store,
 #define REF_KNOWS_PEELED 0x40
 
 /*
- * An iterator over a snapshot of a `packed-refs` file.
+ * An iterator over a snapshot of a `packed-refs2` file.
  */
 struct packed_ref2_iterator {
 	struct ref_iterator base;
@@ -962,7 +962,7 @@ static struct ref_iterator *packed_ref2_iterator_begin(
 }
 
 /*
- * Write an entry to the packed-refs file for the specified refname.
+ * Write an entry to the packed-refs2 file for the specified refname.
  * If peeled is non-NULL, write it as the entry's peeled value. On
  * error, return a nonzero value and leave errno set at the value left
  * by the failing call to `fprintf()`.
@@ -1011,7 +1011,7 @@ int packed_refs2_lock(struct ref_store *ref_store, int flags, struct strbuf *err
 	}
 
 	/*
-	 * Now that we hold the `packed-refs` lock, make sure that our
+	 * Now that we hold the `packed-refs2` lock, make sure that our
 	 * snapshot matches the current version of the file. Normally
 	 * `get_snapshot()` does that for us, but that function
 	 * assumes that when the file is locked, any existing snapshot
@@ -1021,7 +1021,7 @@ int packed_refs2_lock(struct ref_store *ref_store, int flags, struct strbuf *err
 	validate_snapshot(refs);
 
 	/*
-	 * Now make sure that the packed-refs file as it exists in the
+	 * Now make sure that the packed-refs2 file as it exists in the
 	 * locked state is loaded into the snapshot:
 	 */
 	get_snapshot(refs);
@@ -1051,7 +1051,7 @@ int packed_refs2_is_locked(struct ref_store *ref_store)
 }
 
 /*
- * The packed-refs header line that we write out. Perhaps other traits
+ * The packed-refs2 header line that we write out. Perhaps other traits
  * will be added later.
  *
  * Note that earlier versions of Git used to parse these traits by
@@ -1068,7 +1068,7 @@ static int packed_init_db(struct ref_store *ref_store, struct strbuf *err)
 }
 
 /*
- * Write the packed refs from the current snapshot to the packed-refs
+ * Write the packed refs from the current snapshot to the packed-refs2
  * tempfile, incorporating any changes from `updates`. `updates` must
  * be a sorted string list whose keys are the refnames and whose util
  * values are `struct ref_update *`. On error, rollback the tempfile,
@@ -1092,7 +1092,7 @@ static int write_with_updates(struct packed_ref2_store *refs,
 		BUG("write_with_updates() called while unlocked");
 
 	/*
-	 * If packed-refs is a symlink, we want to overwrite the
+	 * If packed-refs2 is a symlink, we want to overwrite the
 	 * symlinked-to file, not the symlink itself. Also, put the
 	 * staging file next to it:
 	 */
@@ -1110,7 +1110,7 @@ static int write_with_updates(struct packed_ref2_store *refs,
 
 	out = fdopen_tempfile(refs->tempfile, "w");
 	if (!out) {
-		strbuf_addf(err, "unable to fdopen packed-refs tempfile: %s",
+		strbuf_addf(err, "unable to fdopen packed-refs2 tempfile: %s",
 			    strerror(errno));
 		goto error;
 	}
@@ -1240,7 +1240,7 @@ static int write_with_updates(struct packed_ref2_store *refs,
 	}
 
 	if (ok != ITER_DONE) {
-		strbuf_addstr(err, "unable to write packed-refs file: "
+		strbuf_addstr(err, "unable to write packed-refs2 file: "
 			      "error iterating over old contents");
 		goto error;
 	}
@@ -1268,24 +1268,24 @@ error:
 	return -1;
 }
 
-int is_packed_transaction_needed(struct ref_store *ref_store,
-				 struct ref_transaction *transaction)
+int is_packed2_transaction_needed(struct ref_store *ref_store,
+				  struct ref_transaction *transaction)
 {
 	struct packed_ref2_store *refs = packed_downcast(
 			ref_store,
 			REF_STORE_READ,
-			"is_packed_transaction_needed");
+			"is_packed2_transaction_needed");
 	struct strbuf referent = STRBUF_INIT;
 	size_t i;
 	int ret;
 
 	if (!is_lock_file_locked(&refs->lock))
-		BUG("is_packed_transaction_needed() called while unlocked");
+		BUG("is_packed2_transaction_needed() called while unlocked");
 
 	/*
 	 * We're only going to bother returning false for the common,
 	 * trivial case that references are only being deleted, their
-	 * old values are not being checked, and the old `packed-refs`
+	 * old values are not being checked, and the old `packed-refs2`
 	 * file doesn't contain any of those reference(s). This gives
 	 * false positives for some other cases that could
 	 * theoretically be optimized away:
@@ -1331,7 +1331,7 @@ int is_packed_transaction_needed(struct ref_store *ref_store,
 	 * setting any nonzero new values, so it still might be able
 	 * to be skipped. Now do the more expensive check: the update
 	 * is needed if any of the updates is a delete, and the old
-	 * `packed-refs` file contains a value for that reference.
+	 * `packed-refs2` file contains a value for that reference.
 	 */
 	ret = 0;
 	for (i = 0; i < transaction->nr; i++) {
@@ -1363,7 +1363,7 @@ int is_packed_transaction_needed(struct ref_store *ref_store,
 }
 
 struct packed_transaction_backend_data {
-	/* True iff the transaction owns the packed-refs lock. */
+	/* True iff the transaction owns the packed-refs2 lock. */
 	int own_lock;
 
 	struct string_list updates;
@@ -1408,7 +1408,7 @@ static int packed_transaction_prepare(struct ref_store *ref_store,
 	 * Note that we *don't* skip transactions with zero updates,
 	 * because such a transaction might be executed for the side
 	 * effect of ensuring that all of the references are peeled or
-	 * ensuring that the `packed-refs` file is sorted. If the
+	 * ensuring that the `packed-refs2` file is sorted. If the
 	 * caller wants to optimize away empty transactions, it should
 	 * do so itself.
 	 */
@@ -1632,7 +1632,7 @@ static int packed_reflog_expire(struct ref_store *ref_store,
 
 struct ref_storage_be refs_be_packed = {
 	NULL,
-	"packed",
+	"packed2",
 	packed_ref2_store_create,
 	packed_init_db,
 	packed_transaction_prepare,
