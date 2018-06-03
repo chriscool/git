@@ -1268,19 +1268,19 @@ error:
 	return -1;
 }
 
-int is_packed_transaction_needed(struct ref_store *ref_store,
-				 struct ref_transaction *transaction)
+int is_packed2_transaction_needed(struct ref_store *ref_store,
+				  struct ref_transaction *transaction)
 {
 	struct packed_ref2_store *refs = packed_downcast(
 			ref_store,
 			REF_STORE_READ,
-			"is_packed_transaction_needed");
+			"is_packed2_transaction_needed");
 	struct strbuf referent = STRBUF_INIT;
 	size_t i;
 	int ret;
 
 	if (!is_lock_file_locked(&refs->lock))
-		BUG("is_packed_transaction_needed() called while unlocked");
+		BUG("is_packed2_transaction_needed() called while unlocked");
 
 	/*
 	 * We're only going to bother returning false for the common,
