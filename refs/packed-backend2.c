@@ -199,7 +199,7 @@ struct ref_store *packed_ref2_store_create(const char *path,
 	struct packed_ref2_store *refs = xcalloc(1, sizeof(*refs));
 	struct ref_store *ref_store = (struct ref_store *)refs;
 
-	base_ref_store_init(ref_store, &refs_be_packed);
+	base_ref_store_init(ref_store, &refs_be_packed2);
 	refs->store_flags = store_flags;
 
 	refs->path = xstrdup(path);
@@ -220,7 +220,7 @@ static struct packed_ref2_store *packed_downcast(struct ref_store *ref_store,
 {
 	struct packed_ref2_store *refs;
 
-	if (ref_store->be != &refs_be_packed)
+	if (ref_store->be != &refs_be_packed2)
 		BUG("ref_store is type \"%s\" not \"packed\" in %s",
 		    ref_store->be->name, caller);
 
@@ -1630,7 +1630,7 @@ static int packed_reflog_expire(struct ref_store *ref_store,
 	return 0;
 }
 
-struct ref_storage_be refs_be_packed = {
+struct ref_storage_be refs_be_packed2 = {
 	NULL,
 	"packed2",
 	packed_ref2_store_create,
