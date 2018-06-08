@@ -175,21 +175,40 @@ static void files2_reflog_path(struct files_ref_store *refs,
 	}
 }
 
+static void convert_refs_to_refs2(struct strbuf *refname)
+{
+	if (starts_with(refname->buf, "refs/") || !strcmp(refname->buf, "refs"))
+		strbuf_splice(refname, 0, strlen("refs"),
+			      "refs2", strlen("refs2"));
+}
+
+static void convert_refs2_to_refs(struct strbuf *refname)
+{
+	if (starts_with(refname->buf, "refs2/") || !strcmp(refname->buf, "refs2"))
+		strbuf_splice(refname, 0, strlen("refs2"),
+			      "refs", strlen("refs"));
+}
+
 static void files2_ref_path(struct files_ref_store *refs,
 			   struct strbuf *sb,
-			   const char *refname)
+			   const char *name)
 {
-	switch (ref_type(refname)) {
+	struct strbuf sb_refname = STRBUF_INIT;
+
+	strbuf_addstr(&sb_refname, name);
+	convert_refs_to_refs2(&sb_refname);
+
+	switch (ref_type(name)) {
 	case REF_TYPE_PER_WORKTREE:
 	case REF_TYPE_PSEUDOREF:
-		strbuf_addf(sb, "%s/%s", refs->gitdir, refname);
+		strbuf_addf(sb, "%s/%s", refs->gitdir, sb_refname.buf);
 		break;
 	case REF_TYPE_NORMAL:
-		strbuf_addf(sb, "%s/%s", refs->gitcommondir, refname);
+		strbuf_addf(sb, "%s/%s", refs->gitcommondir, sb_refname.buf);
 		break;
 	default:
 		BUG("unknown ref type %d of ref %s",
-		    ref_type(refname), refname);
+		    ref_type(name), sb_refname.buf);
 	}
 }
 
