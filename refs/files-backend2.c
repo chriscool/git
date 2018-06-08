@@ -315,14 +315,29 @@ static struct ref_cache *get_loose_ref_cache(struct files_ref_store *refs)
 	return refs->loose;
 }
 
+static void convert_refs_to_refs2(struct strbuf *refname)
+{
+	if (starts_with(refname->buf, "refs/") || !strcmp(refname->buf, "refs"))
+		strbuf_splice(refname, 0, strlen("refs"),
+			      "refs2", strlen("refs2"));
+}
+
+static void convert_refs2_to_refs(struct strbuf *refname)
+{
+	if (starts_with(refname->buf, "refs2/") || !strcmp(refname->buf, "refs2"))
+		strbuf_splice(refname, 0, strlen("refs2"),
+			      "refs", strlen("refs"));
+}
+
 static int files2_read_raw_ref(struct ref_store *ref_store,
-			      const char *refname, struct object_id *oid,
+			      const char *name, struct object_id *oid,
 			      struct strbuf *referent, unsigned int *type)
 {
 	struct files_ref_store *refs =
 		files2_downcast(ref_store, REF_STORE_READ, "read_raw_ref");
 	struct strbuf sb_contents = STRBUF_INIT;
 	struct strbuf sb_path = STRBUF_INIT;
+	struct strbuf sb_refname = STRBUF_INIT;
 	const char *path;
 	const char *buf;
 	const char *p;
@@ -332,10 +347,13 @@ static int files2_read_raw_ref(struct ref_store *ref_store,
 	int save_errno;
 	int remaining_retries = 3;
 
+	strbuf_addstr(&sb_refname, name);
+	convert_refs_to_refs2(&sb_refname);
+
 	*type = 0;
 	strbuf_reset(&sb_path);
 
-	files2_ref_path(refs, &sb_path, refname);
+	files2_ref_path(refs, &sb_path, sb_refname.buf);
 
 	path = sb_path.buf;
 
@@ -359,7 +377,7 @@ stat_ref:
 	if (lstat(path, &st) < 0) {
 		if (errno != ENOENT)
 			goto out;
-		if (refs_read_raw_ref(refs->packed_ref_store, refname,
+		if (refs_read_raw_ref(refs->packed_ref_store, sb_refname.buf,
 				      oid, referent, type)) {
 			errno = ENOENT;
 			goto out;
@@ -399,7 +417,7 @@ stat_ref:
 		 * ref is supposed to be, there could still be a
 		 * packed ref:
 		 */
-		if (refs_read_raw_ref(refs->packed_ref_store, refname,
+		if (refs_read_raw_ref(refs->packed_ref_store, sb_refname.buf,
 				      oid, referent, type)) {
 			errno = EISDIR;
 			goto out;
@@ -459,6 +477,7 @@ out:
 	save_errno = errno;
 	strbuf_release(&sb_path);
 	strbuf_release(&sb_contents);
+	strbuf_release(&sb_refname);
 	errno = save_errno;
 	return ret;
 }

@@ -140,7 +140,7 @@ struct ref_update {
 	 */
 	struct ref_update *parent_update;
 
-	const char refname[FLEX_ARRAY];
+	const int *refname;
 };
 
 int refs_read_raw_ref(struct ref_store *ref_store,
