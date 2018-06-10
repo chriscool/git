@@ -769,7 +769,7 @@ retry:
 	ret = check_and_freshen_file(buf.buf, freshen);
 	if (!ret && !tried_hook) {
 		tried_hook = 1;
-		if (!odb_remote_get_direct(sha1))
+		if (!odb_remote_get_direct(oid->hash))
 			goto retry;
 	}
 	return ret;
@@ -784,7 +784,7 @@ static int check_and_freshen_nonlocal(const struct object_id *oid, int freshen)
 		if (check_and_freshen_file(path, freshen))
 			return 1;
 	}
-	return odb_remote_has_object(sha1);
+	return odb_remote_has_object(oid->hash);
 }
 
 static int check_and_freshen(const struct object_id *oid, int freshen)
