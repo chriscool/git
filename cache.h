@@ -818,7 +818,7 @@ extern char *git_replace_ref_base;
  * set to false by some commands that do not want odb remotes to be
  * active.
  */
-extern int use_odb_remote;
+extern int use_remote_odb;
 
 extern int fsync_object_files;
 extern int core_preload_index;
