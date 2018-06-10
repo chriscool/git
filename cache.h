@@ -813,9 +813,9 @@ extern int check_replace_refs;
 extern char *git_replace_ref_base;
 
 /*
- * Do odb remotes need to be used this run?  This variable is
+ * Do remote odbs need to be used this run?  This variable is
  * initialized to true unless $GIT_NO_REMOTE_ODB is set, but it maybe
- * set to false by some commands that do not want odb remotes to be
+ * set to false by some commands that do not want remote odbs to be
  * active.
  */
 extern int use_remote_odb;
