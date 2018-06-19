@@ -385,13 +385,20 @@ stat_ref:
 		goto out;
 
 	if (lstat(path, &st) < 0) {
+		struct strbuf sb_refname = STRBUF_INIT;
+
+		strbuf_addstr(&sb_refname, refname);
+		convert_refs_to_refs2(&sb_refname);
+
 		if (errno != ENOENT)
 			goto out;
-		if (refs_read_raw_ref(refs->packed_ref_store, refname,
+		if (refs_read_raw_ref(refs->packed_ref_store, sb_refname.buf,
 				      oid, referent, type)) {
+			strbuf_release(&sb_refname);
 			errno = ENOENT;
 			goto out;
 		}
+		strbuf_release(&sb_refname);
 		ret = 0;
 		goto out;
 	}
