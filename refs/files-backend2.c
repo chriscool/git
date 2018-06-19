@@ -728,6 +728,7 @@ static int files2_ref_iterator_advance(struct ref_iterator *ref_iterator)
 	struct files_ref_iterator *iter =
 		(struct files_ref_iterator *)ref_iterator;
 	int ok;
+	struct strbuf sb_refname = STRBUF_INIT;
 
 	while ((ok = ref_iterator_advance(iter->iter0)) == ITER_OK) {
 		if (iter->flags & DO_FOR_EACH_PER_WORKTREE_ONLY &&
@@ -740,7 +741,11 @@ static int files2_ref_iterator_advance(struct ref_iterator *ref_iterator)
 					    iter->iter0->flags))
 			continue;
 
-		iter->base.refname = iter->iter0->refname;
+		strbuf_addstr(&sb_refname, iter->iter0->refname);
+		convert_refs2_to_refs(&sb_refname);
+
+		/* TODO: fix leak */
+		iter->base.refname = strbuf_detach(&sb_refname, NULL);
 		iter->base.oid = iter->iter0->oid;
 		iter->base.flags = iter->iter0->flags;
 		return ITER_OK;
