@@ -27,7 +27,7 @@ SHA1=
 test_expect_success \
     'see if git show-ref works as expected' \
     'git branch a &&
-     SHA1=$(cat .git/refs/heads/a) &&
+     SHA1=$(git rev-parse refs/heads/a) &&
      echo "$SHA1 refs/heads/a" >expect &&
      git show-ref a >result &&
      test_cmp expect result'
@@ -36,7 +36,6 @@ test_expect_success \
     'see if a branch still exists when packed' \
     'git branch b &&
      git pack-refs --all &&
-     rm -f .git/refs/heads/b &&
      echo "$SHA1 refs/heads/b" >expect &&
      git show-ref b >result &&
      test_cmp expect result'
@@ -44,7 +43,6 @@ test_expect_success \
 test_expect_success 'git branch c/d should barf if branch c exists' '
      git branch c &&
      git pack-refs --all &&
-     rm -f .git/refs/heads/c &&
      test_must_fail git branch c/d
 '
 
@@ -164,7 +162,7 @@ test_expect_success 'do not pack ref in refs/bisect' '
 	git update-ref refs/bisect/local HEAD &&
 	git pack-refs --all --prune &&
 	! grep refs/bisect/local .git/packed-refs >/dev/null &&
-	test_path_is_file .git/refs/bisect/local
+	git rev-parse --verify refs/bisect/local
 '
 
 test_expect_success 'disable reflogs' '
