@@ -33,8 +33,6 @@ static const char *term_good;
  *
  * We care just barely enough to avoid recursing for
  * non-merge entries.
- *
- * Note: This function does not support the usage --first-parent.
  */
 static int count_distance(struct commit_list *entry)
 {
