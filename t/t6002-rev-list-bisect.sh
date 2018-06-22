@@ -306,11 +306,21 @@ bisect_all=4
 bisect_steps=1
 EOF
 
-test_output_expect_success "--bisect-all --first-parent" 'git rev-list --bisect-all --first-parent FX ^A' <<EOF
+test_expect_success "--bisect-all --first-parent" '
+	cat >expect1 <<EOF &&
 $(git rev-parse CC) (dist=2)
 $(git rev-parse EX) (dist=1)
 $(git rev-parse D) (dist=1)
 $(git rev-parse FX) (dist=0)
 EOF
+	cat >expect2 <<EOF &&
+$(git rev-parse CC) (dist=2)
+$(git rev-parse D) (dist=1)
+$(git rev-parse EX) (dist=1)
+$(git rev-parse FX) (dist=0)
+EOF
+	git rev-list --bisect-all --first-parent FX ^A >actual &&
+	( test_cmp expect1 actual || test_cmp expect2 actual )
+'
 
 test_done
