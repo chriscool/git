@@ -1,0 +1,44 @@
+Remote ODBs
+^^^^^^^^^^^
+
+The Remote ODB mechanism makes it possible for now to have Git objects
+stored in more than one promisor remote.
+
+Long Term Purpose
+=================
+
+The purpose of this mechanism is to make possible to handle Git
+objects, especially blobs, in much more flexible ways.
+
+In the future we hope that this mechanism will also make it possible
+to store Git objects in any kind object store as long as there is an
+helper program called an "odb helper" that can communicate with Git to
+transfer objects to/from the remote odb and to retrieve information
+about available objects in the remote odb.
+
+Currently Git can store its objects only in the form of loose objects
+in separate files or packed objects in a pack file. These existing
+object stores cannot be easily optimized for many different kind of
+contents.
+
+So the current stores are not flexible enough for some important use
+cases like handling really big binary files or handling a really big
+number of files that are fetched only as needed. And it is not
+realistic to expect that Git could fully natively handle many of such
+use cases. Git would need to natively implement different internal
+stores which would be a huge burden and which could lead to
+re-implement things like HTTP servers, Docker registries or artifact
+stores that already exist outside Git.
+
+Git needs a mechanism to make it possible to customize in a lot of
+different ways how the Git objects are handled. Though this mechanism
+should try as much as possible to avoid interfering with the usual way
+in which Git handle its objects.
+
+Promisor remote
+===============
+
+Promisor remote is an existing way to store Git objects remotely that
+the Remote ODB mechanism supports. For now it is the only kind of
+remote odb backend that is supported.
+
