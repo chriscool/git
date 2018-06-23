@@ -87,7 +87,7 @@ When the config key `extensions.preciousObjects` is set to `true`,
 objects in the repository MUST NOT be deleted (e.g., by `git-prune` or
 `git repack -d`).
 
-`partialclone`
+`partialclone` (deprecated)
 ~~~~~~~~~~~~~~
 
 When the config key `extensions.partialclone` is set, it indicates
@@ -98,3 +98,16 @@ and it promises that all such omitted objects can be fetched from it
 in the future.
 
 The value of this key is the name of the promisor remote.
+
+As this mechanism is not very flexible compared to the remote odb
+mechanism, it is depracated in favor of the remote odb mechanism.
+
+`remoteodb`
+~~~~~~~~~~~
+
+When the config key `extensions.remoteodb` is set to `true`, it means
+that odb.<name>.* config variables will be used to access remote odbs.
+For now the remote odbs can be only promisor remotes.
+
+As the remote odb mechanism is more flexible than the partial clone
+mechanism, it should be used instead.
