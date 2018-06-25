@@ -2687,6 +2687,8 @@ static int files2_transaction_prepare(struct ref_store *ref_store,
 		if (update->flags & REF_DELETING &&
 		    !(update->flags & REF_LOG_ONLY) &&
 		    !(update->flags & REF_IS_PRUNING)) {
+			struct strbuf sb_refname = STRBUF_INIT;
+
 			/*
 			 * This reference has to be deleted from
 			 * packed-refs if it exists there.
@@ -2703,11 +2705,14 @@ static int files2_transaction_prepare(struct ref_store *ref_store,
 					packed_transaction;
 			}
 
+			strbuf_addstr(&sb_refname, update->refname);
+			convert_refs_to_refs2(&sb_refname);
+
 			ref_transaction_add_update(
-					packed_transaction, update->refname,
-					REF_HAVE_NEW | REF_NO_DEREF,
-					&update->new_oid, NULL,
-					NULL);
+				packed_transaction, strbuf_detach(&sb_refname, NULL),
+				REF_HAVE_NEW | REF_NO_DEREF,
+				&update->new_oid, NULL,
+				NULL);
 		}
 	}
 
