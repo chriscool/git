@@ -135,14 +135,10 @@ test_expect_success 'delete ref with dangling packed version' '
 	git reset --hard HEAD^ &&
 	git checkout master &&
 	git reflog expire --expire=all --all &&
-	git prune --expire=all'
-
-exit 1
-
-#	&&
-#	git branch -d lamb 2>result &&
-#	test_cmp /dev/null result
-#'
+	git prune --expire=all &&
+	git branch -d lamb 2>result &&
+	test_cmp /dev/null result
+'
 
 test_expect_success 'delete ref while another dangling packed ref' '
 	git branch lamb &&
@@ -166,7 +162,7 @@ test_expect_success 'do not pack ref in refs/bisect' '
 	git update-ref refs/bisect/local HEAD &&
 	git pack-refs --all --prune &&
 	! grep refs/bisect/local .git/packed-refs >/dev/null &&
-	test_path_is_file .git/refs/bisect/local
+	git rev-parse --verify refs/bisect/local
 '
 
 test_expect_success 'disable reflogs' '
