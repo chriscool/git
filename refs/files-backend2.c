@@ -1223,6 +1223,7 @@ static int files2_delete_refs(struct ref_store *ref_store, const char *msg,
 		files2_downcast(ref_store, REF_STORE_WRITE, "delete_refs");
 	struct strbuf err = STRBUF_INIT;
 	int i, result = 0;
+	struct string_list ref2names = STRING_LIST_INIT_NODUP;
 
 	if (!refnames->nr)
 		return 0;
@@ -1230,12 +1231,21 @@ static int files2_delete_refs(struct ref_store *ref_store, const char *msg,
 	if (packed_refs_lock(refs->packed_ref_store, 0, &err))
 		goto error;
 
-	if (refs_delete_refs(refs->packed_ref_store, msg, refnames, flags)) {
+	for (i = 0; i < refnames->nr; i++) {
+		struct strbuf sb_refname = STRBUF_INIT;
+		strbuf_addstr(&sb_refname, refnames->items[i].string);
+		convert_refs_to_refs2(&sb_refname);
+		string_list_append(&ref2names, strbuf_detach(&sb_refname, NULL));
+	}
+
+	if (refs_delete_refs(refs->packed_ref_store, msg, &ref2names, flags)) {
 		packed_refs_unlock(refs->packed_ref_store);
+		string_list_clear(&ref2names, 0);
 		goto error;
 	}
 
 	packed_refs_unlock(refs->packed_ref_store);
+	string_list_clear(&ref2names, 0);
 
 	for (i = 0; i < refnames->nr; i++) {
 		const char *refname = refnames->items[i].string;
