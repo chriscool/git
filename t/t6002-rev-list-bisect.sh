@@ -306,21 +306,44 @@ bisect_all=4
 bisect_steps=1
 EOF
 
+test_dist_order () {
+	file="$1"
+	n="$2"
+	while read -r hash dist
+	do
+		d=$(echo "$dist" | sed -e "s/(dist=\(.*\))/\1/")
+		case "$d" in
+			''|*[!0-9]*) return 1 ;;
+			*) ;;
+		esac
+		test "$d" -le "$n" || return 1
+		n="$d"
+	done <"$file"
+}
+
 test_expect_success "--bisect-all --first-parent" '
-	cat >expect1 <<EOF &&
+	cat >expect <<EOF &&
 $(git rev-parse CC) (dist=2)
 $(git rev-parse EX) (dist=1)
 $(git rev-parse D) (dist=1)
 $(git rev-parse FX) (dist=0)
 EOF
-	cat >expect2 <<EOF &&
-$(git rev-parse CC) (dist=2)
-$(git rev-parse D) (dist=1)
-$(git rev-parse EX) (dist=1)
-$(git rev-parse FX) (dist=0)
-EOF
+	sort expect >expect_sorted &&
 	git rev-list --bisect-all --first-parent FX ^A >actual &&
-	( test_cmp expect1 actual || test_cmp expect2 actual )
+	sort actual >actual_sorted &&
+	test_cmp expect_sorted actual_sorted &&
+	test_dist_order actual 2
 '
+
+test_expect_failure "test_dist_order with bad order" '
+	cat >expect <<EOF &&
+$(git rev-parse CC) (dist=2)
+$(git rev-parse EX) (dist=2)
+$(git rev-parse FX) (dist=1)
+$(git rev-parse D) (dist=0)
+EOF
+	test_dist_order expect 2
+'
+
 
 test_done
