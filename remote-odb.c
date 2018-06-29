@@ -26,7 +26,7 @@ static struct odb_helper *do_find_odb_helper(const char *remote)
 	struct odb_helper *o;
 
 	for (o = helpers; o; o = o->next)
-		if (!strcmp(o->remote, remote))
+		if (o->remote && !strcmp(o->remote, remote))
 			return o;
 
 	return NULL;
