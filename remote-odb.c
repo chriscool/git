@@ -60,6 +60,8 @@ static int remote_odb_config(const char *var, const char *value, void *data)
 
 		return 0;
 	}
+	if (!strcmp(subkey, "partialclonefilter"))
+		return git_config_string(&o->partial_clone_filter, var, value);
 
 	return 0;
 }
