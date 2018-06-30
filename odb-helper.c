@@ -17,29 +17,15 @@ struct odb_helper *odb_helper_new(const char *name, int namelen)
 }
 
 int odb_helper_get_direct(struct odb_helper *o,
-			  const unsigned char *sha1)
+			  const struct object_id *oids,
+			  int oid_nr)
 {
 	int res;
 	uint64_t start = getnanotime();
 
-	res = fetch_object(o->remote, sha1);
+	res = fetch_objects(o->remote, oids, oid_nr);
 
 	trace_performance_since(start, "odb_helper_get_direct");
-
-	return res;
-}
-
-int odb_helper_get_many_direct(struct odb_helper *o,
-			       const struct oid_array *to_get)
-{
-	int res;
-	uint64_t start;
-
-	start = getnanotime();
-
-	res = fetch_objects(o->remote, to_get);
-
-	trace_performance_since(start, "odb_helper_get_many_direct");
 
 	return res;
 }
