@@ -147,7 +147,7 @@ void partial_clone_register(
 	 * Record the initial filter-spec in the config as
 	 * the default for subsequent fetches from this remote.
 	 */
-	filter_name = xstrfmt("odb.%s.partialclonefilter", remote);
+	filter_name = xstrfmt("remote.%s.partialclonefilter", remote);
 	git_config_set(filter_name, filter_options->filter_spec);
 	free(filter_name);
 
@@ -159,13 +159,13 @@ void partial_clone_get_default_filter_spec(
 	struct list_objects_filter_options *filter_options,
 	const char *remote)
 {
-	struct odb_helper *helper = find_odb_helper(remote);
+	struct promisor_remote *promisor = find_promisor_remote(remote);
 
 	/*
 	 * Parse default value, but silently ignore it if it is invalid.
 	 */
-	if (helper)
+	if (promisor)
 		gently_parse_list_objects_filter(filter_options,
-						 helper->partial_clone_filter,
+						 promisor->partial_clone_filter,
 						 NULL);
 }
