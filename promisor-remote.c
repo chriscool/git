@@ -74,15 +74,25 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 	return 0;
 }
 
-static void promisor_remote_init(void)
+static void promisor_remote_do_init(int force)
 {
 	static int initialized;
 
-	if (initialized)
+	if (!force && initialized)
 		return;
 	initialized = 1;
 
 	git_config(promisor_remote_config, NULL);
+}
+
+static inline void promisor_remote_init(void)
+{
+	promisor_remote_do_init(0);
+}
+
+void promisor_remote_reinit(void)
+{
+	promisor_remote_do_init(1);
 }
 
 struct promisor_remote *promisor_remote_find(const char *remote_name)
