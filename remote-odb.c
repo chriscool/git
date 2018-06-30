@@ -89,3 +89,20 @@ int has_remote_odb(void)
 {
 	return !!find_odb_helper(NULL);
 }
+
+int remote_odb_get_direct(const struct object_id *oids, int oid_nr)
+{
+	struct odb_helper *o;
+
+	trace_printf("trace: remote_odb_get_direct: nr: %d", oid_nr);
+
+	remote_odb_init();
+
+	for (o = helpers; o; o = o->next) {
+		if (odb_helper_get_direct(o, oids, oid_nr) < 0)
+			continue;
+		return 0;
+	}
+
+	return -1;
+}

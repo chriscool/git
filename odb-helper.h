@@ -15,5 +15,8 @@ struct odb_helper {
 };
 
 extern struct odb_helper *odb_helper_new(const char *name, int namelen);
+extern int odb_helper_get_direct(struct odb_helper *o,
+				 const struct object_id *oids,
+				 int oid_nr);
 
 #endif /* ODB_HELPER_H */
