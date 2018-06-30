@@ -1,6 +1,7 @@
 #include "cache.h"
 #include "promisor-remote.h"
 #include "config.h"
+#include "fetch-object.h"
 
 static struct promisor_remote *promisors;
 static struct promisor_remote **promisors_tail = &promisors;
@@ -98,3 +99,19 @@ int has_promisor_remote(void)
 {
 	return !!promisor_remote_find(NULL);
 }
+
+int promisor_remote_get_direct(const struct object_id *oids, int oid_nr)
+{
+	struct promisor_remote *o;
+
+	promisor_remote_init();
+
+	for (o = promisors; o; o = o->next) {
+		if (fetch_objects(o->remote_name, oids, oid_nr) < 0)
+			continue;
+		return 0;
+	}
+
+	return -1;
+}
+
