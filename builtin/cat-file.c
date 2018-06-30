@@ -14,7 +14,7 @@
 #include "sha1-array.h"
 #include "packfile.h"
 #include "object-store.h"
-#include "remote-odb.h"
+#include "promisor-remote.h"
 
 struct batch_options {
 	int enabled;
@@ -510,7 +510,7 @@ static int batch_objects(struct batch_options *opt)
 	if (opt->all_objects) {
 		struct object_cb_data cb;
 
-		if (has_remote_odb())
+		if (has_promisor_remote())
 			warning("This repository uses an odb. Some objects may not be loaded.");
 
 		cb.opt = opt;
