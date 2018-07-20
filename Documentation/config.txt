@@ -2542,6 +2542,10 @@ Note that changing the compression level will not automatically recompress
 all existing objects. You can force recompression by passing the -F option
 to linkgit:git-repack[1].
 
+pack.island::
+	A regular expression configuring a set of delta islands. See
+	"DELTA ISLANDS" in linkgit:git-pack-objects[1] for details.
+
 pack.deltaCacheSize::
 	The maximum memory in bytes used for caching deltas in
 	linkgit:git-pack-objects[1] before writing them out to a pack.
