@@ -2708,7 +2708,7 @@ static void show_object(struct object *obj, const char *name, void *data)
 		const char *p;
 		unsigned depth = 0;
 		struct object_entry *ent;
-		uint32_t index_pos;
+		uint32_t i, index_pos;
 
 		for (p = strchr(name, '/'); p; p = strchr(p + 1, '/'))
 			depth++;
@@ -2716,7 +2716,8 @@ static void show_object(struct object *obj, const char *name, void *data)
 		if (!to_pack.tree_depth)
 			to_pack.tree_depth = xcalloc(to_pack.nr_objects, sizeof(*to_pack.tree_depth));
 
-		ent = packlist_find(&to_pack, obj->oid.hash, &index_pos);
+		ent = packlist_find(&to_pack, obj->oid.hash, &i);
+		index_pos = to_pack.index[i] - 1;
 		if (ent && depth > to_pack.tree_depth[index_pos])
 			to_pack.tree_depth[index_pos] = depth;
 	}
