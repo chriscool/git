@@ -2707,18 +2707,26 @@ static void show_object(struct object *obj, const char *name, void *data)
 	if (use_delta_islands) {
 		const char *p;
 		unsigned depth = 0;
-		struct object_entry *ent;
-		uint32_t index_pos;
+		uint32_t i;
 
 		for (p = strchr(name, '/'); p; p = strchr(p + 1, '/'))
 			depth++;
 
-		if (!to_pack.tree_depth)
+		if (!to_pack.tree_depth) {
 			to_pack.tree_depth = xcalloc(to_pack.nr_objects, sizeof(*to_pack.tree_depth));
+			to_pack.tree_depth_size = to_pack.nr_objects;
+		} else if (to_pack.nr_objects > to_pack.tree_depth_size) {
+			REALLOC_ARRAY(to_pack.tree_depth, to_pack.nr_objects);
+			memset(to_pack.tree_depth + to_pack.tree_depth_size, 0,
+			       (to_pack.nr_objects - to_pack.tree_depth_size) * sizeof(*to_pack.tree_depth));
+			to_pack.tree_depth_size = to_pack.nr_objects;
+		}
 
-		ent = packlist_find(&to_pack, obj->oid.hash, &index_pos);
-		if (ent && depth > to_pack.tree_depth[index_pos])
-			to_pack.tree_depth[index_pos] = depth;
+		if (packlist_find(&to_pack, obj->oid.hash, &i)) {
+			uint32_t index_pos = to_pack.index[i] - 1;
+			if (depth > to_pack.tree_depth[index_pos])
+				to_pack.tree_depth[index_pos] = depth;
+		}
 	}
 }
 

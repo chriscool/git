@@ -133,7 +133,6 @@ struct packing_data {
 	uint32_t index_size;
 
 	unsigned int *in_pack_pos;
-	unsigned int *tree_depth;
 
 	/*
 	 * Only one of these can be non-NULL and they have different
@@ -145,6 +144,9 @@ struct packing_data {
 	struct packed_git **in_pack;
 
 	uintmax_t oe_size_limit;
+
+	unsigned int *tree_depth;
+	uint32_t tree_depth_size;
 };
 
 void prepare_packing_data(struct packing_data *pdata);
