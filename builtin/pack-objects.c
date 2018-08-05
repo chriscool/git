@@ -2707,7 +2707,7 @@ static void show_object(struct object *obj, const char *name, void *data)
 	if (use_delta_islands) {
 		const char *p;
 		unsigned depth = 0;
-		uint32_t i;
+		uint32_t index_pos;
 
 		for (p = strchr(name, '/'); p; p = strchr(p + 1, '/'))
 			depth++;
@@ -2722,10 +2722,10 @@ static void show_object(struct object *obj, const char *name, void *data)
 			to_pack.tree_depth_size = to_pack.nr_alloc;
 		}
 
-		if (packlist_find(&to_pack, obj->oid.hash, &i)) {
-			uint32_t index_pos = to_pack.index[i] - 1;
-			if (depth > to_pack.tree_depth[index_pos])
-				to_pack.tree_depth[index_pos] = depth;
+		if (packlist_find(&to_pack, obj->oid.hash, &index_pos)) {
+			uint32_t i = to_pack.index[index_pos] - 1;
+			if (depth > to_pack.tree_depth[i])
+				to_pack.tree_depth[i] = depth;
 		}
 	}
 }
