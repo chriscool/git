@@ -196,7 +196,7 @@ static void mark_remote_island_1(struct remote_island *rl, int is_core_island)
 
 	for (i = 0; i < rl->oids.nr; ++i) {
 		struct island_bitmap *marks;
-		struct object *obj = parse_object(&rl->oids.oid[i]);
+		struct object *obj = parse_object(the_repository, &rl->oids.oid[i]);
 
 		if (!obj)
 			continue;
@@ -211,7 +211,7 @@ static void mark_remote_island_1(struct remote_island *rl, int is_core_island)
 		while (obj && obj->type == OBJ_TAG) {
 			obj = ((struct tag *)obj)->tagged;
 			if (obj) {
-				parse_object(&obj->oid);
+				parse_object(the_repository, &obj->oid);
 				marks = create_or_get_island_marks(obj);
 				island_bitmap_set(marks, island_counter);
 			}
@@ -281,7 +281,7 @@ void resolve_tree_islands(int progress, struct packing_data *to_pack)
 
 		root_marks = kh_value(island_marks, pos);
 
-		tree = lookup_tree(&ent->idx.oid);
+		tree = lookup_tree(the_repository, &ent->idx.oid);
 		if (!tree || parse_tree(tree) < 0)
 			die(_("bad tree object %s"), oid_to_hex(&ent->idx.oid));
 
@@ -292,7 +292,7 @@ void resolve_tree_islands(int progress, struct packing_data *to_pack)
 			if (S_ISGITLINK(entry.mode))
 				continue;
 
-			obj = lookup_object(entry.oid->hash);
+			obj = lookup_object(the_repository, entry.oid->hash);
 			if (!obj)
 				continue;
 
