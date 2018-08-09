@@ -754,7 +754,7 @@ static struct object_entry **compute_write_order(void)
 		 * Finally all the rest in really tight order
 		 */
 		for (i = last_untagged; i < to_pack.nr_objects; i++) {
-			if (!objects[i].filled && objects[i].layer == write_layer)
+			if (!objects[i].filled && oe_layer(&to_pack, &objects[i]) == write_layer)
 				add_family_to_write_order(wo, &wo_end, &objects[i]);
 		}
 	}

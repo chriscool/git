@@ -351,17 +351,17 @@ static inline void oe_set_delta_size(struct packing_data *pack,
 		    "where delta size is the same as entry size");
 }
 
-unsigned char oe_layer(struct packing_data *pack,
-		       struct object_entry *e)
+static inline unsigned char oe_layer(struct packing_data *pack,
+				     struct object_entry *e)
 {
 	if (!pack->layer)
 		return 0;
 	return pack->layer[e - pack->objects];
 }
 
-void oe_set_layer(struct packing_data *pack,
-		  struct object_entry *e,
-		  unsigned char layer)
+static inline void oe_set_layer(struct packing_data *pack,
+				struct object_entry *e,
+				unsigned char layer)
 {
 	if (!pack->layer)
 		ALLOC_ARRAY(pack->layer, pack->nr_objects);
