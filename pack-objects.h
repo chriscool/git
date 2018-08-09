@@ -101,8 +101,6 @@ struct object_entry {
 	unsigned no_try_delta:1;
 	unsigned in_pack_type:TYPE_BITS; /* could be delta */
 
-	unsigned char layer;
-
 	unsigned preferred_base:1; /*
 				    * we do not pack this, but is available
 				    * to be used as the base object to delta
@@ -133,6 +131,7 @@ struct packing_data {
 	uint32_t index_size;
 
 	unsigned int *in_pack_pos;
+	unsigned char *layer;
 
 	/*
 	 * Only one of these can be non-NULL and they have different
@@ -350,6 +349,23 @@ static inline void oe_set_delta_size(struct packing_data *pack,
 	if (!e->delta_size_valid && size != oe_size(pack, e))
 		BUG("this can only happen in check_object() "
 		    "where delta size is the same as entry size");
+}
+
+unsigned char oe_layer(struct packing_data *pack,
+		       struct object_entry *e)
+{
+	if (!pack->layer)
+		return 0;
+	return pack->layer[e - pack->objects];
+}
+
+void oe_set_layer(struct packing_data *pack,
+		  struct object_entry *e,
+		  unsigned char layer)
+{
+	if (!pack->layer)
+		ALLOC_ARRAY(pack->layer, pack->nr_objects);
+	pack->layer[e - pack->objects] = layer;
 }
 
 #endif

@@ -160,6 +160,9 @@ struct object_entry *packlist_alloc(struct packing_data *pdata,
 
 		if (!pdata->in_pack_by_idx)
 			REALLOC_ARRAY(pdata->in_pack, pdata->nr_alloc);
+
+		if (pdata->layer)
+			REALLOC_ARRAY(pdata->layer, pdata->nr_alloc);
 	}
 
 	new_entry = pdata->objects + pdata->nr_objects++;
@@ -174,6 +177,9 @@ struct object_entry *packlist_alloc(struct packing_data *pdata,
 
 	if (pdata->in_pack)
 		pdata->in_pack[pdata->nr_objects - 1] = NULL;
+
+	if (pdata->layer)
+		pdata->layer[pdata->nr_objects - 1] = 0;
 
 	return new_entry;
 }
