@@ -1,5 +1,6 @@
 #include "cache.h"
 #include "reftable.h"
+#include "varint.h"
 
 #define REFTABLE_SIGNATURE 0x52454654  /* "REFT" */
 
@@ -83,6 +84,99 @@ static void strbuf_add_uint24nl(struct strbuf *buf, uint32_t val)
  */
 const int reftable_restart_gap = 16;
 
+/* Compute max_value_length */
+uintmax_t get_max_value_length(char value_type, const char *refvalue, uintmax_t *target_length)
+{
+	switch (value_type) {
+	case 0x0:
+		return 0;
+	case 0x1:
+		return the_hash_algo->rawsz;
+	case 0x2:
+		return 2 * the_hash_algo->rawsz;
+	case 0x3:
+		*target_length = strlen(refvalue);
+		return 16 + *target_length; /* 16 for varint( target_length ) */
+	default:
+		BUG("unknown value_type '%d'", value_type);
+	}
+}
+
+/*
+ * Add a ref record to records_buf.
+ */
+int reftable_add_ref_record(struct strbuf *records_buf,
+			    int i,
+			    const char **refnames,
+			    const char **refvalues,
+			    const char *value_type,
+			    uintmax_t update_index_delta,
+			    uintmax_t max_size,
+			    int restart)
+{
+	uintmax_t prefix_length = 0;
+	uintmax_t suffix_length;
+	uintmax_t suffix_and_type;
+	uintmax_t target_length = 0;
+	uintmax_t max_value_length;
+	uintmax_t max_full_length;
+	uintmax_t actual_length;
+	char *record;
+
+	if (i == 0 && !restart)
+		BUG("first record is always a restart");
+
+	if (!restart)
+		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
+
+	suffix_length = strlen(refnames[i]) - prefix_length;
+	suffix_and_type = suffix_length << 3 | value_type[i];
+
+	max_value_length = get_max_value_length(value_type[i], refvalues[i], &target_length);
+
+	/* 16 * 3 as there are 3 varints */
+	max_full_length = 16 * 3 + suffix_length + max_value_length;
+
+	/* Give up adding a ref record if there might not be enough space */
+	if (max_full_length > max_size)
+		return 0;
+
+	record = xmalloc(max_full_length);
+
+	/* Actually add the ref record */
+	actual_length = encode_varint(prefix_length, record);
+	actual_length += encode_varint(suffix_and_type, record + actual_length);
+	memcpy(record + actual_length, refnames[i] + prefix_length, suffix_length);
+	actual_length += suffix_length;
+	actual_length += encode_varint(update_index_delta, record + actual_length);
+
+	switch (value_type[i]) {
+	case 0x0:
+		break;
+	case 0x1:
+		memcpy(record + actual_length, refvalues[i], the_hash_algo->rawsz);
+		actual_length += the_hash_algo->rawsz;
+		break;
+	case 0x2:
+		memcpy(record + actual_length, refvalues[i], 2 * the_hash_algo->rawsz);
+		actual_length += 2 * the_hash_algo->rawsz;
+		break;
+	case 0x3:
+		actual_length += encode_varint(target_length, record + actual_length);
+		memcpy(record + actual_length, refvalues[i], target_length);
+		actual_length += target_length);
+		break;
+	default:
+		BUG("unknown value_type '%d'", value_type[i]);
+	}
+
+	strbuf_add(records_buf, record, actual_length);
+
+	free(record);
+
+	return actual_length;
+}
+
 /*
  * Add a ref block to buf.
  *
@@ -157,3 +251,56 @@ int reftable_add_ref_block(struct strbuf *buf,
 
 	return i;
 }
+
+
+int reftable_add_ref_index(struct strbuf *buf,
+			   uint32_t block_size)
+{
+
+}
+
+/*
+ * Add an index record to index_buf.
+ */
+int reftable_add_index_record(struct strbuf *index_buf,
+			      int i,
+			      const char **refnames,
+			      uintmax_t max_size,
+			      uintmax_t block_pos)
+{
+	uintmax_t prefix_length = 0;
+	uintmax_t suffix_length;
+	uintmax_t suffix_and_type;
+	uintmax_t max_full_length;
+	uintmax_t actual_length;
+	char *record;
+
+	if (i != 0)
+		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
+
+	suffix_length = strlen(refnames[i]) - prefix_length;
+	suffix_and_type = suffix_length << 3 | 0;
+
+	/* 16 * 3 as there are 3 varints */
+	max_full_length = 16 * 3 + suffix_length;
+
+	/* Give up adding an index record if there might not be enough space */
+	if (max_full_length > max_size)
+		return 0;
+
+	record = xmalloc(max_full_length);
+
+	/* Actually add the ref record */
+	actual_length = encode_varint(prefix_length, record);
+	actual_length += encode_varint(suffix_and_type, record + actual_length);
+	memcpy(record + actual_length, refnames[i] + prefix_length, suffix_length);
+	actual_length += suffix_length;
+	actual_length += encode_varint(block_pos, record + actual_length);
+
+	strbuf_add(index_buf, record, actual_length);
+
+	free(record);
+
+	return actual_length;
+}
+
