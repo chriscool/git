@@ -339,7 +339,7 @@ test_expect_success 'gc does not repack promisor objects if there are none' '
 	test_commit -C repo one &&
 
 	git -C repo config core.repositoryformatversion 1 &&
-	git -C repo config extensions.partialclone "arbitrary string" &&
+	git -C repo config odb.magic.promisorRemote "arbitrary string" &&
 	git -C repo gc &&
 
 	# Ensure that only one pack exists
@@ -361,7 +361,7 @@ test_expect_success 'repack -d does not irreversibly delete promisor objects' '
 	rm -rf repo &&
 	test_create_repo repo &&
 	git -C repo config core.repositoryformatversion 1 &&
-	git -C repo config extensions.partialclone "arbitrary string" &&
+	git -C repo config odb.magic.promisorRemote "arbitrary string" &&
 
 	git -C repo commit --allow-empty -m one &&
 	git -C repo commit --allow-empty -m two &&
