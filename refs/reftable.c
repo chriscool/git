@@ -104,6 +104,15 @@ uintmax_t get_max_value_length(char value_type, const char *refvalue, uintmax_t 
 
 /*
  * Add a ref record to records_buf.
+ *
+ * Ref record format:
+ *
+ *   varint( prefix_length )
+ *   varint( (suffix_length << 3) | value_type )
+ *   suffix
+ *   varint( update_index_delta )
+ *   value?
+ *
  */
 int reftable_add_ref_record(struct strbuf *records_buf,
 			    int i,
@@ -183,6 +192,17 @@ int reftable_add_ref_record(struct strbuf *records_buf,
  * The refs added to the block are taken from refnames and values.
  *
  * Return the number of refs that could be added into the ref block.
+ *
+ * Ref Block format:
+ *
+ *   'r'
+ *   uint24( block_len )
+ *   ref_record+
+ *   uint24( restart_offset )+
+ *   uint16( restart_count )
+ *
+ *   padding?
+ *
  */
 int reftable_add_ref_block(struct strbuf *buf,
 			   struct reftable_header *header,
@@ -252,15 +272,16 @@ int reftable_add_ref_block(struct strbuf *buf,
 	return i;
 }
 
-
-int reftable_add_ref_index(struct strbuf *buf,
-			   uint32_t block_size)
-{
-
-}
-
 /*
  * Add an index record to index_buf.
+ *
+ * Index record format:
+ *
+ *   varint( prefix_length )
+ *   varint( (suffix_length << 3) | 0 )
+ *   suffix
+ *   varint( block_position )
+ *
  */
 int reftable_add_index_record(struct strbuf *index_buf,
 			      int i,
@@ -304,3 +325,48 @@ int reftable_add_index_record(struct strbuf *index_buf,
 	return actual_length;
 }
 
+/*
+ * Add an index block format to buf.
+ *
+ * Index block format:
+ *
+ *   'i'
+ *   uint24( block_len )
+ *   index_record+
+ *   uint24( restart_offset )+
+ *   uint16( restart_count )
+ *
+ *   padding?
+ *
+ */
+int reftable_add_ref_index(struct strbuf *buf,
+			   uint32_t block_size)
+{
+	uint32_t block_start_len = 0, block_end_len = 0;
+
+	for (i = 0; i++; i < indexcount) {
+		int record_len = reftable_add_index_record(&index_buf, i, refnames,
+							   max_size, block_pos);
+
+		/* Don't add the record if it makes the block too big */
+		if (block_start_len + record_len + block_end_len > block_size)
+			break;
+
+		/* Add the record */
+		block_start_len += record_len;
+
+		/*
+		 * Add a restart after reftable_restart_gap ref
+		 * records if there is some space left in the block.
+		 */
+		if ((i % reftable_restart_gap) == 0 &&
+		    block_size - block_start_len - block_end_len > 128) {
+			restart_offset = block_start_len;
+			strbuf_add_uint24nl(&restarts_buf, restart_offset);
+			restart_count++;
+		}
+
+
+	}
+
+}
