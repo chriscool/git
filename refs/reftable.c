@@ -104,6 +104,15 @@ uintmax_t get_max_value_length(char value_type, char *refvalue, uintmax_t *targe
 
 /*
  * Add a ref record to records_buf.
+ *
+ * Ref record format:
+ *
+ *   varint( prefix_length )
+ *   varint( (suffix_length << 3) | value_type )
+ *   suffix
+ *   varint( update_index_delta )
+ *   value?
+ *
  */
 int reftable_add_ref_record(struct strbuf *records_buf,
 			    int i,
@@ -183,6 +192,17 @@ int reftable_add_ref_record(struct strbuf *records_buf,
  * The refs added to the block are taken from refnames and values.
  *
  * Return the number of refs that could be added into the ref block.
+ *
+ * Ref Block format:
+ *
+ *   'r'
+ *   uint24( block_len )
+ *   ref_record+
+ *   uint24( restart_offset )+
+ *   uint16( restart_count )
+ *
+ *   padding?
+ *
  */
 int reftable_add_ref_block(struct strbuf *buf,
 			   struct reftable_header *header,
@@ -253,15 +273,38 @@ int reftable_add_ref_block(struct strbuf *buf,
 	return i;
 }
 
-
+/*
+ * Add an index block format to buf.
+ *
+ * Index block format:
+ *
+ *   'i'
+ *   uint24( block_len )
+ *   index_record+
+ *   uint24( restart_offset )+
+ *   uint16( restart_count )
+ *
+ *   padding?
+ *
+ */
 int reftable_add_ref_index(struct strbuf *buf,
 			   uint32_t block_size)
 {
 
+
+	
 }
 
 /*
  * Add an index record to index_buf.
+ *
+ * Index record format:
+ *
+ *   varint( prefix_length )
+ *   varint( (suffix_length << 3) | 0 )
+ *   suffix
+ *   varint( block_position )
+ *
  */
 int reftable_add_index_record(struct strbuf *index_buf,
 			      int i,
