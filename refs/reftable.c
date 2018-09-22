@@ -79,6 +79,14 @@ static void strbuf_add_uint24nl(struct strbuf *buf, uint32_t val)
 	strbuf_add(buf, p + 1, 3);
 }
 
+static size_t find_prefix(const char *a, const char *b)
+{
+	size_t i;
+	for (i = 0; a[i] && b[i] && a[i] == b[i]; i++)
+		;
+	return i;
+}
+
 static size_t encode_data(const void *src, size_t n, const void *buf)
 {
 	memcpy(buf, src, n);
