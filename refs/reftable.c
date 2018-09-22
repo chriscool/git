@@ -79,6 +79,12 @@ static void strbuf_add_uint24nl(struct strbuf *buf, uint32_t val)
 	strbuf_add(buf, p + 1, 3);
 }
 
+static size_t encode_data(const void *src, size_t n, const void *buf)
+{
+	memcpy(buf, src, n);
+	return n;
+}
+
 /*
  * Add a restart into a ref block at most after this number of refs.
  */
@@ -135,7 +141,7 @@ int reftable_add_ref_record(char *ref_records,
 	uintmax_t target_length = 0;
 	uintmax_t max_value_length;
 	uintmax_t max_full_length;
-	uintmax_t actual_length;
+	char *pos = ref_records;
 
 	if (i == 0 && !restart)
 		BUG("first ref record is always a restart");
@@ -156,33 +162,29 @@ int reftable_add_ref_record(char *ref_records,
 		return 0;
 
 	/* Actually add the ref record */
-	actual_length = encode_varint(prefix_length, ref_records);
-	actual_length += encode_varint(suffix_and_type, ref_records + actual_length);
-	memcpy(ref_records + actual_length, refnames[i] + prefix_length, suffix_length);
-	actual_length += suffix_length;
-	actual_length += encode_varint(update_index_delta, ref_records + actual_length);
+	pos += encode_varint(prefix_length, pos);
+	pos += encode_varint(suffix_and_type, pos);
+	pos += encode_data(refnames[i] + prefix_length, suffix_length, pos);
+	pos += encode_varint(update_index_delta, pos);
 
 	switch (value_type[i]) {
 	case 0x0:
 		break;
 	case 0x1:
-		memcpy(ref_records + actual_length, refvalues[i], the_hash_algo->rawsz);
-		actual_length += the_hash_algo->rawsz;
+		pos += encode_data(refvalues[i], the_hash_algo->rawsz, pos);
 		break;
 	case 0x2:
-		memcpy(ref_records + actual_length, refvalues[i], 2 * the_hash_algo->rawsz);
-		actual_length += 2 * the_hash_algo->rawsz;
+		pos += encode_data(refvalues[i], 2 * the_hash_algo->rawsz, pos);
 		break;
 	case 0x3:
-		actual_length += encode_varint(target_length, ref_records + actual_length);
-		memcpy(ref_records + actual_length, refvalues[i], target_length);
-		actual_length += target_length);
+		pos += encode_varint(target_length, pos);
+		pos += encode_data(refvalues[i], target_length, pos);
 		break;
 	default:
 		BUG("unknown value_type '%d'", value_type[i]);
 	}
 
-	return actual_length;
+	return pos - ref_records;
 }
 
 /*
@@ -299,7 +301,7 @@ int reftable_add_index_record(char *index_records,
 	uintmax_t suffix_length;
 	uintmax_t suffix_and_type;
 	uintmax_t max_full_length;
-	uintmax_t actual_length;
+	char *pos = index_records;
 
 	if (i != 0)
 		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
@@ -315,13 +317,12 @@ int reftable_add_index_record(char *index_records,
 		return 0;
 
 	/* Actually add the ref record */
-	actual_length = encode_varint(prefix_length, index_records);
-	actual_length += encode_varint(suffix_and_type, index_records + actual_length);
-	memcpy(index_records + actual_length, refnames[i] + prefix_length, suffix_length);
-	actual_length += suffix_length;
-	actual_length += encode_varint(block_pos, index_records + actual_length);
+	pos += encode_varint(prefix_length, pos);
+	pos += encode_varint(suffix_and_type, pos);
+	pos += encode_data(refnames[i] + prefix_length, suffix_length, pos);
+	pos += encode_varint(block_pos, pos);
 
-	return actual_length;
+	return pos - index_records;
 }
 
 /*
