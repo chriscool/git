@@ -103,7 +103,13 @@ uintmax_t get_max_value_length(char value_type, const char *refvalue, uintmax_t 
 }
 
 /*
- * Add a ref record to records_buf.
+ * Add a ref record to `ref_records`.
+ *
+ * Size of `ref_records` must be at least `max_size`.
+ *
+ * Return the size of the ref record that could be added to
+ * `ref_records`. Return 0 if no record could be added because it
+ * would be larger than `max_size`.
  *
  * Ref record format:
  *
@@ -114,13 +120,13 @@ uintmax_t get_max_value_length(char value_type, const char *refvalue, uintmax_t 
  *   value?
  *
  */
-int reftable_add_ref_record(struct strbuf *records_buf,
+int reftable_add_ref_record(char *ref_records,
+			    uintmax_t max_size,
 			    int i,
 			    const char **refnames,
 			    const char **refvalues,
 			    const char *value_type,
 			    uintmax_t update_index_delta,
-			    uintmax_t max_size,
 			    int restart)
 {
 	uintmax_t prefix_length = 0;
@@ -130,10 +136,9 @@ int reftable_add_ref_record(struct strbuf *records_buf,
 	uintmax_t max_value_length;
 	uintmax_t max_full_length;
 	uintmax_t actual_length;
-	char *record;
 
 	if (i == 0 && !restart)
-		BUG("first record is always a restart");
+		BUG("first ref record is always a restart");
 
 	if (!restart)
 		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
@@ -150,38 +155,32 @@ int reftable_add_ref_record(struct strbuf *records_buf,
 	if (max_full_length > max_size)
 		return 0;
 
-	record = xmalloc(max_full_length);
-
 	/* Actually add the ref record */
-	actual_length = encode_varint(prefix_length, record);
-	actual_length += encode_varint(suffix_and_type, record + actual_length);
-	memcpy(record + actual_length, refnames[i] + prefix_length, suffix_length);
+	actual_length = encode_varint(prefix_length, ref_records);
+	actual_length += encode_varint(suffix_and_type, ref_records + actual_length);
+	memcpy(ref_records + actual_length, refnames[i] + prefix_length, suffix_length);
 	actual_length += suffix_length;
-	actual_length += encode_varint(update_index_delta, record + actual_length);
+	actual_length += encode_varint(update_index_delta, ref_records + actual_length);
 
 	switch (value_type[i]) {
 	case 0x0:
 		break;
 	case 0x1:
-		memcpy(record + actual_length, refvalues[i], the_hash_algo->rawsz);
+		memcpy(ref_records + actual_length, refvalues[i], the_hash_algo->rawsz);
 		actual_length += the_hash_algo->rawsz;
 		break;
 	case 0x2:
-		memcpy(record + actual_length, refvalues[i], 2 * the_hash_algo->rawsz);
+		memcpy(ref_records + actual_length, refvalues[i], 2 * the_hash_algo->rawsz);
 		actual_length += 2 * the_hash_algo->rawsz;
 		break;
 	case 0x3:
-		actual_length += encode_varint(target_length, record + actual_length);
-		memcpy(record + actual_length, refvalues[i], target_length);
+		actual_length += encode_varint(target_length, ref_records + actual_length);
+		memcpy(ref_records + actual_length, refvalues[i], target_length);
 		actual_length += target_length);
 		break;
 	default:
 		BUG("unknown value_type '%d'", value_type[i]);
 	}
-
-	strbuf_add(records_buf, record, actual_length);
-
-	free(record);
 
 	return actual_length;
 }
@@ -273,7 +272,13 @@ int reftable_add_ref_block(struct strbuf *buf,
 }
 
 /*
- * Add an index record to index_buf.
+ * Add an index record to `index_records`.
+ *
+ * Size of `index_records` must be at least `max_size`.
+ *
+ * Return the size of the index record that could be added to
+ * `index_records`. Return 0 if no record could be added because it
+ * would be larger than `max_size`.
  *
  * Index record format:
  *
@@ -283,10 +288,10 @@ int reftable_add_ref_block(struct strbuf *buf,
  *   varint( block_position )
  *
  */
-int reftable_add_index_record(struct strbuf *index_buf,
+int reftable_add_index_record(char *index_records,
+			      uintmax_t max_size,
 			      int i,
 			      const char **refnames,
-			      uintmax_t max_size,
 			      uintmax_t block_pos)
 {
 	uintmax_t prefix_length = 0;
@@ -294,7 +299,6 @@ int reftable_add_index_record(struct strbuf *index_buf,
 	uintmax_t suffix_and_type;
 	uintmax_t max_full_length;
 	uintmax_t actual_length;
-	char *record;
 
 	if (i != 0)
 		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
@@ -309,18 +313,12 @@ int reftable_add_index_record(struct strbuf *index_buf,
 	if (max_full_length > max_size)
 		return 0;
 
-	record = xmalloc(max_full_length);
-
 	/* Actually add the ref record */
-	actual_length = encode_varint(prefix_length, record);
-	actual_length += encode_varint(suffix_and_type, record + actual_length);
-	memcpy(record + actual_length, refnames[i] + prefix_length, suffix_length);
+	actual_length = encode_varint(prefix_length, index_records);
+	actual_length += encode_varint(suffix_and_type, index_records + actual_length);
+	memcpy(index_records + actual_length, refnames[i] + prefix_length, suffix_length);
 	actual_length += suffix_length;
-	actual_length += encode_varint(block_pos, record + actual_length);
-
-	strbuf_add(index_buf, record, actual_length);
-
-	free(record);
+	actual_length += encode_varint(block_pos, index_records + actual_length);
 
 	return actual_length;
 }
