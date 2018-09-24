@@ -378,3 +378,56 @@ int reftable_add_ref_index(struct strbuf *buf,
 	}
 
 }
+
+/*
+ * Add an object record to `object_records`.
+ *
+ * Size of `object_records` must be at least `max_size`.
+ *
+ * Return the size of the object record that could be added to
+ * `object_records`. Return 0 if no record could be added because it
+ * would be larger than `max_size`.
+ *
+ * Object record format:
+ *
+ *   varint( prefix_length )
+ *   varint( (suffix_length << 3) | cnt_3 )
+ *   suffix
+ *   varint( cnt_large )?
+ *   varint( position_delta )*
+ *
+ */
+int reftable_add_object_record(char *object_records,
+			      uintmax_t max_size,
+			      int i,
+			      const char **refnames,
+			      uintmax_t block_pos)
+{
+	uintmax_t prefix_length = 0;
+	uintmax_t suffix_length;
+	uintmax_t suffix_and_type;
+	uintmax_t max_full_length;
+	char *pos = index_records;
+
+	if (i != 0)
+		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
+
+	suffix_length = strlen(refnames[i]) - prefix_length;
+	suffix_and_type = suffix_length << 3 | 0;
+
+	/* 16 * 3 as there are 3 varints */
+	max_full_length = 16 * 3 + suffix_length;
+
+	/* Give up adding an index record if there might not be enough space */
+	if (max_full_length > max_size)
+		return 0;
+
+	/* Actually add the ref record */
+	pos += encode_varint(prefix_length, pos);
+	pos += encode_varint(suffix_and_type, pos);
+	pos += encode_data(refnames[i] + prefix_length, suffix_length, pos);
+	pos += encode_varint(block_pos, pos);
+
+	return pos - index_records;
+}
+
