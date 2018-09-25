@@ -223,15 +223,15 @@ int remote_odb_get_object(const unsigned char *sha1)
 static int has_odb_attrs(struct odb_helper *o, const char *path)
 {
 	static struct attr_check *check;
+	const char *value;
 
 	if (!check)
 		check = attr_check_initl("odb", NULL);
 
-	if (!git_check_attr(&the_index, path, check)) {
-		const char *value = check->items[0].value;
-		return value ? !strcmp(o->name, value) : 0;
-	}
-	return 0;
+	git_check_attr(&the_index, path, check);
+	value = check->items[0].value;
+
+	return value ? !strcmp(o->name, value) : 0;
 }
 
 int remote_odb_put_object(const void *buf, size_t len,
