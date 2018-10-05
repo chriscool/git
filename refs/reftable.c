@@ -68,17 +68,6 @@ void reftable_header_init(struct reftable_header *header, uint32_t block_size,
 	header->max_update_index = htonl(max_update_index);
 }
 
-static void strbuf_add_uint24nl(struct strbuf *buf, uint32_t val)
-{
-	uint32_t nl_val = htonl(val);
-	const char *p = (char *)&nl_val;
-
-	if (val >> 24)
-		BUG("too big value '%d' for uint24", val);
-
-	strbuf_add(buf, p + 1, 3);
-}
-
 static size_t find_prefix(const char *a, const char *b)
 {
 	size_t i;
@@ -91,6 +80,43 @@ static size_t encode_data(const void *src, size_t n, void *buf)
 {
 	memcpy(buf, src, n);
 	return n;
+}
+
+static void encode_padding(size_t n, void *buf)
+{
+	memset(buf, 0, n);
+}
+
+static size_t encode_uint16nl(uint16_t val, void *buf)
+{
+	uint16_t nl_val = htonl(val);
+	const char *p = (char *)&nl_val;
+
+	return encode_data(p, 2, buf);
+}
+
+static size_t encode_uint24nl(uint32_t val, void *buf)
+{
+	uint32_t nl_val = htonl(val);
+	const char *p = (char *)&nl_val;
+
+	if (val >> 24)
+		BUG("too big value '%d' for uint24", val);
+
+	return encode_data(p + 1, 3, buf);
+}
+
+static size_t encode_reftable_header(struct reftable_header *header, void *buf)
+{
+	const int header_size =  sizeof(*header);
+
+	if (!header)
+		return 0;
+
+	if (header_size != 24)
+		BUG("bad reftable header size '%d' instead of 24", header_size);
+
+	return encode_data(header, header_size, buf);
 }
 
 /*
@@ -213,7 +239,7 @@ int reftable_add_ref_record(char *ref_records,
  *   padding?
  *
  */
-int reftable_add_ref_block(struct strbuf *buf,
+int reftable_add_ref_block(char *ref_records,
 			   struct reftable_header *header,
 			   uint32_t block_size,
 			   int padding,
@@ -224,35 +250,35 @@ int reftable_add_ref_block(struct strbuf *buf,
 	uint32_t block_start_len = 0, block_end_len = 0;
 	uint32_t restart_offset = 0;
 	int i, nb_refs = 0, restart_count = 0;
-	struct strbuf records_buf = STRBUF_INIT;
-	struct strbuf restarts_buf = STRBUF_INIT;
+	char *ref_restarts;
 
 	if (block_size < 2000)
 		BUG("too small reftable block size '%d'", block_size);
 
-	if (header) {
-		const int header_size =  sizeof(*header);
-		if (header_size != 24)
-			BUG("bad reftable header size '%d' instead of 24",
-			    header_size);
-		strbuf_add(buf, header, header_size);
-		block_start_len += header_size;
-	}
+	/*
+	 * For now let's allocate ref_restarts.
+	 * TODO: reuse a block for ref_restarts, and/or:
+	 * TODO: optimize size allocated for ref_restarts
+	 */
+	ref_restarts = xcalloc(1, block_size);
 
-	block_start_len += 4; /* 'r' + uint24( block_len ) */
+	/* Add header */
+	block_start_len += encode_reftable_header(header, ref_records + block_start_len);
+
+	/* Add 'r' + uint24( block_len ) */
+	block_start_len += encode_data("r", 1, ref_records + block_start_len);
+	block_start_len += encode_uint24nl(block_len, ref_records + block_start_len);
 
 	/* Add first restart offset */
-	strbuf_add_uint24nl(&restarts_buf, restart_offset);
+	block_end_len += encode_uint24nl(block_start_len, ref_restarts + block_end_len);
 	restart_count++;
 
-	block_end_len += 3 +	/* uint24( restart_offset ) */
-		2;		/* uint16( restart_count )   */
-
 	for (i = 0; i++; i < refcount) {
-		int record_len = reftable_add_ref_record(&records_buf, i, refnames, refvalues);
+		int max_size = block_size - (block_start_len + block_end_len + 2);
+		int record_len = reftable_add_ref_record(ref_records, max_size, i,
+							 refnames, refvalues);
 
-		/* Don't add the record if it makes the block too big */
-		if (block_start_len + record_len + block_end_len > block_size)
+		if (record_len < 1)
 			break;
 
 		/* Add the record */
@@ -263,20 +289,22 @@ int reftable_add_ref_block(struct strbuf *buf,
 		 * records if there is some space left in the block.
 		 */
 		if ((i % reftable_restart_gap) == 0 &&
-		    block_size - block_start_len - block_end_len > 128) {
-			restart_offset = block_start_len;
-			strbuf_add_uint24nl(&restarts_buf, restart_offset);
+		    block_size - (block_start_len + block_end_len + 2) > 3) {
+			block_end_len += encode_uint24nl(block_start_len, ref_restarts + block_end_len);
 			restart_count++;
 		}
-
-
 	}
 
-	if (i < refcount) {
+	/* Add restart count */
+	block_end_len += encode_uint16nl(restart_count, ref_restarts + block_end_len);
 
-	} else {
+	/* Copy restarts into the records block */
+	block_start_len += encode_data(ref_restarts, block_end_len, ref_records + block_start_len);
 
-	}
+	free(ref_restarts);
+
+	/* Add padding */
+	encode_padding(block_size - block_start_len, ref_records + block_start_len);
 
 	return i;
 }
@@ -430,3 +458,33 @@ int reftable_add_object_record(char *object_records,
 	return pos - index_records;
 }
 
+int reftable_add_blocks()
+{
+	char *ref_records;
+	unsigned int refcount;
+	unsigned int ref_written;
+	struct reftable_header header;
+	uint32_t block_size;
+	uint64_t min_update_index;
+	uint64_t max_update_index;
+
+	/* Create ref header */
+	reftable_header_init(&header, block_size,
+			     min_update_index, max_update_index);
+
+	/* Add ref records blocks */
+
+
+	ref_records = xcalloc(1, block_size);
+
+	ref_written = reftable_add_ref_block(ref_records,
+					     struct reftable_header *header,
+					     uint32_t block_size,
+			   int padding,
+			   const char **refnames,
+			   const char **refvalues,
+			   unsigned int refcount)
+
+
+	return 0;
+}
