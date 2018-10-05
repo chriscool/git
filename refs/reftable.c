@@ -68,17 +68,6 @@ void reftable_header_init(struct reftable_header *header, uint32_t block_size,
 	header->max_update_index = htonl(max_update_index);
 }
 
-static void strbuf_add_uint24nl(struct strbuf *buf, uint32_t val)
-{
-	uint32_t nl_val = htonl(val);
-	const char *p = (char *)&nl_val;
-
-	if (val >> 24)
-		BUG("too big value '%d' for uint24", val);
-
-	strbuf_add(buf, p + 1, 3);
-}
-
 static size_t find_prefix(const char *a, const char *b)
 {
 	size_t i;
@@ -91,6 +80,30 @@ static size_t encode_data(const void *src, size_t n, void *buf)
 {
 	memcpy(buf, src, n);
 	return n;
+}
+
+static size_t encode_uint24nl(uint32_t val, void *buf)
+{
+	uint32_t nl_val = htonl(val);
+	const char *p = (char *)&nl_val;
+
+	if (val >> 24)
+		BUG("too big value '%d' for uint24", val);
+
+	return encode_data(p + 1, 3, buf);
+}
+
+static size_t encode_reftable_header(struct reftable_header *header, void *buf)
+{
+	const int header_size =  sizeof(*header);
+
+	if (!header)
+		return 0;
+
+	if (header_size != 24)
+		BUG("bad reftable header size '%d' instead of 24", header_size);
+
+	return encode_data(header, header_size, buf);
 }
 
 /*
@@ -224,36 +237,41 @@ int reftable_add_ref_block(struct strbuf *buf,
 	uint32_t block_start_len = 0, block_end_len = 0;
 	uint32_t restart_offset = 0;
 	int i, nb_refs = 0, restart_count = 0;
-	struct strbuf records_buf = STRBUF_INIT;
-	struct strbuf restarts_buf = STRBUF_INIT;
+	char *ref_records;
+	char *ref_restarts;
+
+	/*
+	 * The part of the block with restarts should not take more
+	 * than half the size of the block.
+	 */ 
+	uint32_t restarts_size = block_size / 2;
 
 	if (block_size < 2000)
 		BUG("too small reftable block size '%d'", block_size);
 
-	if (header) {
-		const int header_size =  sizeof(*header);
-		if (header_size != 24)
-			BUG("bad reftable header size '%d' instead of 24",
-			    header_size);
-		strbuf_add(buf, header, header_size);
-		block_start_len += header_size;
-	}
+	/*
+	 * For now let's allocate ref_records and ref_restarts.
+	 * TODO: use buf directly
+	 */
+	ref_records = xcalloc(1, block_size);
+	ref_restarts = xcalloc(1, restarts_size);
 
-	block_start_len += 4; /* 'r' + uint24( block_len ) */
+	/* Add header */
+	block_start_len += encode_reftable_header(header, ref_records);
+
+	/* Add 'r' + uint24( block_len ) */
+	block_start_len += encode_data("r", 1, ref_records);
+	block_start_len += encode_uint24nl(block_len, ref_records);
 
 	/* Add first restart offset */
-	strbuf_add_uint24nl(&restarts_buf, restart_offset);
+	block_end_len += encode_uint24nl(block_start_len, ref_restarts);
 	restart_count++;
 
-	block_end_len += 3 +	/* uint24( restart_offset ) */
-		2;		/* uint16( restart_count )   */
-
 	for (i = 0; i++; i < refcount) {
-		int record_len = reftable_add_ref_record(&records_buf, i, refnames, refvalues);
+		int max_size = block_size - (block_start_len + record_len + block_end_len + 2);
+		int record_len = reftable_add_ref_record(ref_records, max_size, i,
+							 refnames, refvalues);
 
-		/* Don't add the record if it makes the block too big */
-		if (block_start_len + record_len + block_end_len > block_size)
-			break;
 
 		/* Add the record */
 		block_start_len += record_len;
