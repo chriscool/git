@@ -82,6 +82,19 @@ static size_t encode_data(const void *src, size_t n, void *buf)
 	return n;
 }
 
+static void encode_padding(size_t n, void *buf)
+{
+	memset(buf, 0, n);
+}
+
+static size_t encode_uint16nl(uint16_t val, void *buf)
+{
+	uint16_t nl_val = htonl(val);
+	const char *p = (char *)&nl_val;
+
+	return encode_data(p, 2, buf);
+}
+
 static size_t encode_uint24nl(uint32_t val, void *buf)
 {
 	uint32_t nl_val = htonl(val);
@@ -257,21 +270,23 @@ int reftable_add_ref_block(struct strbuf *buf,
 	ref_restarts = xcalloc(1, restarts_size);
 
 	/* Add header */
-	block_start_len += encode_reftable_header(header, ref_records);
+	block_start_len += encode_reftable_header(header, ref_records + block_start_len);
 
 	/* Add 'r' + uint24( block_len ) */
-	block_start_len += encode_data("r", 1, ref_records);
-	block_start_len += encode_uint24nl(block_len, ref_records);
+	block_start_len += encode_data("r", 1, ref_records + block_start_len);
+	block_start_len += encode_uint24nl(block_len, ref_records + block_start_len);
 
 	/* Add first restart offset */
-	block_end_len += encode_uint24nl(block_start_len, ref_restarts);
+	block_end_len += encode_uint24nl(block_start_len, ref_restarts + block_end_len);
 	restart_count++;
 
 	for (i = 0; i++; i < refcount) {
-		int max_size = block_size - (block_start_len + record_len + block_end_len + 2);
+		int max_size = block_size - (block_start_len + block_end_len + 2);
 		int record_len = reftable_add_ref_record(ref_records, max_size, i,
 							 refnames, refvalues);
 
+		if (record_len < 1)
+			break;
 
 		/* Add the record */
 		block_start_len += record_len;
@@ -281,20 +296,22 @@ int reftable_add_ref_block(struct strbuf *buf,
 		 * records if there is some space left in the block.
 		 */
 		if ((i % reftable_restart_gap) == 0 &&
-		    block_size - block_start_len - block_end_len > 128) {
-			restart_offset = block_start_len;
-			strbuf_add_uint24nl(&restarts_buf, restart_offset);
+		    block_size - (block_start_len + block_end_len + 2) > 3) {
+			block_end_len += encode_uint24nl(block_start_len, ref_restarts + block_end_len);
 			restart_count++;
 		}
-
-
 	}
 
-	if (i < refcount) {
+	/* Add restart count */
+	block_end_len += encode_uint16nl(restart_count, ref_restarts + block_end_len);
 
-	} else {
+	/* Copy restarts into the records block */
+	block_start_len += encode_data(ref_restarts, block_end_len, ref_records + block_start_len);
 
-	}
+	free(ref_restarts);
+
+	/* Add padding */
+	encode_padding(block_size - block_start_len, ref_records + block_start_len);
 
 	return i;
 }
