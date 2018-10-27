@@ -239,7 +239,7 @@ int reftable_add_ref_record(char *ref_records,
  *   padding?
  *
  */
-int reftable_add_ref_block(struct strbuf *buf,
+int reftable_add_ref_block(char *ref_records,
 			   struct reftable_header *header,
 			   uint32_t block_size,
 			   int padding,
@@ -250,24 +250,17 @@ int reftable_add_ref_block(struct strbuf *buf,
 	uint32_t block_start_len = 0, block_end_len = 0;
 	uint32_t restart_offset = 0;
 	int i, nb_refs = 0, restart_count = 0;
-	char *ref_records;
 	char *ref_restarts;
-
-	/*
-	 * The part of the block with restarts should not take more
-	 * than half the size of the block.
-	 */ 
-	uint32_t restarts_size = block_size / 2;
 
 	if (block_size < 2000)
 		BUG("too small reftable block size '%d'", block_size);
 
 	/*
-	 * For now let's allocate ref_records and ref_restarts.
-	 * TODO: use buf directly
+	 * For now let's allocate ref_restarts.
+	 * TODO: reuse a block for ref_restarts, and/or:
+	 * TODO: optimize size allocated for ref_restarts
 	 */
-	ref_records = xcalloc(1, block_size);
-	ref_restarts = xcalloc(1, restarts_size);
+	ref_restarts = xcalloc(1, block_size);
 
 	/* Add header */
 	block_start_len += encode_reftable_header(header, ref_records + block_start_len);
@@ -465,3 +458,33 @@ int reftable_add_object_record(char *object_records,
 	return pos - index_records;
 }
 
+int reftable_add_blocks()
+{
+	char *ref_records;
+	unsigned int refcount;
+	unsigned int ref_written;
+	struct reftable_header header;
+	uint32_t block_size;
+	uint64_t min_update_index;
+	uint64_t max_update_index;
+
+	/* Create ref header */
+	reftable_header_init(&header, block_size,
+			     min_update_index, max_update_index);
+
+	/* Add ref records blocks */
+
+
+	ref_records = xcalloc(1, block_size);
+
+	ref_written = reftable_add_ref_block(ref_records,
+					     struct reftable_header *header,
+					     uint32_t block_size,
+			   int padding,
+			   const char **refnames,
+			   const char **refvalues,
+			   unsigned int refcount)
+
+
+	return 0;
+}
