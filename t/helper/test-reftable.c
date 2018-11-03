@@ -26,7 +26,7 @@ int get_all_refs(const char *refname, const struct object_id *oid,
 
 	FLEX_ALLOC_STR(update, refname, refname);
 
-	oidcpy(&update.new_oid, oid); 
+	oidcpy(&update->new_oid, oid);
 
 	register_update(update);
 	
@@ -40,19 +40,30 @@ int get_all_refs(const char *refname, const struct object_id *oid,
 static int cmd_write_file(const char **argv)
 {
 	const char *path = *argv++;
+	int fd;
+	int res;
+	uint32_t block_size;
 
 	if (!path)
 		die("file path required");
 
 	setup_git_directory();
 
-	refs_for_each_ref(get_all_refs);
+	refs_for_each_ref(get_main_ref_store(the_repository), get_all_refs, NULL);
 
-	/*
-	 * Write refs in a reftable file.
-	 */
-	
-	return 0;
+	fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+	if (fd < 0) {
+		perror(path);
+		return 1;
+	}
+
+	res = reftable_write_reftable_blocks(fd, block_size, *updates, nr_updates);
+
+	/* TODO: write other blocks */
+
+	close(fd);
+
+	return res;
 }
 
 struct command {
@@ -72,7 +83,7 @@ int cmd__reftable(int argc, const char **argv)
 
 	func = *argv++;
 	if (!func)
-		die("ref function required");
+		die("reftable function required");
 	for (cmd = commands; cmd->name; cmd++) {
 		if (!strcmp(func, cmd->name))
 			return cmd->func(argv);
