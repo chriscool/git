@@ -1,5 +1,7 @@
 #include "cache.h"
-#include "reftable.h"
+#include "refs.h"
+#include "refs/refs-internal.h"
+#include "refs/reftable.h"
 #include "varint.h"
 
 #define REFTABLE_SIGNATURE 0x52454654  /* "REFT" */
@@ -243,14 +245,14 @@ int reftable_add_ref_block(char *ref_records,
 			   struct reftable_header *header,
 			   uint32_t block_size,
 			   int padding,
-			   const char **refnames,
-			   const char **refvalues,
-			   unsigned int refcount)
+			   const struct ref_update *updates,
+			   int nr_updates)
 {
 	uint32_t block_start_len = 0, block_end_len = 0;
 	uint32_t restart_offset = 0;
 	int i, nb_refs = 0, restart_count = 0;
 	char *ref_restarts;
+	char *block_len_pos;
 
 	if (block_size < 2000)
 		BUG("too small reftable block size '%d'", block_size);
@@ -267,7 +269,9 @@ int reftable_add_ref_block(char *ref_records,
 
 	/* Add 'r' + uint24( block_len ) */
 	block_start_len += encode_data("r", 1, ref_records + block_start_len);
-	block_start_len += encode_uint24nl(block_len, ref_records + block_start_len);
+	/* We don't know the block_len so we postpone writting it */
+	block_len_pos = ref_records + block_start_len;
+	block_start_len += 3;
 
 	/* Add first restart offset */
 	block_end_len += encode_uint24nl(block_start_len, ref_restarts + block_end_len);
@@ -302,6 +306,9 @@ int reftable_add_ref_block(char *ref_records,
 	block_start_len += encode_data(ref_restarts, block_end_len, ref_records + block_start_len);
 
 	free(ref_restarts);
+
+	/* Write block_len at the beginning of the block */
+	encode_uint24nl(block_start_len, block_len_pos);
 
 	/* Add padding */
 	encode_padding(block_size - block_start_len, ref_records + block_start_len);
@@ -374,12 +381,15 @@ int reftable_add_index_record(char *index_records,
  *   padding?
  *
  */
-int reftable_add_ref_index(struct strbuf *buf,
+int reftable_add_ref_index(char *index_buf,
+			   int index_count,
+			   uintmax_t max_size,
 			   uint32_t block_size)
 {
 	uint32_t block_start_len = 0, block_end_len = 0;
+	int i;
 
-	for (i = 0; i++; i < indexcount) {
+	for (i = 0; i++; i < index_count) {
 		int record_len = reftable_add_index_record(&index_buf, i, refnames,
 							   max_size, block_pos);
 
@@ -434,7 +444,7 @@ int reftable_add_object_record(char *object_records,
 	uintmax_t suffix_length;
 	uintmax_t suffix_and_type;
 	uintmax_t max_full_length;
-	char *pos = index_records;
+	char *pos = object_records;
 
 	if (i != 0)
 		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
@@ -445,7 +455,7 @@ int reftable_add_object_record(char *object_records,
 	/* 16 * 3 as there are 3 varints */
 	max_full_length = 16 * 3 + suffix_length;
 
-	/* Give up adding an index record if there might not be enough space */
+	/* Give up adding an object record if there might not be enough space */
 	if (max_full_length > max_size)
 		return 0;
 
@@ -455,18 +465,18 @@ int reftable_add_object_record(char *object_records,
 	pos += encode_data(refnames[i] + prefix_length, suffix_length, pos);
 	pos += encode_varint(block_pos, pos);
 
-	return pos - index_records;
+	return pos - object_records;
 }
 
-int reftable_add_blocks()
+int reftable_write_reftable_blocks(int fd, uint32_t block_size,
+				   const struct ref_update *updates, int nr_updates)
 {
 	char *ref_records;
-	unsigned int refcount;
 	unsigned int ref_written;
 	struct reftable_header header;
-	uint32_t block_size;
 	uint64_t min_update_index;
 	uint64_t max_update_index;
+	int padding = 1;
 
 	/* Create ref header */
 	reftable_header_init(&header, block_size,
@@ -477,13 +487,15 @@ int reftable_add_blocks()
 
 	ref_records = xcalloc(1, block_size);
 
+	/* Loop until all refs have been written */
+
 	ref_written = reftable_add_ref_block(ref_records,
-					     struct reftable_header *header,
-					     uint32_t block_size,
-			   int padding,
-			   const char **refnames,
-			   const char **refvalues,
-			   unsigned int refcount)
+					     &header,
+					     block_size,
+					     padding,
+					     updates,
+					     nr_updates);
+	reftable_write_data(fd, ref_records, block_size);
 
 
 	return 0;
