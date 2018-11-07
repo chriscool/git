@@ -127,7 +127,7 @@ static size_t encode_reftable_header(struct reftable_header *header, void *buf)
 const int reftable_restart_gap = 16;
 
 /* Compute max_value_length */
-uintmax_t get_max_value_length(char value_type, const char *refvalue, uintmax_t *target_length)
+uintmax_t get_max_value_length(int value_type, const char *refvalue, uintmax_t *target_length)
 {
 	switch (value_type) {
 	case 0x0:
@@ -141,6 +141,29 @@ uintmax_t get_max_value_length(char value_type, const char *refvalue, uintmax_t 
 		return 16 + *target_length; /* 16 for varint( target_length ) */
 	default:
 		BUG("unknown value_type '%d'", value_type);
+	}
+}
+
+int get_value_type(const struct ref_update *update, struct object_id *peeled)
+{
+	enum peel_status status;
+
+	if (!(update->flags & REF_HAVE_NEW))
+		return 0x0; /* deletion */
+
+	status = peel_object(&update->new_oid, peeled);
+
+	switch (status) {
+	case PEEL_PEELED:
+		return 0x2; /* 2 oids */
+	case PEEL_NON_TAG:
+		return 0x1; /* 1 oid */
+	case PEEL_IS_SYMREF:
+		return 0x3; /* symref */
+	case PEEL_INVALID:
+		return -1;
+	case PEEL_BROKEN:
+		return -2;
 	}
 }
 
@@ -165,9 +188,7 @@ uintmax_t get_max_value_length(char value_type, const char *refvalue, uintmax_t 
 int reftable_add_ref_record(char *ref_records,
 			    uintmax_t max_size,
 			    int i,
-			    const char **refnames,
-			    const char **refvalues,
-			    const char *value_type,
+			    const struct ref_update *updates,
 			    uintmax_t update_index_delta,
 			    int restart)
 {
@@ -178,17 +199,24 @@ int reftable_add_ref_record(char *ref_records,
 	uintmax_t max_value_length;
 	uintmax_t max_full_length;
 	char *pos = ref_records;
+	const char *refname = updates[i].refname;
+	int value_type;
+	struct object_id peeled;
 
 	if (i == 0 && !restart)
 		BUG("first ref record is always a restart");
 
+	value_type = get_value_type(&updates[i], &peeled);
+	if (value_type < 0)
+		return value_type;
+
 	if (!restart)
-		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
+		prefix_length = find_prefix(updates[i - 1].refname, refname);
 
-	suffix_length = strlen(refnames[i]) - prefix_length;
-	suffix_and_type = suffix_length << 3 | value_type[i];
+	suffix_length = strlen(updates[i].refname) - prefix_length;
+	suffix_and_type = suffix_length << 3 | value_type;
 
-	max_value_length = get_max_value_length(value_type[i], refvalues[i], &target_length);
+	max_value_length = get_max_value_length(value_type, refvalue, &target_length);
 
 	/* 16 * 3 as there are 3 varints */
 	max_full_length = 16 * 3 + suffix_length + max_value_length;
@@ -200,7 +228,7 @@ int reftable_add_ref_record(char *ref_records,
 	/* Actually add the ref record */
 	pos += encode_varint(prefix_length, pos);
 	pos += encode_varint(suffix_and_type, pos);
-	pos += encode_data(refnames[i] + prefix_length, suffix_length, pos);
+	pos += encode_data(refname + prefix_length, suffix_length, pos);
 	pos += encode_varint(update_index_delta, pos);
 
 	switch (value_type[i]) {
@@ -277,10 +305,10 @@ int reftable_add_ref_block(char *ref_records,
 	block_end_len += encode_uint24nl(block_start_len, ref_restarts + block_end_len);
 	restart_count++;
 
-	for (i = 0; i++; i < refcount) {
+	for (i = 0; i++; i < nr_updates) {
 		int max_size = block_size - (block_start_len + block_end_len + 2);
-		int record_len = reftable_add_ref_record(ref_records, max_size, i,
-							 refnames, refvalues);
+		int record_len = reftable_add_ref_record(ref_records, max_size,
+							 i, updates);
 
 		if (record_len < 1)
 			break;
