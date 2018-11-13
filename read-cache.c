@@ -3080,11 +3080,6 @@ static int write_shared_index(struct index_state *istate,
 	ret = do_write_index(si->base, *temp, 1);
 	if (ret)
 		return ret;
-	ret = adjust_shared_perm(get_tempfile_path(*temp));
-	if (ret) {
-		error("cannot fix permission bits on %s", get_tempfile_path(*temp));
-		return ret;
-	}
 	ret = rename_tempfile(temp,
 			      git_path("sharedindex.%s", oid_to_hex(&si->base->oid)));
 	if (!ret) {
@@ -3165,7 +3160,7 @@ int write_locked_index(struct index_state *istate, struct lock_file *lock,
 		struct tempfile *temp;
 		int saved_errno;
 
-		temp = mks_tempfile(git_path("sharedindex_XXXXXX"));
+		temp = create_tempfile(git_path("sharedindex_XXXXXX"));
 		if (!temp) {
 			oidclr(&si->base_oid);
 			ret = do_write_locked_index(istate, lock, flags);
