@@ -3,44 +3,31 @@
 #include "tempfile.h"
 
 
-static int cmd_create(const char **argv)
+static int cmd_tempfile(const char **argv)
 {
 	const char *path = *argv++;
 	struct tempfile *temp;
 	struct stat st;
 
-	if (path)
-		die("'create' command supports no argument");
+	if (!path)
+		die("tempfile command requires exactly one argument");
 
 	setup_git_directory();
 
-	temp = create_tempfile(git_path("sharedindex_XXXXXX"));
+	if (!strcmp(path, "create")) 
+		temp = create_tempfile(git_path("sharedindex_XXXXXX"));
+	else if (!strcmp(path, "mks"))
+		temp = mks_tempfile(git_path("sharedindex_XXXXXX"));
+	else
+		die("unknown argument '%s'", path);
 
 	if (close_tempfile_gently(temp))
 		die("could not close '%s'", temp->filename.buf);
 
 	if (stat(temp->filename.buf, &st))
 		die("could not stat '%s'", temp->filename.buf);
-}
 
-static int cmd_mks(const char **argv)
-{
-	const char *path = *argv++;
-	struct tempfile *temp;
-	struct stat st;
-
-	if (path)
-		die("'mks' command supports no argument");
-
-	setup_git_directory();
-
-	temp = mks_tempfile(git_path("sharedindex_XXXXXX"));
-
-	if (close_tempfile_gently(temp))
-		die("could not close '%s'", temp->filename.buf);
-
-	if (stat(temp->filename.buf, &st))
-		die("could not stat '%s'", temp->filename.buf);
+	printf("mode for '%s': %o\n", temp->filename.buf, st.st_mode);
 }
 
 struct command {
@@ -49,8 +36,7 @@ struct command {
 };
 
 static struct command commands[] = {
-	{ "create", cmd_create },
-	{ "mks", cmd_mks },
+	{ "tempfile", cmd_tempfile },
 	{ NULL, NULL }
 };
 
