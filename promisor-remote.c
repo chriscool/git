@@ -77,12 +77,12 @@ static void promisor_remote_do_init(int force)
 
 static inline void promisor_remote_init(void)
 {
-	remote_odb_do_init(0);
+	promisor_remote_do_init(0);
 }
 
 void promisor_remote_reinit(void)
 {
-	remote_odb_do_init(1);
+	promisor_remote_do_init(1);
 }
 
 struct promisor_remote *find_promisor_remote(const char *remote_name)
@@ -120,10 +120,10 @@ int promisors_get_direct(const struct object_id *oids, int oid_nr)
 
 	trace_printf("trace: promisor_remote_get_direct: nr: %d", oid_nr);
 
-	remote_odb_init();
+	promisor_remote_init();
 
 	for (o = promisors; o; o = o->next) {
-		if (promisor_get_direct(o, oids, oid_nr) < 0)
+		if (promisor_remote_get_direct(o, oids, oid_nr) < 0)
 			continue;
 		return 0;
 	}
