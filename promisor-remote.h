@@ -7,6 +7,7 @@
  */
 struct promisor_remote {
        const char *remote_name;
+       const char *partial_clone_filter;
        struct promisor_remote *next;
 };
 
