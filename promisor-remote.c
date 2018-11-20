@@ -13,6 +13,9 @@ struct promisor_remote *promisor_remote_new(const char *name, int namelen)
 	o = xcalloc(1, sizeof(*o));
 	o->remote_name = xmemdupz(name, namelen);
 
+	*promisors_tail = o;
+	promisors_tail = &o->next;
+
 	return o;
 }
 
@@ -46,11 +49,16 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 				       "promisor remote '%s' already exists"),
 				     var, name);
 
-		o = promisor_remote_new(name, namelen);
-		*promisors_tail = o;
-		promisors_tail = &o->next;
+		promisor_remote_new(name, namelen);
 
 		return 0;
+	}
+	if (!strcmp(subkey, "partialclonefilter")) {
+		o = do_find_promisor_remote(name);
+		if (!o)
+			o = promisor_remote_new(name, namelen);
+
+		return git_config_string(&o->partial_clone_filter, var, value);
 	}
 
 	return 0;
