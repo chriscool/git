@@ -60,6 +60,13 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 		free(remote_name);
 		return 0;
 	}
+	if (!strcmp(subkey, "partialclonefilter")) {
+		o = do_find_promisor_remote(name);
+		if (!o)
+			o = promisor_remote_new(name, namelen);
+
+		return git_config_string(&o->partial_clone_filter, var, value);
+	}
 
 	return 0;
 }
