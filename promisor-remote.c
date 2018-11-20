@@ -60,6 +60,16 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 		free(remote_name);
 		return 0;
 	}
+	if (!strcmp(subkey, "partialclonefilter")) {
+		char *remote_name = xmemdupz(name, namelen);
+
+		o = do_find_promisor_remote(remote_name);
+		if (!o)
+			o = promisor_remote_new(remote_name);
+
+		free(remote_name);
+		return git_config_string(&o->partial_clone_filter, var, value);
+	}
 
 	return 0;
 }
@@ -76,8 +86,7 @@ static void promisor_remote_do_init(int force)
 
 	if (repository_format_partial_clone &&
 	    !do_find_promisor_remote(repository_format_partial_clone))
-		promisor_remote_new(repository_format_partial_clone,
-				    strlen(repository_format_partial_clone));
+		promisor_remote_new(repository_format_partial_clone);
 }
 
 static inline void promisor_remote_init(void)
