@@ -3,11 +3,14 @@
 
 /*
  * Promisor remote linked list
- * Its information come from remote.XXX config entries.
+ *
+ * Information in its fields come from remote.XXX config entries or
+ * from extensions.partialclone or core.partialclonefilter.
  */
 struct promisor_remote {
-       const char *remote_name;
-       struct promisor_remote *next;
+	const char *remote_name;
+	const char *partial_clone_filter;
+	struct promisor_remote *next;
 };
 
 extern void promisor_remote_reinit(void);
