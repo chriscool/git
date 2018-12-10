@@ -66,6 +66,11 @@ static void promisor_remote_do_init(int force)
 	initialized = 1;
 
 	git_config(promisor_remote_config, NULL);
+
+	if (repository_format_partial_clone &&
+	    !do_find_promisor_remote(repository_format_partial_clone))
+		promisor_remote_new(repository_format_partial_clone,
+				    strlen(repository_format_partial_clone));
 }
 
 static inline void promisor_remote_init(void)
