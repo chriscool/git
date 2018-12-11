@@ -7,6 +7,7 @@
  */
 struct promisor_remote {
 	struct promisor_remote *next;
+	const char *partial_clone_filter;
 	const char name[FLEX_ARRAY];
 };
 
