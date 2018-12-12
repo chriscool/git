@@ -26,6 +26,17 @@ static const char *argv_show_branch[] = {"show-branch", NULL, NULL};
 
 static const char *term_bad;
 static const char *term_good;
+ 
+struct bisect_terms {
+	char *term_good;
+	char *term_bad;
+};
+
+static void free_terms(struct bisect_terms *terms)
+{
+	FREE_AND_NULL(terms->term_good);
+	FREE_AND_NULL(terms->term_bad);
+}
 
 /* Remember to update object flag allocation in object.h */
 #define COUNTED		(1u<<16)
@@ -40,6 +51,8 @@ static const char *term_good;
 static int count_distance(struct commit_list *entry)
 {
 	int nr = 0;
+	struct bisect_terms terms = { .term_good = NULL,
+				      .term_bad = NULL };
 
 	while (entry) {
 		struct commit *commit = entry->item;
