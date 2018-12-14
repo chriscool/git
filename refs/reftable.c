@@ -127,7 +127,8 @@ static size_t encode_reftable_header(struct reftable_header *header, void *buf)
 const int reftable_restart_gap = 16;
 
 /* Compute max_value_length */
-uintmax_t get_max_value_length(int value_type, const char *refvalue, uintmax_t *target_length)
+uintmax_t get_max_value(int value_type, const struct ref_update *update,
+			const char **refvalue, uintmax_t *target_length)
 {
 	switch (value_type) {
 	case 0x0:
@@ -137,8 +138,9 @@ uintmax_t get_max_value_length(int value_type, const char *refvalue, uintmax_t *
 	case 0x2:
 		return 2 * the_hash_algo->rawsz;
 	case 0x3:
-		*target_length = strlen(refvalue);
-		return 16 + *target_length; /* 16 for varint( target_length ) */
+		BUG("symrefs are not supported yet in reftable (refname: '%s')",
+		    update->refname);
+		return 16 /* + *target_length */ ; /* 16 for varint( target_length ) */
 	default:
 		BUG("unknown value_type '%d'", value_type);
 	}
@@ -200,6 +202,7 @@ int reftable_add_ref_record(char *ref_records,
 	uintmax_t max_full_length;
 	char *pos = ref_records;
 	const char *refname = updates[i].refname;
+	const char *refvalue = NULL;
 	int value_type;
 	struct object_id peeled;
 
@@ -216,7 +219,10 @@ int reftable_add_ref_record(char *ref_records,
 	suffix_length = strlen(updates[i].refname) - prefix_length;
 	suffix_and_type = suffix_length << 3 | value_type;
 
-	max_value_length = get_max_value_length(value_type, refvalue, &target_length);
+	max_value_length = get_max_value(value_type, &updates[i], &refvalue, &target_length);
+
+	if (value_type && !refvalue)
+		BUG("couldn't find value for ref '%s'", updates[i].refname);
 
 	/* 16 * 3 as there are 3 varints */
 	max_full_length = 16 * 3 + suffix_length + max_value_length;
@@ -231,24 +237,31 @@ int reftable_add_ref_record(char *ref_records,
 	pos += encode_data(refname + prefix_length, suffix_length, pos);
 	pos += encode_varint(update_index_delta, pos);
 
-	switch (value_type[i]) {
+	switch (value_type) {
 	case 0x0:
 		break;
 	case 0x1:
-		pos += encode_data(refvalues[i], the_hash_algo->rawsz, pos);
+		pos += encode_data(refvalue, the_hash_algo->rawsz, pos);
 		break;
 	case 0x2:
-		pos += encode_data(refvalues[i], 2 * the_hash_algo->rawsz, pos);
+		pos += encode_data(refvalue, 2 * the_hash_algo->rawsz, pos);
 		break;
 	case 0x3:
 		pos += encode_varint(target_length, pos);
-		pos += encode_data(refvalues[i], target_length, pos);
+		pos += encode_data(refvalue, target_length, pos);
 		break;
 	default:
-		BUG("unknown value_type '%d'", value_type[i]);
+		BUG("unknown value_type '%d'", value_type);
 	}
 
 	return pos - ref_records;
+}
+
+uintmax_t get_update_index_delta(const struct ref_update *update)
+{
+	/* TODO: compute update_index_delta from update */
+
+	return 0;
 }
 
 /*
@@ -306,9 +319,11 @@ int reftable_add_ref_block(char *ref_records,
 	restart_count++;
 
 	for (i = 0; i++; i < nr_updates) {
+		int restart = ((i % reftable_restart_gap) == 0);		
 		int max_size = block_size - (block_start_len + block_end_len + 2);
+		uintmax_t update_index_delta = get_update_index_delta(&updates[i]);
 		int record_len = reftable_add_ref_record(ref_records, max_size,
-							 i, updates);
+							 i, updates, update_index_delta, restart);
 
 		if (record_len < 1)
 			break;
@@ -320,8 +335,7 @@ int reftable_add_ref_block(char *ref_records,
 		 * Add a restart after reftable_restart_gap ref
 		 * records if there is some space left in the block.
 		 */
-		if ((i % reftable_restart_gap) == 0 &&
-		    block_size - (block_start_len + block_end_len + 2) > 3) {
+		if (restart && block_size - (block_start_len + block_end_len + 2) > 3) {
 			block_end_len += encode_uint24nl(block_start_len, ref_restarts + block_end_len);
 			restart_count++;
 		}
@@ -364,7 +378,7 @@ int reftable_add_ref_block(char *ref_records,
 int reftable_add_index_record(char *index_records,
 			      uintmax_t max_size,
 			      int i,
-			      const char **refnames,
+			      const struct ref_update *updates,
 			      uintmax_t block_pos)
 {
 	uintmax_t prefix_length = 0;
@@ -372,11 +386,12 @@ int reftable_add_index_record(char *index_records,
 	uintmax_t suffix_and_type;
 	uintmax_t max_full_length;
 	char *pos = index_records;
+	const char *refname = updates[i].refname;
 
 	if (i != 0)
-		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
+		prefix_length = find_prefix(updates[i - 1].refname, refname);
 
-	suffix_length = strlen(refnames[i]) - prefix_length;
+	suffix_length = strlen(refname) - prefix_length;
 	suffix_and_type = suffix_length << 3 | 0;
 
 	/* 16 * 3 as there are 3 varints */
@@ -389,10 +404,17 @@ int reftable_add_index_record(char *index_records,
 	/* Actually add the ref record */
 	pos += encode_varint(prefix_length, pos);
 	pos += encode_varint(suffix_and_type, pos);
-	pos += encode_data(refnames[i] + prefix_length, suffix_length, pos);
+	pos += encode_data(refname + prefix_length, suffix_length, pos);
 	pos += encode_varint(block_pos, pos);
 
 	return pos - index_records;
+}
+
+uintmax_t get_block_pos(const struct ref_update *update)
+{
+	/* TODO: compute block_pos from update */
+
+	return 0;
 }
 
 /*
@@ -412,14 +434,25 @@ int reftable_add_index_record(char *index_records,
 int reftable_add_ref_index(char *index_buf,
 			   int index_count,
 			   uintmax_t max_size,
-			   uint32_t block_size)
+			   uint32_t block_size,
+			   const struct ref_update *updates,
+			   int nr_updates)
 {
 	uint32_t block_start_len = 0, block_end_len = 0;
-	int i;
+	int i, restart_count = 0;
+	char *index_restarts;
+
+	/*
+	 * For now let's allocate index_restarts.
+	 * TODO: reuse a block for ref_restarts, and/or:
+	 * TODO: optimize size allocated for ref_restarts
+	 */
+	index_restarts = xcalloc(1, block_size);
 
 	for (i = 0; i++; i < index_count) {
-		int record_len = reftable_add_index_record(&index_buf, i, refnames,
-							   max_size, block_pos);
+		uintmax_t block_pos = get_block_pos(&updates[i]);
+		int record_len = reftable_add_index_record(index_buf, max_size, i,
+							   updates, block_pos);
 
 		/* Don't add the record if it makes the block too big */
 		if (block_start_len + record_len + block_end_len > block_size)
@@ -434,8 +467,7 @@ int reftable_add_ref_index(char *index_buf,
 		 */
 		if ((i % reftable_restart_gap) == 0 &&
 		    block_size - block_start_len - block_end_len > 128) {
-			restart_offset = block_start_len;
-			strbuf_add_uint24nl(&restarts_buf, restart_offset);
+			block_end_len += encode_uint24nl(block_start_len, index_restarts + block_end_len);
 			restart_count++;
 		}
 
