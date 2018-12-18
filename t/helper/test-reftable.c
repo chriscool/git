@@ -72,7 +72,7 @@ struct command {
 };
 
 static struct command commands[] = {
-	{ "write-file", cmd_write_file },
+	{ "reftable", cmd_write_file },
 	{ NULL, NULL }
 };
 
