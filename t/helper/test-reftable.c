@@ -42,7 +42,7 @@ static int cmd_write_file(const char **argv)
 	const char *path = *argv++;
 	int fd;
 	int res;
-	uint32_t block_size;
+	uint32_t block_size = 1024 * 16; /* 16KB */
 
 	if (!path)
 		die("file path required");
