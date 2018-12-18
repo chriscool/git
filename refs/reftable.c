@@ -187,7 +187,7 @@ int get_value_type(const struct ref_update *update, struct object_id *peeled)
  *   value?
  *
  */
-int reftable_add_ref_record(char *ref_records,
+int reftable_add_ref_record(unsigned char *ref_records,
 			    uintmax_t max_size,
 			    int i,
 			    const struct ref_update *updates,
@@ -200,7 +200,7 @@ int reftable_add_ref_record(char *ref_records,
 	uintmax_t target_length = 0;
 	uintmax_t max_value_length;
 	uintmax_t max_full_length;
-	char *pos = ref_records;
+	unsigned char *pos = ref_records;
 	const char *refname = updates[i].refname;
 	const char *refvalue = NULL;
 	int value_type;
@@ -282,7 +282,7 @@ uintmax_t get_update_index_delta(const struct ref_update *update)
  *   padding?
  *
  */
-int reftable_add_ref_block(char *ref_records,
+int reftable_add_ref_block(unsigned char *ref_records,
 			   struct reftable_header *header,
 			   uint32_t block_size,
 			   int padding,
@@ -293,7 +293,7 @@ int reftable_add_ref_block(char *ref_records,
 	uint32_t restart_offset = 0;
 	int i, nb_refs = 0, restart_count = 0;
 	char *ref_restarts;
-	char *block_len_pos;
+	unsigned char *block_len_pos;
 
 	if (block_size < 2000)
 		BUG("too small reftable block size '%d'", block_size);
@@ -375,7 +375,7 @@ int reftable_add_ref_block(char *ref_records,
  *   varint( block_position )
  *
  */
-int reftable_add_index_record(char *index_records,
+int reftable_add_index_record(unsigned char *index_records,
 			      uintmax_t max_size,
 			      int i,
 			      const struct ref_update *updates,
@@ -385,7 +385,7 @@ int reftable_add_index_record(char *index_records,
 	uintmax_t suffix_length;
 	uintmax_t suffix_and_type;
 	uintmax_t max_full_length;
-	char *pos = index_records;
+	unsigned char *pos = index_records;
 	const char *refname = updates[i].refname;
 
 	if (i != 0)
@@ -431,7 +431,7 @@ uintmax_t get_block_pos(const struct ref_update *update)
  *   padding?
  *
  */
-int reftable_add_ref_index(char *index_buf,
+int reftable_add_ref_index(unsigned char *index_buf,
 			   int index_count,
 			   uintmax_t max_size,
 			   uint32_t block_size,
@@ -494,7 +494,7 @@ int reftable_add_ref_index(char *index_buf,
  *   varint( position_delta )*
  *
  */
-int reftable_add_object_record(char *object_records,
+int reftable_add_object_record(unsigned char *object_records,
 			      uintmax_t max_size,
 			      int i,
 			      const char **refnames,
@@ -504,7 +504,7 @@ int reftable_add_object_record(char *object_records,
 	uintmax_t suffix_length;
 	uintmax_t suffix_and_type;
 	uintmax_t max_full_length;
-	char *pos = object_records;
+	unsigned char *pos = object_records;
 
 	if (i != 0)
 		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
@@ -531,7 +531,7 @@ int reftable_add_object_record(char *object_records,
 int reftable_write_reftable_blocks(int fd, uint32_t block_size,
 				   const struct ref_update *updates, int nr_updates)
 {
-	char *ref_records;
+	unsigned char *ref_records;
 	unsigned int ref_written;
 	struct reftable_header header;
 	uint64_t min_update_index;
