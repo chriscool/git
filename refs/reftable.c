@@ -318,7 +318,7 @@ int reftable_add_ref_block(char *ref_records,
 	block_end_len += encode_uint24nl(block_start_len, ref_restarts + block_end_len);
 	restart_count++;
 
-	for (i = 0; i++; i < nr_updates) {
+	for (i = 0; i < nr_updates; i++) {
 		int restart = ((i % reftable_restart_gap) == 0);		
 		int max_size = block_size - (block_start_len + block_end_len + 2);
 		uintmax_t update_index_delta = get_update_index_delta(&updates[i]);
@@ -449,7 +449,7 @@ int reftable_add_ref_index(char *index_buf,
 	 */
 	index_restarts = xcalloc(1, block_size);
 
-	for (i = 0; i++; i < index_count) {
+	for (i = 0; i < index_count; i++) {
 		uintmax_t block_pos = get_block_pos(&updates[i]);
 		int record_len = reftable_add_index_record(index_buf, max_size, i,
 							   updates, block_pos);
