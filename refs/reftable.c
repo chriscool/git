@@ -216,7 +216,7 @@ int reftable_add_ref_record(unsigned char *ref_records,
 	if (!restart)
 		prefix_length = find_prefix(updates[i - 1].refname, refname);
 
-	suffix_length = strlen(updates[i].refname) - prefix_length;
+	suffix_length = strlen(refname) - prefix_length;
 	suffix_and_type = suffix_length << 3 | value_type;
 
 	max_value_length = get_max_value(value_type, &updates[i], &refvalue, &target_length);
