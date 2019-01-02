@@ -51,13 +51,15 @@ static int cmd_write_file(const char **argv)
 
 	refs_for_each_ref(get_main_ref_store(the_repository), get_all_refs, NULL);
 
+	printf("nr_updates: %d\n", nr_updates);
+
 	fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0666);
 	if (fd < 0) {
 		perror(path);
 		return 1;
 	}
 
-	res = reftable_write_reftable_blocks(fd, block_size, *updates, nr_updates);
+	res = reftable_write_reftable_blocks(fd, block_size, updates, nr_updates);
 
 	/* TODO: write other blocks */
 
