@@ -190,7 +190,7 @@ int get_value_type(const struct ref_update *update, struct object_id *peeled)
 int reftable_add_ref_record(unsigned char *ref_records,
 			    uintmax_t max_size,
 			    int i,
-			    const struct ref_update *updates,
+			    const struct ref_update **updates,
 			    uintmax_t update_index_delta,
 			    int restart)
 {
@@ -201,7 +201,7 @@ int reftable_add_ref_record(unsigned char *ref_records,
 	uintmax_t max_value_length;
 	uintmax_t max_full_length;
 	unsigned char *pos = ref_records;
-	const char *refname = updates[i].refname;
+	const char *refname = updates[i]->refname;
 	const char *refvalue = NULL;
 	int value_type;
 	struct object_id peeled;
@@ -209,20 +209,20 @@ int reftable_add_ref_record(unsigned char *ref_records,
 	if (i == 0 && !restart)
 		BUG("first ref record is always a restart");
 
-	value_type = get_value_type(&updates[i], &peeled);
+	value_type = get_value_type(updates[i], &peeled);
 	if (value_type < 0)
 		return value_type;
 
 	if (!restart)
-		prefix_length = find_prefix(updates[i - 1].refname, refname);
+		prefix_length = find_prefix(updates[i - 1]->refname, refname);
 
 	suffix_length = strlen(refname) - prefix_length;
 	suffix_and_type = suffix_length << 3 | value_type;
 
-	max_value_length = get_max_value(value_type, &updates[i], &refvalue, &target_length);
+	max_value_length = get_max_value(value_type, updates[i], &refvalue, &target_length);
 
 	if (value_type && !refvalue)
-		BUG("couldn't find value for ref '%s'", updates[i].refname);
+		BUG("couldn't find value for ref '%s'", updates[i]->refname);
 
 	/* 16 * 3 as there are 3 varints */
 	max_full_length = 16 * 3 + suffix_length + max_value_length;
@@ -286,7 +286,7 @@ int reftable_add_ref_block(unsigned char *ref_records,
 			   struct reftable_header *header,
 			   uint32_t block_size,
 			   int padding,
-			   const struct ref_update *updates,
+			   const struct ref_update **updates,
 			   int nr_updates)
 {
 	uint32_t block_start_len = 0, block_end_len = 0;
@@ -321,7 +321,7 @@ int reftable_add_ref_block(unsigned char *ref_records,
 	for (i = 0; i < nr_updates; i++) {
 		int restart = ((i % reftable_restart_gap) == 0);		
 		int max_size = block_size - (block_start_len + block_end_len + 2);
-		uintmax_t update_index_delta = get_update_index_delta(&updates[i]);
+		uintmax_t update_index_delta = get_update_index_delta(updates[i]);
 		int record_len = reftable_add_ref_record(ref_records, max_size,
 							 i, updates, update_index_delta, restart);
 
@@ -529,7 +529,7 @@ int reftable_add_object_record(unsigned char *object_records,
 }
 
 int reftable_write_reftable_blocks(int fd, uint32_t block_size,
-				   const struct ref_update *updates, int nr_updates)
+				   const struct ref_update **updates, int nr_updates)
 {
 	unsigned char *ref_records;
 	unsigned int ref_written;
