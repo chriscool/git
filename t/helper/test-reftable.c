@@ -21,12 +21,12 @@ void register_update(struct ref_update *up)
 int get_all_refs(const char *refname, const struct object_id *oid,
 		   int flags, void *cb_data)
 {
-	
 	struct ref_update *update;
 
 	FLEX_ALLOC_STR(update, refname, refname);
 
 	oidcpy(&update->new_oid, oid);
+	update->flags |= REF_HAVE_NEW;
 
 	register_update(update);
 	
