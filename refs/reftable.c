@@ -323,7 +323,7 @@ int reftable_add_ref_block(unsigned char *ref_records,
 		int restart = ((i % reftable_restart_gap) == 0);		
 		int max_size = block_size - (block_start_len + block_end_len + 2);
 		uintmax_t update_index_delta = get_update_index_delta(updates[i]);
-		int record_len = reftable_add_ref_record(ref_records, max_size,
+		int record_len = reftable_add_ref_record(ref_records + block_start_len, max_size,
 							 i, updates, update_index_delta, restart);
 
 		if (record_len < 1)
