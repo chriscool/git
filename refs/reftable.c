@@ -323,9 +323,10 @@ static int reftable_add_ref_block(unsigned char *ref_records,
 	/* Add header */
 	block_start_len += encode_reftable_header(header, ref_records + block_start_len);
 
-	/* Add 'r' + uint24( block_len ) */
+	/* Add 'r' */
 	block_start_len += encode_data("r", 1, ref_records + block_start_len);
-	/* We don't know the block_len so we postpone writting it */
+
+	/* We don't know the block_len so we postpone adding uint24( block_len ) */
 	block_len_pos = ref_records + block_start_len;
 	block_start_len += 3;
 
