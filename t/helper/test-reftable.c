@@ -58,7 +58,7 @@ static int cmd_write_file(const char **argv)
 		return 1;
 	}
 
-	res = reftable_write_reftable_blocks(fd, block_size, updates, nr_updates);
+	res = reftable_write_reftable_blocks(fd, block_size, path, updates, nr_updates);
 
 	/* TODO: write other blocks */
 
@@ -73,7 +73,7 @@ struct command {
 };
 
 static struct command commands[] = {
-	{ "reftable", cmd_write_file },
+	{ "write-reftable", cmd_write_file },
 	{ NULL, NULL }
 };
 
