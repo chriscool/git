@@ -67,6 +67,47 @@ static int cmd_write_file(const char **argv)
 	return res;
 }
 
+/*
+ * Read refs from a reftable file at the given path.
+ */
+static int cmd_read_file(const char **argv)
+{
+	const char *path = *argv++;
+	int fd;
+	int res;
+	uint32_t block_size = 1024 * 16; /* 16KB */
+
+	if (!path)
+		die("file path required");
+
+	setup_git_directory();
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		perror(path);
+		return 1;
+	}
+
+	res = reftable_read_reftable_blocks(fd, block_size, path,
+					    updates, &nr_updates, &alloc_updates);
+
+	/* TODO: read other blocks */
+
+	close(fd);
+
+	/*
+	 * TODO: do something with the refs,
+	 * like for example write them as loose and packed refs
+
+	refs_for_each_ref(get_main_ref_store(the_repository), get_all_refs, NULL);
+
+	*/
+
+	printf("nr_updates: %d\n", nr_updates);
+
+	return res;
+}
+
 struct command {
 	const char *name;
 	int (*func)(const char **argv);
@@ -74,6 +115,7 @@ struct command {
 
 static struct command commands[] = {
 	{ "write-reftable", cmd_write_file },
+	{ "read-reftable", cmd_read_file },
 	{ NULL, NULL }
 };
 
