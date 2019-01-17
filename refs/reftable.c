@@ -98,6 +98,12 @@ static size_t encode_data(const void *src, size_t n, void *buf)
 	return n;
 }
 
+static size_t decode_data(void *dst, size_t n, void *buf)
+{
+	memcpy(dst, buf, n);
+	return n;
+}
+
 static void encode_padding(size_t n, void *buf)
 {
 	memset(buf, 0, n);
@@ -111,6 +117,17 @@ static size_t encode_uint16nl(uint16_t val, void *buf)
 	return encode_data(p, 2, buf);
 }
 
+static size_t decode_uint16nl(uint16_t *val, void *buf)
+{
+	uint16_t nl_val;
+	char *p = (char *)&nl_val;
+	size_t res = decode_data(p, 2, buf);
+
+	*val = ntohl(nl_val);
+
+	return res;
+}
+
 static size_t encode_uint24nl(uint32_t val, void *buf)
 {
 	uint32_t nl_val = htonl(val);
@@ -120,6 +137,17 @@ static size_t encode_uint24nl(uint32_t val, void *buf)
 		BUG("too big value '%d' for uint24", val);
 
 	return encode_data(p + 1, 3, buf);
+}
+
+static size_t decode_uint24nl(uint32_t *val, void *buf)
+{
+	uint32_t nl_val = 0;
+	char *p = (char *)&nl_val;
+	size_t res = decode_data(p + 1, 3, buf);
+
+	*val = ntohl(nl_val);
+
+	return res;
 }
 
 static size_t encode_reftable_header(struct reftable_header *header, void *buf)
@@ -133,6 +161,16 @@ static size_t encode_reftable_header(struct reftable_header *header, void *buf)
 		BUG("bad reftable header size '%d' instead of 24", header_size);
 
 	return encode_data(header, header_size, buf);
+}
+
+static size_t decode_reftable_header(struct reftable_header *header, void *buf)
+{
+	const int header_size =  sizeof(*header);
+
+	if (header_size != 24)
+		BUG("bad reftable header size '%d' instead of 24", header_size);
+
+	return decode_data(header, header_size, buf);
 }
 
 /*
@@ -582,6 +620,18 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 	return 0;
 }
 
+static int reftable_read_ref_record(unsigned char *ref_records,
+				    int i,
+				    const struct ref_update **updates,
+				    uintmax_t *update_index_delta)
+{
+	/*
+	 * TODO: implement reading ref record
+	 */
+
+	return 0;
+}
+
 /*
  * Read a ref block from `ref_records`.
  *
@@ -608,13 +658,47 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 				   int *nr_updates,
 				   int *alloc_updates)
 {
-	int i = 0;
+	int i;
+	uint32_t block_start_len = 0;
+	uint32_t block_end_len = 0;
+	char r;
+	uint32_t block_len;
+	uint16_t restart_count = 0;
+	uint32_t *restart_offsets;
 
-	/*
-	 * TODO: implement reading a ref block
-	 */
+	/* Read header */
+	block_start_len += decode_reftable_header(header, ref_records + block_start_len);
 
-	return i;
+	/* TODO: verify header */
+
+	/* Read 'r' */
+	block_start_len += decode_data((void *)&r, 1, ref_records + block_start_len);
+	if (r != 'r')
+		return error(_("error reading 'r' in ref block"));
+
+	/* Read uint24( block_len ) */
+	block_start_len += decode_uint24nl(&block_len, ref_records + block_start_len);
+
+	/* Read uint16( restart_count ) from the end */
+	block_end_len += decode_uint16nl(&restart_count, ref_records + block_len - 2);
+
+	/* Read uint24( restart_offset )+ from the end */
+	restart_offsets = xcalloc(restart_count, sizeof(*restart_offsets));
+	for (i = 0; i < restart_count; i++) {
+		void *pos = ref_records + block_len - 2 - (restart_count - i) * 3;
+		decode_uint24nl(&restart_offsets[i], pos);
+	}
+
+	while (block_start_len < block_len - block_end_len) {
+		uintmax_t update_index_delta;
+		int record_len = reftable_read_ref_record(ref_records + block_start_len,
+							 i, updates, &update_index_delta);
+
+		/* Add the record */
+		block_start_len += record_len;
+	}
+
+	return 0;
 }
 
 int reftable_read_reftable_blocks(int fd, uint32_t block_size, const char *path,
