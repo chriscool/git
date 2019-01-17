@@ -134,6 +134,7 @@ uintmax_t get_max_value(int value_type, const struct ref_update *update,
 	case 0x0:
 		return 0;
 	case 0x1:
+		*refvalue = update->new_oid.hash;
 		return the_hash_algo->rawsz;
 	case 0x2:
 		return 2 * the_hash_algo->rawsz;
