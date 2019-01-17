@@ -14,6 +14,13 @@ struct reftable_header {
 	uint64_t max_update_index;
 };
 
+/*
+ * The way reftable is written has been copied from the way cache
+ * entries are written.
+ *
+ * See ce_write_flush() and ce_write() in read-cache.c.
+ */
+
 #define WRITE_BUFFER_SIZE 8192
 static unsigned char write_buffer[WRITE_BUFFER_SIZE];
 static unsigned long write_buffer_len;
@@ -51,9 +58,16 @@ static int reftable_write_data(int fd, void *data, unsigned int len)
 	return 0;
 }
 
-static int reftable_write_header(int fd, struct reftable_header *header)
+static int reftable_read_data(int fd, void *data,
+			      unsigned int len, off_t offset)
 {
-	return reftable_write_data(fd, header, sizeof(*header));
+	/*
+	 * TODO: use mmap if possible
+	 */
+	ssize_t bytes_read = pread_in_full(fd, data, len, offset);
+	if (bytes_read < 0 || bytes_read != len)
+		return -1;
+	return 0;
 }
 
 void reftable_header_init(struct reftable_header *header, uint32_t block_size,
@@ -266,9 +280,9 @@ uintmax_t get_update_index_delta(const struct ref_update *update)
 }
 
 /*
- * Add a ref block to buf.
+ * Add a ref block to `ref_records`.
  *
- * The refs added to the block are taken from refnames and values.
+ * The refs added to the block are taken from `updates`.
  *
  * Return the number of refs that could be added into the ref block.
  *
@@ -283,12 +297,12 @@ uintmax_t get_update_index_delta(const struct ref_update *update)
  *   padding?
  *
  */
-int reftable_add_ref_block(unsigned char *ref_records,
-			   struct reftable_header *header,
-			   uint32_t block_size,
-			   int padding,
-			   const struct ref_update **updates,
-			   int nr_updates)
+static int reftable_add_ref_block(unsigned char *ref_records,
+				  struct reftable_header *header,
+				  uint32_t block_size,
+				  int padding,
+				  const struct ref_update **updates,
+				  int nr_updates)
 {
 	uint32_t block_start_len = 0, block_end_len = 0;
 	uint32_t restart_offset = 0;
@@ -529,7 +543,7 @@ int reftable_add_object_record(unsigned char *object_records,
 	return pos - object_records;
 }
 
-int reftable_write_reftable_blocks(int fd, uint32_t block_size,
+int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path,
 				   const struct ref_update **updates, int nr_updates)
 {
 	unsigned char *ref_records;
@@ -537,7 +551,7 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size,
 	struct reftable_header header;
 	uint64_t min_update_index;
 	uint64_t max_update_index;
-	int padding = 1;
+	int padding = 1; /* TODO: move this up the call chain */
 
 	/* Create ref header */
 	reftable_header_init(&header, block_size,
@@ -545,10 +559,11 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size,
 
 	/* Add ref records blocks */
 
-
 	ref_records = xcalloc(1, block_size);
 
-	/* Loop until all refs have been written */
+	/*
+	 * TODO: start looping until all the refs have been added
+	 */
 
 	ref_written = reftable_add_ref_block(ref_records,
 					     &header,
@@ -556,8 +571,81 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size,
 					     padding,
 					     updates,
 					     nr_updates);
-	reftable_write_data(fd, ref_records, block_size);
+	if (reftable_write_data(fd, ref_records, block_size))
+		die_errno("couldn't write to '%s'", path);
 
+	/*
+	 * TODO: end looping until all the refs have been added
+	 */
+
+	return 0;
+}
+
+/*
+ * Read a ref block from `ref_records`.
+ *
+ * The refs read from the block are written into `updates`.
+ *
+ * Return the number of refs that could be read from the ref block.
+ *
+ * Ref Block format:
+ *
+ *   'r'
+ *   uint24( block_len )
+ *   ref_record+
+ *   uint24( restart_offset )+
+ *   uint16( restart_count )
+ *
+ *   padding?
+ *
+ */
+static int reftable_read_ref_block(unsigned char *ref_records,
+				   struct reftable_header *header,
+				   uint32_t block_size,
+				   int padding,
+				   const struct ref_update **updates,
+				   int *nr_updates,
+				   int *alloc_updates)
+{
+	int i = 0;
+
+	/*
+	 * TODO: implement reading a ref block
+	 */
+
+	return i;
+}
+
+int reftable_read_reftable_blocks(int fd, uint32_t block_size, const char *path,
+				  const struct ref_update **updates,
+				  int *nr_updates, int *alloc_updates)
+{
+	unsigned int ref_read;
+	struct reftable_header header;
+	unsigned char *ref_records = xcalloc(1, block_size);
+	int padding = 1; /* TODO: move this up the call chain */
+	off_t offset = 0;
+
+	/*
+	 * TODO: start looping until all the refs have been read
+	 */
+
+	if (reftable_read_data(fd, ref_records, block_size, offset))
+		die_errno("couldn't read from '%s'", path);
+
+	ref_read = reftable_read_ref_block(ref_records,
+					   &header,
+					   block_size,
+					   padding,
+					   updates,
+					   nr_updates,
+					   alloc_updates);
+
+	offset += block_size;
+
+	/*
+	 * TODO: end looping until all the refs have been read
+	 */
 
 	return 0;
 }
