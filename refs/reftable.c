@@ -98,7 +98,7 @@ static size_t encode_data(const void *src, size_t n, void *buf)
 	return n;
 }
 
-static size_t decode_data(void *dst, size_t n, void *buf)
+static size_t decode_data(void *dst, size_t n, const void *buf)
 {
 	memcpy(dst, buf, n);
 	return n;
@@ -117,7 +117,7 @@ static size_t encode_uint16nl(uint16_t val, void *buf)
 	return encode_data(p, 2, buf);
 }
 
-static size_t decode_uint16nl(uint16_t *val, void *buf)
+static size_t decode_uint16nl(uint16_t *val, const void *buf)
 {
 	uint16_t nl_val;
 	char *p = (char *)&nl_val;
@@ -139,7 +139,7 @@ static size_t encode_uint24nl(uint32_t val, void *buf)
 	return encode_data(p + 1, 3, buf);
 }
 
-static size_t decode_uint24nl(uint32_t *val, void *buf)
+static size_t decode_uint24nl(uint32_t *val, const void *buf)
 {
 	uint32_t nl_val = 0;
 	char *p = (char *)&nl_val;
@@ -163,7 +163,7 @@ static size_t encode_reftable_header(struct reftable_header *header, void *buf)
 	return encode_data(header, header_size, buf);
 }
 
-static size_t decode_reftable_header(struct reftable_header *header, void *buf)
+static size_t decode_reftable_header(struct reftable_header *header, const void *buf)
 {
 	const int header_size =  sizeof(*header);
 
@@ -620,16 +620,127 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 	return 0;
 }
 
+/*
+ * Read a ref record from `ref_records`.
+ *
+ * Nothing should be read at or after `max_ref_record_pos`.
+ *
+ * Return the size of the ref record that was read.
+ * Return 0 if no record could be read because it
+ * would read at or after `max_ref_record_pos`.
+ *
+ * Ref record format:
+ *
+ *   varint( prefix_length )
+ *   varint( (suffix_length << 3) | value_type )
+ *   suffix
+ *   varint( update_index_delta )
+ *   value?
+ *
+ */
 static int reftable_read_ref_record(unsigned char *ref_records,
-				    int i,
+				    uint32_t current_restart,
+				    const unsigned char *max_ref_record_pos,
 				    const struct ref_update **updates,
+				    int *nr_updates,
+				    int *alloc_updates,
 				    uintmax_t *update_index_delta)
 {
-	/*
-	 * TODO: implement reading ref record
-	 */
+	uintmax_t prefix_length = 0;
+	uintmax_t suffix_length;
+	uintmax_t suffix_and_type;
+	const unsigned char *pos = ref_records;
+	int value_type;
+	struct ref_update *update;
+	char *refname;
 
-	return 0;
+	/* TODO: return an error instead of BUG()ing */
+	if (*nr_updates == 0 && !current_restart)
+		BUG("reftable_read_ref_record: first ref record is always a restart");
+
+	/* Read varint( prefix_length ) */
+	prefix_length = decode_varint(&pos);
+	if (pos >= max_ref_record_pos)
+		return 0;
+
+	/* TODO: return an error instead of BUG()ing */
+	if (current_restart && prefix_length)
+		BUG("reftable_read_ref_record: when restarting prefix_length should be 0");
+
+	/* Read varint( (suffix_length << 3) | value_type ) */
+	suffix_and_type = decode_varint(&pos);
+	if (pos >= max_ref_record_pos)
+		return 0;
+
+	value_type = suffix_and_type & 0x7;
+	suffix_length = suffix_and_type >> 3;
+
+	refname = xmallocz(prefix_length + suffix_length);
+
+	if (prefix_length) {
+		const char *previous = updates[*nr_updates - 1]->refname;
+
+		/* TODO: return an error instead of BUG()ing */
+		if (strlen(previous) < prefix_length)
+			BUG("reftable_read_ref_record: previous lenght too big");
+
+		memcpy(refname, previous, prefix_length);
+	}
+
+	/* Read suffix */
+	pos += decode_data(refname + prefix_length, suffix_length, pos);
+	if (pos >= max_ref_record_pos)
+		return 0;
+
+	FLEX_ALLOC_STR(update, refname, refname);
+
+	/* Read varint( update_index_delta ) */
+	*update_index_delta = decode_varint(&pos);
+	if (pos >= max_ref_record_pos)
+		return 0;
+
+	/* Read value? */
+	switch (value_type) {
+	case 0x0:
+		break;
+	case 0x1:
+		pos += decode_data(&update->new_oid, the_hash_algo->rawsz, pos);
+		update->flags |= REF_HAVE_NEW;
+		break;
+	case 0x2:
+		/* TODO:
+		pos += decode_data(refvalue, 2 * the_hash_algo->rawsz, pos);
+		*/
+		break;
+	case 0x3:
+		/* TODO:
+		pos += decode_varint(target_length, pos);
+		pos += decode_data(refvalue, target_length, pos);
+		*/
+		break;
+	default:
+		/* TODO: return an error instead of BUG()ing */
+		BUG("unknown value_type '%d'", value_type);
+	}
+
+	ALLOC_GROW(updates, *nr_updates + 1, *alloc_updates);
+	updates[*nr_updates++] = update;
+
+	return pos - ref_records;
+}
+
+uint32_t get_current_restart_offset(uint32_t block_start_len, uint32_t *restart_offsets,
+				    int *i, uint16_t restart_count)
+{
+	while (restart_offsets[*i] < block_start_len && *i < restart_count)
+		*i++;
+
+	if (*i >= restart_count || restart_offsets[*i] > block_start_len)
+		return 0;
+
+	/* restart_offsets[*i] == block_start_len */
+	*i++;
+	return block_start_len;
 }
 
 /*
@@ -685,20 +796,28 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 	/* Read uint24( restart_offset )+ from the end */
 	restart_offsets = xcalloc(restart_count, sizeof(*restart_offsets));
 	for (i = 0; i < restart_count; i++) {
-		void *pos = ref_records + block_len - 2 - (restart_count - i) * 3;
+		char *pos = ref_records + block_len - 2 - (restart_count - i) * 3;
 		decode_uint24nl(&restart_offsets[i], pos);
 	}
 
+	/* Read ref_record+ */
+	if (*nr_updates != 0)
+		BUG("nr_updates should be 0 when starting reading updates");
+	i = 0;
+	const unsigned char *max_ref_record_pos = ref_records + block_len - 2 - restart_count * 3;
 	while (block_start_len < block_len - block_end_len) {
 		uintmax_t update_index_delta;
+		uint32_t current_restart = get_current_restart_offset(block_start_len, restart_offsets, &i, restart_count);
 		int record_len = reftable_read_ref_record(ref_records + block_start_len,
-							 i, updates, &update_index_delta);
+							  current_restart, max_ref_record_pos,
+							  updates, nr_updates, alloc_updates,
+							  &update_index_delta);
 
 		/* Add the record */
 		block_start_len += record_len;
 	}
 
-	return 0;
+	return *nr_updates;
 }
 
 int reftable_read_reftable_blocks(int fd, uint32_t block_size, const char *path,
