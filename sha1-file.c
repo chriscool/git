@@ -1311,7 +1311,7 @@ int oid_object_info_extended(struct repository *r, const struct object_id *oid,
 			 * promisors_get_direct(), such that arbitrary
 			 * repositories work.
 			 */
-			promisors_get_direct(real, 1);
+			promisor_remote_get_direct(real, 1);
 			already_retried = 1;
 			continue;
 		}
