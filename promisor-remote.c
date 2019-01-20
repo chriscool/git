@@ -19,15 +19,31 @@ struct promisor_remote *promisor_remote_new(const char *remote_name)
 	return o;
 }
 
-static struct promisor_remote *promisor_remote_look_up(const char *remote_name)
+static struct promisor_remote *promisor_remote_look_up(const char *remote_name,
+						       struct promisor_remote **previous)
 {
-	struct promisor_remote *o;
+	struct promisor_remote *o, *p;
 
-	for (o = promisors; o; o = o->next)
-		if (o->remote_name && !strcmp(o->remote_name, remote_name))
+	for (p = NULL, o = promisors; o; p = o, o = o->next)
+		if (o->remote_name && !strcmp(o->remote_name, remote_name)) {
+			if (previous)
+				*previous = p;
 			return o;
+		}
 
 	return NULL;
+}
+
+static void promisor_remote_move_to_tail(struct promisor_remote *o,
+					 struct promisor_remote *previous)
+{
+	if (previous)
+		previous->next = o->next;
+	else
+		promisors = o->next ? o->next : o;
+	o->next = NULL;
+	*promisors_tail = o;
+	promisors_tail = &o->next;
 }
 
 static int promisor_remote_config(const char *var, const char *value, void *data)
@@ -48,7 +64,7 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 
 		remote_name = xmemdupz(name, namelen);
 
-		if (promisor_remote_look_up(remote_name)) {
+		if (promisor_remote_look_up(remote_name, NULL)) {
 			free(remote_name);
 			return error(_("when parsing config key '%s' "
 				       "promisor remote '%s' already exists"),
@@ -63,7 +79,7 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 	if (!strcmp(subkey, "partialclonefilter")) {
 		char *remote_name = xmemdupz(name, namelen);
 
-		o = promisor_remote_look_up(remote_name);
+		o = promisor_remote_look_up(remote_name, NULL);
 		if (!o)
 			o = promisor_remote_new(remote_name);
 
@@ -84,9 +100,16 @@ static void promisor_remote_do_init(int force)
 
 	git_config(promisor_remote_config, NULL);
 
-	if (repository_format_partial_clone &&
-	    !promisor_remote_look_up(repository_format_partial_clone))
-		promisor_remote_new(repository_format_partial_clone);
+	if (repository_format_partial_clone) {
+		struct promisor_remote *o, *previous;
+
+		o = promisor_remote_look_up(repository_format_partial_clone,
+					    &previous);
+		if (o)
+			promisor_remote_move_to_tail(o, previous);
+		else
+			promisor_remote_new(repository_format_partial_clone);
+	}
 }
 
 static inline void promisor_remote_init(void)
@@ -106,7 +129,7 @@ struct promisor_remote *promisor_remote_find(const char *remote_name)
 	if (!remote_name)
 		return promisors;
 
-	return promisor_remote_look_up(remote_name);
+	return promisor_remote_look_up(remote_name, NULL);
 }
 
 int has_promisor_remote(void)
