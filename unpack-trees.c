@@ -436,7 +436,7 @@ static int check_updates(struct unpack_trees_options *o)
 			}
 		}
 		if (to_fetch.nr)
-			promisors_get_direct(to_fetch.oid, to_fetch.nr);
+			promisor_remote_get_direct(to_fetch.oid, to_fetch.nr);
 		fetch_if_missing = fetch_if_missing_store;
 		oid_array_clear(&to_fetch);
 	}
