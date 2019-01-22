@@ -64,14 +64,8 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 
 		remote_name = xmemdupz(name, namelen);
 
-		if (promisor_remote_look_up(remote_name, NULL)) {
-			free(remote_name);
-			return error(_("when parsing config key '%s' "
-				       "promisor remote '%s' already exists"),
-				     var, remote_name);
-		}
-
-		promisor_remote_new(remote_name);
+		if (!promisor_remote_look_up(remote_name, NULL))
+			promisor_remote_new(remote_name);
 
 		free(remote_name);
 		return 0;
