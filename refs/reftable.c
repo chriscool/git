@@ -5,6 +5,7 @@
 #include "varint.h"
 
 #define REFTABLE_SIGNATURE 0x52454654  /* "REFT" */
+#define REFTABLE_VERSION 1
 
 struct reftable_header {
 	unsigned int signature: 32;
@@ -70,11 +71,11 @@ static int reftable_read_data(int fd, void *data,
 	return 0;
 }
 
-void reftable_header_init(struct reftable_header *header, uint32_t block_size,
-			  uint64_t min_update_index, uint64_t max_update_index)
+static void reftable_header_init(struct reftable_header *header, uint32_t block_size,
+				 uint64_t min_update_index, uint64_t max_update_index)
 {
 	header->signature = htonl(REFTABLE_SIGNATURE);
-	header->version_number = htonl(1);
+	header->version_number = htonl(REFTABLE_VERSION);
 
 	if (block_size > 0xffffff)
 		BUG("too big block size '%d'", block_size);
@@ -82,6 +83,17 @@ void reftable_header_init(struct reftable_header *header, uint32_t block_size,
 
 	header->min_update_index = htonl(min_update_index);
 	header->max_update_index = htonl(max_update_index);
+}
+
+static void reftable_header_check(struct reftable_header *header)
+{
+	uint32_t signature = ntohl(header->signature);
+	uint32_t version = ntohl(header->version_number);
+
+	if (signature != REFTABLE_SIGNATURE)
+		BUG("invalid reftable signature '%d' instead of '%d'", signature, REFTABLE_SIGNATURE);
+	if (version != REFTABLE_VERSION)
+		BUG("invalid reftable version '%d' instead of '%d'", version, REFTABLE_VERSION);
 }
 
 static size_t find_prefix(const char *a, const char *b)
@@ -779,8 +791,7 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 
 	/* Read header */
 	block_start_len += decode_reftable_header(header, ref_records + block_start_len);
-
-	/* TODO: verify header */
+	reftable_header_check(header);
 
 	/* Read 'r' */
 	block_start_len += decode_data((void *)&r, 1, ref_records + block_start_len);
