@@ -123,7 +123,7 @@ static void encode_padding(size_t n, void *buf)
 
 static size_t encode_uint16nl(uint16_t val, void *buf)
 {
-	uint16_t nl_val = htonl(val);
+	uint16_t nl_val = htons(val);
 	const char *p = (char *)&nl_val;
 
 	return encode_data(p, 2, buf);
@@ -135,7 +135,7 @@ static size_t decode_uint16nl(uint16_t *val, const void *buf)
 	char *p = (char *)&nl_val;
 	size_t res = decode_data(p, 2, buf);
 
-	*val = ntohl(nl_val);
+	*val = ntohs(nl_val);
 
 	return res;
 }
