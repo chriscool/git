@@ -3,16 +3,7 @@
 #include "refs.h"
 #include "refs/reftable.h"
 #include "refs/refs-internal.h"
-
-static const struct ref_update **updates;
-static int nr_updates;
-static int alloc_updates;
-
-void register_update(struct ref_update *up)
-{
-	ALLOC_GROW(updates, nr_updates + 1, alloc_updates);
-	updates[nr_updates++] = up;
-}
+#include "refs/ref-update-array.h"
 
 /*
  * Put each ref into `updates`.
@@ -21,13 +12,14 @@ int get_all_refs(const char *refname, const struct object_id *oid,
 		   int flags, void *cb_data)
 {
 	struct ref_update *update;
+	struct ref_update_array *update_array = (struct ref_update_array *)cb_data;
 
 	FLEX_ALLOC_STR(update, refname, refname);
 
 	oidcpy(&update->new_oid, oid);
 	update->flags |= REF_HAVE_NEW;
 
-	register_update(update);
+	ref_update_array_append(update_array, update);
 
 	return 0;
 }
@@ -42,15 +34,16 @@ static int cmd_write_file(const char **argv)
 	int fd;
 	int res;
 	uint32_t block_size = 1024 * 16; /* 16KB */
+	struct ref_update_array update_array = REF_UPDATE_ARRAY_INIT;
 
 	if (!path)
 		die("file path required");
 
 	setup_git_directory();
 
-	refs_for_each_ref(get_main_ref_store(the_repository), get_all_refs, NULL);
+	refs_for_each_ref(get_main_ref_store(the_repository), get_all_refs, &update_array);
 
-	printf("nr_updates: %d\n", nr_updates);
+	printf("nr updates: %ld\n", update_array.nr);
 
 	fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0666);
 	if (fd < 0) {
@@ -58,7 +51,7 @@ static int cmd_write_file(const char **argv)
 		return 1;
 	}
 
-	res = reftable_write_reftable_blocks(fd, block_size, path, updates, nr_updates);
+	res = reftable_write_reftable_blocks(fd, block_size, path, &update_array);
 
 	/* TODO: write other blocks */
 
@@ -76,6 +69,7 @@ static int cmd_read_file(const char **argv)
 	int fd;
 	int res;
 	uint32_t block_size = 1024 * 16; /* 16KB */
+	struct ref_update_array update_array = REF_UPDATE_ARRAY_INIT;
 
 	if (!path)
 		die("file path required");
@@ -88,8 +82,7 @@ static int cmd_read_file(const char **argv)
 		return 1;
 	}
 
-	res = reftable_read_reftable_blocks(fd, block_size, path,
-					    updates, &nr_updates, &alloc_updates);
+	res = reftable_read_reftable_blocks(fd, block_size, path, &update_array);
 
 	/* TODO: read other blocks */
 
@@ -103,7 +96,7 @@ static int cmd_read_file(const char **argv)
 
 	*/
 
-	printf("nr_updates: %d\n", nr_updates);
+	printf("nr updates: %ld\n", update_array.nr);
 
 	return res;
 }
