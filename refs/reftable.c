@@ -755,6 +755,14 @@ static uint32_t get_current_restart_offset(uint32_t block_start_len, uint32_t *r
 	return block_start_len;
 }
 
+static void print_restart_offsets(uint32_t *restart_offsets, uint16_t restart_count)
+{
+	uint16_t i;
+
+	for (i = 0; i < restart_count; i++)
+		fprintf(stderr, "restart[%d]=%d\n", i, restart_offsets[i]);
+}
+
 /*
  * Read a ref block from `ref_records`.
  *
@@ -810,6 +818,7 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 		char *pos = ref_records + block_len - 2 - (restart_count - i) * 3;
 		decode_uint24nl(&restart_offsets[i], pos);
 	}
+	print_restart_offsets(restart_offsets, restart_count);
 
 	/* Read ref_record+ */
 	if (*nr_updates != 0)
