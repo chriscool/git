@@ -959,6 +959,7 @@ LIB_OBJS += refs/files-backend.o
 LIB_OBJS += refs/iterator.o
 LIB_OBJS += refs/packed-backend.o
 LIB_OBJS += refs/ref-cache.o
+LIB_OBJS += refs/ref-update-array.o
 LIB_OBJS += refs/reftable.o
 LIB_OBJS += refspec.o
 LIB_OBJS += ref-filter.o
