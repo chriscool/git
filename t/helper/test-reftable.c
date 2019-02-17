@@ -124,6 +124,9 @@ int cmd__reftable(int argc, const char **argv)
 	const char *func;
 	struct command *cmd;
 
+	/* Skip "reftable" */
+	argv++;
+
 	func = *argv++;
 	if (!func)
 		die("reftable function required");
@@ -132,5 +135,6 @@ int cmd__reftable(int argc, const char **argv)
 			return cmd->func(argv);
 	}
 	die("unknown function %s", func);
+
 	return 0;
 }
