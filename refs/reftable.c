@@ -2,6 +2,7 @@
 #include "refs.h"
 #include "refs/refs-internal.h"
 #include "refs/reftable.h"
+#include "refs/ref-update-array.h"
 #include "varint.h"
 
 #define REFTABLE_SIGNATURE 0x52454654  /* "REFT" */
@@ -255,7 +256,7 @@ int get_value_type(const struct ref_update *update, struct object_id *peeled)
 int reftable_add_ref_record(unsigned char *ref_records,
 			    uintmax_t max_size,
 			    int i,
-			    const struct ref_update **updates,
+			    struct ref_update_array *update_array,
 			    uintmax_t update_index_delta,
 			    int restart)
 {
@@ -266,7 +267,7 @@ int reftable_add_ref_record(unsigned char *ref_records,
 	uintmax_t max_value_length;
 	uintmax_t max_full_length;
 	unsigned char *pos = ref_records;
-	const char *refname = updates[i]->refname;
+	const char *refname = update_array->updates[i]->refname;
 	const char *refvalue = NULL;
 	int value_type;
 	struct object_id peeled;
@@ -274,20 +275,20 @@ int reftable_add_ref_record(unsigned char *ref_records,
 	if (i == 0 && !restart)
 		BUG("first ref record is always a restart");
 
-	value_type = get_value_type(updates[i], &peeled);
+	value_type = get_value_type(update_array->updates[i], &peeled);
 	if (value_type < 0)
 		return value_type;
 
 	if (!restart)
-		prefix_length = find_prefix(updates[i - 1]->refname, refname);
+		prefix_length = find_prefix(update_array->updates[i - 1]->refname, refname);
 
 	suffix_length = strlen(refname) - prefix_length;
 	suffix_and_type = suffix_length << 3 | value_type;
 
-	max_value_length = get_max_value(value_type, updates[i], &refvalue, &target_length);
+	max_value_length = get_max_value(value_type, update_array->updates[i], &refvalue, &target_length);
 
 	if (value_type && !refvalue)
-		BUG("couldn't find value for ref '%s'", updates[i]->refname);
+		BUG("couldn't find value for ref '%s'", refname);
 
 	/* 16 * 3 as there are 3 varints */
 	max_full_length = 16 * 3 + suffix_length + max_value_length;
@@ -351,8 +352,7 @@ static int reftable_add_ref_block(unsigned char *ref_records,
 				  struct reftable_header *header,
 				  uint32_t block_size,
 				  int padding,
-				  const struct ref_update **updates,
-				  int nr_updates)
+				  struct ref_update_array *update_array)
 {
 	uint32_t block_start_len = 0, block_end_len = 0;
 	uint32_t restart_offset = 0;
@@ -382,14 +382,15 @@ static int reftable_add_ref_block(unsigned char *ref_records,
 
 	/* Add first restart offset */
 	block_end_len += encode_uint24nl(block_start_len, ref_restarts + block_end_len);
+	fprintf(stderr, "adding restart [%d]: %d\n", restart_count, block_start_len);
 	restart_count++;
 
-	for (i = 0; i < nr_updates; i++) {
+	for (i = 0; i < update_array->nr; i++) {
 		int restart = ((i % reftable_restart_gap) == 0);		
 		int max_size = block_size - (block_start_len + block_end_len + 2);
-		uintmax_t update_index_delta = get_update_index_delta(updates[i]);
+		uintmax_t update_index_delta = get_update_index_delta(update_array->updates[i]);
 		int record_len = reftable_add_ref_record(ref_records + block_start_len, max_size,
-							 i, updates, update_index_delta, restart);
+							 i, update_array, update_index_delta, restart);
 
 		if (record_len < 1)
 			break;
@@ -409,6 +410,7 @@ static int reftable_add_ref_block(unsigned char *ref_records,
 
 	/* Add restart count */
 	block_end_len += encode_uint16nl(restart_count, ref_restarts + block_end_len);
+	fprintf(stderr, "restart_count: %d\n", restart_count);
 
 	/* Copy restarts into the records block */
 	block_start_len += encode_data(ref_restarts, block_end_len, ref_records + block_start_len);
@@ -444,7 +446,7 @@ static int reftable_add_ref_block(unsigned char *ref_records,
 int reftable_add_index_record(unsigned char *index_records,
 			      uintmax_t max_size,
 			      int i,
-			      const struct ref_update *updates,
+			      struct ref_update_array *update_array,
 			      uintmax_t block_pos)
 {
 	uintmax_t prefix_length = 0;
@@ -452,10 +454,10 @@ int reftable_add_index_record(unsigned char *index_records,
 	uintmax_t suffix_and_type;
 	uintmax_t max_full_length;
 	unsigned char *pos = index_records;
-	const char *refname = updates[i].refname;
+	const char *refname = update_array->updates[i]->refname;
 
 	if (i != 0)
-		prefix_length = find_prefix(updates[i - 1].refname, refname);
+		prefix_length = find_prefix(update_array->updates[i - 1]->refname, refname);
 
 	suffix_length = strlen(refname) - prefix_length;
 	suffix_and_type = suffix_length << 3 | 0;
@@ -501,8 +503,7 @@ int reftable_add_ref_index(unsigned char *index_buf,
 			   int index_count,
 			   uintmax_t max_size,
 			   uint32_t block_size,
-			   const struct ref_update *updates,
-			   int nr_updates)
+			   struct ref_update_array *update_array)
 {
 	uint32_t block_start_len = 0, block_end_len = 0;
 	int i, restart_count = 0;
@@ -516,9 +517,9 @@ int reftable_add_ref_index(unsigned char *index_buf,
 	index_restarts = xcalloc(1, block_size);
 
 	for (i = 0; i < index_count; i++) {
-		uintmax_t block_pos = get_block_pos(&updates[i]);
+		uintmax_t block_pos = get_block_pos(update_array->updates[i]);
 		int record_len = reftable_add_index_record(index_buf, max_size, i,
-							   updates, block_pos);
+							   update_array, block_pos);
 
 		/* Don't add the record if it makes the block too big */
 		if (block_start_len + record_len + block_end_len > block_size)
@@ -595,7 +596,7 @@ int reftable_add_object_record(unsigned char *object_records,
 }
 
 int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path,
-				   const struct ref_update **updates, int nr_updates)
+				   struct ref_update_array *update_array)
 {
 	unsigned char *ref_records;
 	unsigned int ref_written;
@@ -620,8 +621,7 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 					     &header,
 					     block_size,
 					     padding,
-					     updates,
-					     nr_updates);
+					     update_array);
 	if (reftable_write_data(fd, ref_records, block_size))
 		die_errno("couldn't write to '%s'", path);
 
@@ -653,9 +653,7 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 static int reftable_read_ref_record(unsigned char *ref_records,
 				    uint32_t current_restart,
 				    const unsigned char *max_ref_record_pos,
-				    const struct ref_update **updates,
-				    int *nr_updates,
-				    int *alloc_updates,
+				    struct ref_update_array *update_array,
 				    uintmax_t *update_index_delta)
 {
 	uintmax_t prefix_length = 0;
@@ -667,7 +665,7 @@ static int reftable_read_ref_record(unsigned char *ref_records,
 	char *refname;
 
 	/* TODO: return an error instead of BUG()ing */
-	if (*nr_updates == 0 && !current_restart)
+	if (update_array->nr == 0 && !current_restart)
 		BUG("reftable_read_ref_record: first ref record is always a restart");
 
 	/* Read varint( prefix_length ) */
@@ -690,7 +688,7 @@ static int reftable_read_ref_record(unsigned char *ref_records,
 	refname = xmallocz(prefix_length + suffix_length);
 
 	if (prefix_length) {
-		const char *previous = updates[*nr_updates - 1]->refname;
+		const char *previous = update_array->updates[update_array->nr - 1]->refname;
 
 		/* TODO: return an error instead of BUG()ing */
 		if (strlen(previous) < prefix_length)
@@ -699,13 +697,16 @@ static int reftable_read_ref_record(unsigned char *ref_records,
 		memcpy(refname, previous, prefix_length);
 	}
 
+	/* TODO free `refname` in case of error */
 	/* Read suffix */
 	pos += decode_data(refname + prefix_length, suffix_length, pos);
 	if (pos >= max_ref_record_pos)
 		return 0;
 
 	FLEX_ALLOC_STR(update, refname, refname);
+	free(refname);
 
+	/* TODO free `update` in case of error */
 	/* Read varint( update_index_delta ) */
 	*update_index_delta = decode_varint(&pos);
 	if (pos >= max_ref_record_pos)
@@ -735,23 +736,22 @@ static int reftable_read_ref_record(unsigned char *ref_records,
 		BUG("unknown value_type '%d'", value_type);
 	}
 
-	ALLOC_GROW(updates, *nr_updates + 1, *alloc_updates);
-	updates[*nr_updates++] = update;
+	ref_update_array_append(update_array, update);
 
 	return pos - ref_records;
 }
 
 static uint32_t get_current_restart_offset(uint32_t block_start_len, uint32_t *restart_offsets,
-					   int *i, uint16_t restart_count)
+					   int *restart_index, uint16_t restart_count)
 {
-	while (restart_offsets[*i] < block_start_len && *i < restart_count)
-		*i++;
+	while (*restart_index < restart_count && restart_offsets[*restart_index] < block_start_len)
+		*restart_index++;
 
-	if (*i >= restart_count || restart_offsets[*i] > block_start_len)
+	if (*restart_index >= restart_count || restart_offsets[*restart_index] > block_start_len)
 		return 0;
 
-	/* restart_offsets[*i] == block_start_len */
-	*i++;
+	/* restart_offsets[*restart_index] == block_start_len */
+	*restart_index++;
 	return block_start_len;
 }
 
@@ -759,8 +759,10 @@ static void print_restart_offsets(uint32_t *restart_offsets, uint16_t restart_co
 {
 	uint16_t i;
 
+	fprintf(stderr, "restart count: %d\n", restart_count);
 	for (i = 0; i < restart_count; i++)
 		fprintf(stderr, "restart[%d]=%d\n", i, restart_offsets[i]);
+	fprintf(stderr, "done\n");
 }
 
 /*
@@ -785,9 +787,7 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 				   struct reftable_header *header,
 				   uint32_t block_size,
 				   int padding,
-				   const struct ref_update **updates,
-				   int *nr_updates,
-				   int *alloc_updates)
+				   struct ref_update_array *update_array)
 {
 	int i;
 	uint32_t block_start_len = 0;
@@ -796,6 +796,8 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 	uint32_t block_len;
 	uint16_t restart_count = 0;
 	uint32_t *restart_offsets;
+	int restart_index = 0;
+	const unsigned char *max_ref_record_pos;
 
 	/* Read header */
 	block_start_len += decode_reftable_header(header, ref_records + block_start_len);
@@ -811,6 +813,7 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 
 	/* Read uint16( restart_count ) from the end */
 	block_end_len += decode_uint16nl(&restart_count, ref_records + block_len - 2);
+	fprintf(stderr, "restart_count: %d\n", restart_count);
 
 	/* Read uint24( restart_offset )+ from the end */
 	restart_offsets = xcalloc(restart_count, sizeof(*restart_offsets));
@@ -821,28 +824,33 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 	print_restart_offsets(restart_offsets, restart_count);
 
 	/* Read ref_record+ */
-	if (*nr_updates != 0)
-		BUG("nr_updates should be 0 when starting reading updates");
-	i = 0;
-	const unsigned char *max_ref_record_pos = ref_records + block_len - 2 - restart_count * 3;
+	if (update_array->nr != 0)
+		BUG("update_array should be empty when starting reading updates");
+
+	max_ref_record_pos = ref_records + block_len - 2 - restart_count * 3;
+
 	while (block_start_len < block_len - block_end_len) {
 		uintmax_t update_index_delta;
-		uint32_t current_restart = get_current_restart_offset(block_start_len, restart_offsets, &i, restart_count);
+		uint32_t current_restart = get_current_restart_offset(block_start_len, restart_offsets,
+								      &restart_index, restart_count);
+		fprintf(stderr, "current_restart: %d\n", current_restart);
+
 		int record_len = reftable_read_ref_record(ref_records + block_start_len,
 							  current_restart, max_ref_record_pos,
-							  updates, nr_updates, alloc_updates,
-							  &update_index_delta);
+							  update_array, &update_index_delta);
+
+		if (record_len < 1)
+			break;
 
 		/* Add the record */
 		block_start_len += record_len;
 	}
 
-	return *nr_updates;
+	return update_array->nr;
 }
 
 int reftable_read_reftable_blocks(int fd, uint32_t block_size, const char *path,
-				  const struct ref_update **updates,
-				  int *nr_updates, int *alloc_updates)
+				  struct ref_update_array *update_array)
 {
 	unsigned int ref_read;
 	struct reftable_header header;
@@ -861,9 +869,7 @@ int reftable_read_reftable_blocks(int fd, uint32_t block_size, const char *path,
 					   &header,
 					   block_size,
 					   padding,
-					   updates,
-					   nr_updates,
-					   alloc_updates);
+					   update_array);
 
 	offset += block_size;
 
