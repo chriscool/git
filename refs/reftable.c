@@ -75,7 +75,7 @@ static void reftable_header_init(struct reftable_header *header, uint32_t block_
 				 uint64_t min_update_index, uint64_t max_update_index)
 {
 	header->signature = htonl(REFTABLE_SIGNATURE);
-	header->version_number = htonl(REFTABLE_VERSION);
+	header->version_number = REFTABLE_VERSION;
 
 	if (block_size > 0xffffff)
 		BUG("too big block size '%d'", block_size);
@@ -88,7 +88,7 @@ static void reftable_header_init(struct reftable_header *header, uint32_t block_
 static void reftable_header_check(struct reftable_header *header)
 {
 	uint32_t signature = ntohl(header->signature);
-	uint32_t version = ntohl(header->version_number);
+	uint8_t version = header->version_number;
 
 	if (signature != REFTABLE_SIGNATURE)
 		BUG("invalid reftable signature '%d' instead of '%d'", signature, REFTABLE_SIGNATURE);
