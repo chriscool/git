@@ -596,14 +596,14 @@ int reftable_add_object_record(unsigned char *object_records,
 }
 
 int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path,
-				   struct ref_update_array *update_array)
+				   struct ref_update_array *update_array,
+				   int padding)
 {
 	unsigned char *ref_records;
 	unsigned int ref_written;
 	struct reftable_header header;
 	uint64_t min_update_index;
 	uint64_t max_update_index;
-	int padding = 1; /* TODO: move this up the call chain */
 
 	/* Create ref header */
 	reftable_header_init(&header, block_size,
