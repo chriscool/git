@@ -34,6 +34,8 @@ static int cmd_write_file(const char **argv)
 	int fd;
 	int res;
 	uint32_t block_size = 1024 * 16; /* 16KB */
+	int padding = 1; /* TODO: add a cli flag? */
+
 	struct ref_update_array update_array = REF_UPDATE_ARRAY_INIT;
 
 	if (!path)
@@ -51,7 +53,7 @@ static int cmd_write_file(const char **argv)
 		return 1;
 	}
 
-	res = reftable_write_reftable_blocks(fd, block_size, path, &update_array);
+	res = reftable_write_reftable_blocks(fd, block_size, path, &update_array, padding);
 
 	/* TODO: write other blocks */
 
