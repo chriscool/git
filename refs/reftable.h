@@ -6,7 +6,7 @@ struct ref_update;
 struct ref_update_array;
 
 int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path,
-				   struct ref_update_array *update_array);
+				   struct ref_update_array *update_array, int padding);
 int reftable_read_reftable_blocks(int fd, uint32_t block_size, const char *path,
 				  struct ref_update_array *update_array);
 
