@@ -90,8 +90,12 @@ static int cmd_read_file(const char **argv)
 	close(fd);
 
 	/* Print refs */
-	for (i = 0; i < update_array.nr; i++)
-		printf("%s\n", update_array.updates[i]->refname);
+	for (i = 0; i < update_array.nr; i++) {
+		struct ref_update *update = update_array.updates[i];
+		printf("%s", update->refname);
+		if (update->flags & REF_HAVE_NEW)
+			printf(" %s\n", oid_to_hex(&update->new_oid));
+	}
 
 	return res;
 }
