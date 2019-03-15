@@ -813,7 +813,6 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 
 	/* Read uint16( restart_count ) from the end */
 	block_end_len += decode_uint16nl(&restart_count, ref_records + block_len - 2);
-	fprintf(stderr, "restart_count: %d\n", restart_count);
 
 	/* Read uint24( restart_offset )+ from the end */
 	restart_offsets = xcalloc(restart_count, sizeof(*restart_offsets));
@@ -821,7 +820,6 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 		char *pos = ref_records + block_len - 2 - (restart_count - i) * 3;
 		decode_uint24nl(&restart_offsets[i], pos);
 	}
-	print_restart_offsets(restart_offsets, restart_count);
 
 	/* Read ref_record+ */
 	if (update_array->nr != 0)
@@ -833,8 +831,6 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 		uintmax_t update_index_delta;
 		uint32_t current_restart = get_current_restart_offset(block_start_len, restart_offsets,
 								      &restart_index, restart_count);
-		fprintf(stderr, "current_restart: %d\n", current_restart);
-
 		int record_len = reftable_read_ref_record(ref_records + block_start_len,
 							  current_restart, max_ref_record_pos,
 							  update_array, &update_index_delta);
