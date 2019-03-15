@@ -68,8 +68,7 @@ static int cmd_write_file(const char **argv)
 static int cmd_read_file(const char **argv)
 {
 	const char *path = *argv++;
-	int fd;
-	int res;
+	int fd, res, i;
 	uint32_t block_size = 1024 * 16; /* 16KB */
 	struct ref_update_array update_array = REF_UPDATE_ARRAY_INIT;
 
@@ -90,15 +89,9 @@ static int cmd_read_file(const char **argv)
 
 	close(fd);
 
-	/*
-	 * TODO: do something with the refs,
-	 * like for example write them as loose and packed refs
-
-	refs_for_each_ref(get_main_ref_store(the_repository), get_all_refs, NULL);
-
-	*/
-
-	printf("nr updates: %ld\n", update_array.nr);
+	/* Print refs */
+	for (i = 0; i < update_array.nr; i++)
+		printf("%s\n", update_array.updates[i]->refname);
 
 	return res;
 }
