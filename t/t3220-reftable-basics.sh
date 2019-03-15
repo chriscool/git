@@ -13,21 +13,22 @@ test_expect_success 'simple setup with 1 branch and 2 tags' '
 	test-tool reftable write-reftable reftable &&
 	test-tool reftable read-reftable reftable >raw-actual &&
 	sort raw-actual >actual &&
-	echo "refs/heads/master" >>expected &&
-	echo "refs/tags/first" >>expected &&
-	echo "refs/tags/second" >>expected &&
+	echo "refs/heads/master $(git rev-parse master)" >>expected &&
+	echo "refs/tags/first $(git rev-parse first)" >>expected &&
+	echo "refs/tags/second $(git rev-parse second)" >>expected &&
 	test_cmp expected actual
 '
 
 test_expect_success 'add many branches' '
-	for i in $(test_seq 1 5000)
+	HASH=$(git rev-parse master) &&
+	for i in $(test_seq 1 2000)
 	do
 		git checkout -b "br$i" || break
-		echo "refs/heads/br$i" >>raw-expected || break
+		echo "refs/heads/br$i $HASH" >>raw-expected || break
 	done &&
-	echo "refs/heads/master" >>raw-expected &&
-	echo "refs/tags/first" >>raw-expected &&
-	echo "refs/tags/second" >>raw-expected &&
+	echo "refs/heads/master $HASH" >>raw-expected &&
+	echo "refs/tags/first $(git rev-parse first)" >>raw-expected &&
+	echo "refs/tags/second $(git rev-parse second)" >>raw-expected &&
 	sort raw-expected >expected &&
 	test-tool reftable write-reftable reftable &&
 	test-tool reftable read-reftable reftable >raw-actual &&
