@@ -45,6 +45,16 @@
 }
 
 {
+	writing-data-from-reftable
+	Memcheck:Param
+	write(buf)
+	fun:write
+	fun:xwrite
+	fun:write_in_full
+	fun:reftable_write_flush
+}
+
+{
 	ignore-sse-strlen-invalid-read-size
 	Memcheck:Addr4
 	fun:copy_ref
