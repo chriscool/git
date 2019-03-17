@@ -738,7 +738,7 @@ static int reftable_read_ref_record(unsigned char *ref_records,
 static uint32_t get_current_restart_offset(uint32_t block_start_len, uint32_t *restart_offsets,
 					   int *restart_index, uint16_t restart_count)
 {
-	while (restart_offsets[*restart_index] < block_start_len && *restart_index < restart_count)
+	while (*restart_index < restart_count && restart_offsets[*restart_index] < block_start_len)
 		*restart_index++;
 
 	if (*restart_index >= restart_count || restart_offsets[*restart_index] > block_start_len)
