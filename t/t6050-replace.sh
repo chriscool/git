@@ -405,6 +405,17 @@ test_expect_success '--graft with and without already replaced object' '
 	git replace -d $HASH5
 '
 
+test_expect_success '--graft using a tag as the new parent' '
+	git tag new_parent $HASH5 &&
+	git replace --graft $HASH7 new_parent &&
+	commit_has_parents $HASH7 $HASH5 &&
+	git replace -d $HASH7 &&
+	git tag -a -m "anotated new parent tag" new_parent2 $HASH5 &&
+	git replace --graft $HASH7 new_parent2 &&
+	commit_has_parents $HASH7 $HASH5 &&
+	git replace -d $HASH7
+'
+
 test_expect_success GPG 'set up a signed commit' '
 	echo "line 17" >>hello &&
 	echo "line 18" >>hello &&
