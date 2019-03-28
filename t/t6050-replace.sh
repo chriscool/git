@@ -40,7 +40,7 @@ commit_peeling_shows_parents ()
 	test "$_found" = "$_parent" || return 1
 	_parent_number=$(( $_parent_number + 1 ))
     done &&
-    test_must_fail git rev-parse --verify $_commit^$_parent_number
+    test_must_fail git rev-parse --verify $_commit^$_parent_number 2>/dev/null
 }
 
 commit_has_parents ()
