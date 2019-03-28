@@ -410,8 +410,8 @@ test_expect_success '--graft using a tag as the new parent' '
 	git replace --graft $HASH7 new_parent &&
 	commit_has_parents $HASH7 $HASH5 &&
 	git replace -d $HASH7 &&
-	git tag -a -m "anotated new parent tag" new_parent2 $HASH5 &&
-	git replace --graft $HASH7 new_parent2 &&
+	git tag -a -m "annotated new parent tag" annotated_new_parent $HASH5 &&
+	git replace --graft $HASH7 annotated_new_parent &&
 	commit_has_parents $HASH7 $HASH5 &&
 	git replace -d $HASH7
 '
