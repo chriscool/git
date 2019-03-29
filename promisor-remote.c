@@ -6,7 +6,7 @@
 static struct promisor_remote *promisors;
 static struct promisor_remote **promisors_tail = &promisors;
 
-struct promisor_remote *promisor_remote_new(const char *remote_name)
+static struct promisor_remote *promisor_remote_new(const char *remote_name)
 {
 	struct promisor_remote *o;
 
