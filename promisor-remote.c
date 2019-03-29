@@ -86,8 +86,8 @@ static void promisor_remote_do_init(int force)
 	if (repository_format_partial_clone) {
 		struct promisor_remote *o, *previous;
 
-		o = promisor_remote_look_up(repository_format_partial_clone,
-					    &previous);
+		o = promisor_remote_lookup(repository_format_partial_clone,
+					   &previous);
 		if (o)
 			promisor_remote_move_to_tail(o, previous);
 		else
