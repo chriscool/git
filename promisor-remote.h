@@ -10,7 +10,6 @@ struct promisor_remote {
 	struct promisor_remote *next;
 };
 
-extern struct promisor_remote *promisor_remote_new(const char *remote_name);
 extern struct promisor_remote *promisor_remote_find(const char *remote_name);
 extern int has_promisor_remote(void);
 

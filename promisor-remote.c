@@ -5,7 +5,7 @@
 static struct promisor_remote *promisors;
 static struct promisor_remote **promisors_tail = &promisors;
 
-struct promisor_remote *promisor_remote_new(const char *remote_name)
+static struct promisor_remote *promisor_remote_new(const char *remote_name)
 {
 	struct promisor_remote *o;
 
@@ -33,21 +33,8 @@ static struct promisor_remote *promisor_remote_look_up(const char *remote_name,
 	return NULL;
 }
 
-static void promisor_remote_move_to_tail(struct promisor_remote *o,
-					 struct promisor_remote *previous)
-{
-	if (previous)
-		previous->next = o->next;
-	else
-		promisors = o->next ? o->next : o;
-	o->next = NULL;
-	*promisors_tail = o;
-	promisors_tail = &o->next;
-}
-
 static int promisor_remote_config(const char *var, const char *value, void *data)
 {
-	struct promisor_remote *o;
 	const char *name;
 	int namelen;
 	const char *subkey;
