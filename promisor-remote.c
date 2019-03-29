@@ -73,7 +73,7 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 		struct promisor_remote *o;
 		char *remote_name = xmemdupz(name, namelen);
 
-		o = promisor_remote_look_up(remote_name, NULL);
+		o = promisor_remote_lookup(remote_name, NULL);
 		if (!o)
 			o = promisor_remote_new(remote_name);
 
