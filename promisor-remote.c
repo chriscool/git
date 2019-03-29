@@ -19,8 +19,8 @@ static struct promisor_remote *promisor_remote_new(const char *remote_name)
 	return o;
 }
 
-static struct promisor_remote *promisor_remote_look_up(const char *remote_name,
-						       struct promisor_remote **previous)
+static struct promisor_remote *promisor_remote_lookup(const char *remote_name,
+						      struct promisor_remote **previous)
 {
 	struct promisor_remote *o, *p;
 
@@ -63,7 +63,7 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 
 		remote_name = xmemdupz(name, namelen);
 
-		if (!promisor_remote_look_up(remote_name, NULL))
+		if (!promisor_remote_lookup(remote_name, NULL))
 			promisor_remote_new(remote_name);
 
 		free(remote_name);
@@ -73,7 +73,7 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 		struct promisor_remote *o;
 		char *remote_name = xmemdupz(name, namelen);
 
-		o = promisor_remote_look_up(remote_name, NULL);
+		o = promisor_remote_lookup(remote_name, NULL);
 		if (!o)
 			o = promisor_remote_new(remote_name);
 
@@ -97,8 +97,8 @@ static void promisor_remote_do_init(int force)
 	if (repository_format_partial_clone) {
 		struct promisor_remote *o, *previous;
 
-		o = promisor_remote_look_up(repository_format_partial_clone,
-					    &previous);
+		o = promisor_remote_lookup(repository_format_partial_clone,
+					   &previous);
 		if (o)
 			promisor_remote_move_to_tail(o, previous);
 		else
@@ -123,7 +123,7 @@ struct promisor_remote *promisor_remote_find(const char *remote_name)
 	if (!remote_name)
 		return promisors;
 
-	return promisor_remote_look_up(remote_name, NULL);
+	return promisor_remote_lookup(remote_name, NULL);
 }
 
 int has_promisor_remote(void)
