@@ -422,9 +422,7 @@ test_expect_success '--graft using a tag as the replaced object' '
 	commit_has_parents $HASH7 $HASH5 &&
 	git replace -d $HASH7 &&
 	git tag -a -m "annotated replaced object tag" annotated_replaced_object $HASH7 &&
-	test_must_fail git replace --graft annotated_replaced_object $HASH5 &&
-	test -z "$(git replace)" &&
-	git replace --graft annotated_replaced_object^{commit} $HASH5 &&
+	git replace --graft annotated_replaced_object $HASH5 &&
 	commit_has_parents $HASH7 $HASH5 &&
 	git replace -d $HASH7
 '
