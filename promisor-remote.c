@@ -10,6 +10,12 @@ static struct promisor_remote *promisor_remote_new(const char *remote_name)
 {
 	struct promisor_remote *r;
 
+	if (*remote_name == '/') {
+		warning(_("promisor remote name cannot begin with '/': %s"),
+			remote_name);
+		return NULL;
+	}
+
 	FLEX_ALLOC_STR(r, name, remote_name);
 
 	*promisors_tail = r;
