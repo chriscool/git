@@ -79,8 +79,11 @@ static int promisor_remote_config(const char *var, const char *value, void *data
 		char *remote_name = xmemdupz(name, namelen);
 
 		r = promisor_remote_lookup(remote_name, NULL);
-		if (!r)
+		if (!r) {
 			r = promisor_remote_new(remote_name);
+			if (!r)
+				return 0;
+		}
 
 		free(remote_name);
 		return git_config_string(&r->partial_clone_filter, var, value);
