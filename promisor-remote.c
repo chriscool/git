@@ -118,10 +118,11 @@ static void promisor_remote_init(void)
 
 static void promisor_remote_clear(void)
 {
-	struct promisor_remote *r;
-
-	for (r = promisors; r; promisors = promisors->next)
+	while (promisors) {
+		struct promisor_remote *r = promisors;
+		promisors = promisors->next;
 		free(r);
+	}
 
 	promisors_tail = &promisors;
 }
