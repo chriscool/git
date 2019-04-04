@@ -1,6 +1,8 @@
 #ifndef PROMISOR_REMOTE_H
 #define PROMISOR_REMOTE_H
 
+struct object_id;
+
 /*
  * Promisor remote linked list
  *
