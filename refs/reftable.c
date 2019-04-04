@@ -193,7 +193,7 @@ const int reftable_restart_gap = 16;
 
 /* Compute max_value_length */
 uintmax_t get_max_value(int value_type, const struct ref_update *update,
-			const char **refvalue, uintmax_t *target_length)
+			const unsigned char **refvalue, uintmax_t *target_length)
 {
 	switch (value_type) {
 	case 0x0:
@@ -202,6 +202,7 @@ uintmax_t get_max_value(int value_type, const struct ref_update *update,
 		*refvalue = update->new_oid.hash;
 		return the_hash_algo->rawsz;
 	case 0x2:
+		*refvalue = update->new_oid.hash;
 		return 2 * the_hash_algo->rawsz;
 	case 0x3:
 		BUG("symrefs are not supported yet in reftable (refname: '%s')",
@@ -268,7 +269,7 @@ int reftable_add_ref_record(unsigned char *ref_records,
 	uintmax_t max_full_length;
 	unsigned char *pos = ref_records;
 	const char *refname = update_array->updates[i]->refname;
-	const char *refvalue = NULL;
+	const unsigned char *refvalue = NULL;
 	int value_type;
 	struct object_id peeled;
 
@@ -285,7 +286,8 @@ int reftable_add_ref_record(unsigned char *ref_records,
 	suffix_length = strlen(refname) - prefix_length;
 	suffix_and_type = suffix_length << 3 | value_type;
 
-	max_value_length = get_max_value(value_type, update_array->updates[i], &refvalue, &target_length);
+	max_value_length = get_max_value(value_type, update_array->updates[i],
+					 &refvalue, &target_length);
 
 	if (value_type && !refvalue)
 		BUG("couldn't find value for ref '%s'", refname);
@@ -310,7 +312,8 @@ int reftable_add_ref_record(unsigned char *ref_records,
 		pos += encode_data(refvalue, the_hash_algo->rawsz, pos);
 		break;
 	case 0x2:
-		pos += encode_data(refvalue, 2 * the_hash_algo->rawsz, pos);
+		pos += encode_data(refvalue, the_hash_algo->rawsz, pos);
+		pos += encode_data(peeled.hash, the_hash_algo->rawsz, pos);
 		break;
 	case 0x3:
 		pos += encode_varint(target_length, pos);
