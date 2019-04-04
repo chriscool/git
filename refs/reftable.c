@@ -718,9 +718,12 @@ static int reftable_read_ref_record(unsigned char *ref_records,
 		update->flags |= REF_HAVE_NEW;
 		break;
 	case 0x2:
-		/* TODO:
-		pos += decode_data(refvalue, 2 * the_hash_algo->rawsz, pos);
-		*/
+		pos += decode_data(&update->new_oid, the_hash_algo->rawsz, pos);
+		update->flags |= REF_HAVE_NEW;
+		/* Peeled data goes into backend_data */
+		update->backend_data = xmalloc(the_hash_algo->rawsz);
+		pos += decode_data(update->backend_data, the_hash_algo->rawsz, pos);
+		update->flags |= REF_KNOWS_PEELED;
 		break;
 	case 0x3:
 		/* TODO:
