@@ -94,7 +94,10 @@ static int cmd_read_file(const char **argv)
 		struct ref_update *update = update_array.updates[i];
 		printf("%s", update->refname);
 		if (update->flags & REF_HAVE_NEW)
-			printf(" %s\n", oid_to_hex(&update->new_oid));
+			printf(" %s", oid_to_hex(&update->new_oid));
+		if (update->flags & REF_KNOWS_PEELED)
+			printf(" %s", oid_to_hex(update->backend_data));
+		printf("\n");
 	}
 
 	return res;
