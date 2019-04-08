@@ -1,5 +1,14 @@
 #!/bin/sh
 
+# Disable loading of Trace2 settings from the system config
+# (usually "/etc/gitconfig") to eliminate system dependencies.
+GIT_TEST_TR2_SYSTEM_CONFIG=0 && export GIT_TEST_TR2_SYSTEM_CONFIG
+
+# Turn off any inherited trace2 settings for this test.
+unset GIT_TR2 GIT_TR2_PERF GIT_TR2_EVENT
+unset GIT_TR2_PERF_BRIEF
+unset GIT_TR2_CONFIG_PARAMS
+
 test_description='test trace2 facility (perf target)'
 . ./test-lib.sh
 
@@ -14,11 +23,6 @@ PATH="$TTDIR:$PATH" && export PATH
 # Warning: only cover our actual calls to test-tool and/or git.
 # Warning: So you may see extra lines in artifact files when
 # Warning: interactively debugging.
-
-# Turn off any inherited trace2 settings for this test.
-unset GIT_TR2 GIT_TR2_PERF GIT_TR2_EVENT
-unset GIT_TR2_PERF_BRIEF
-unset GIT_TR2_CONFIG_PARAMS
 
 V=$(git version | sed -e 's/^git version //') && export V
 
@@ -50,7 +54,7 @@ test_expect_success 'perf stream, return code 0' '
 	perl "$TEST_DIRECTORY/t0211/scrub_perf.perl" <trace.perf >actual &&
 	cat >expect <<-EOF &&
 		d0|main|version|||||$V
-		d0|main|start|||||_EXE_ trace2 001return 0
+		d0|main|start||_T_ABS_|||_EXE_ trace2 001return 0
 		d0|main|cmd_name|||||trace2 (trace2)
 		d0|main|exit||_T_ABS_|||code:0
 		d0|main|atexit||_T_ABS_|||code:0
@@ -64,7 +68,7 @@ test_expect_success 'perf stream, return code 1' '
 	perl "$TEST_DIRECTORY/t0211/scrub_perf.perl" <trace.perf >actual &&
 	cat >expect <<-EOF &&
 		d0|main|version|||||$V
-		d0|main|start|||||_EXE_ trace2 001return 1
+		d0|main|start||_T_ABS_|||_EXE_ trace2 001return 1
 		d0|main|cmd_name|||||trace2 (trace2)
 		d0|main|exit||_T_ABS_|||code:1
 		d0|main|atexit||_T_ABS_|||code:1
@@ -82,7 +86,7 @@ test_expect_success 'perf stream, error event' '
 	perl "$TEST_DIRECTORY/t0211/scrub_perf.perl" <trace.perf >actual &&
 	cat >expect <<-EOF &&
 		d0|main|version|||||$V
-		d0|main|start|||||_EXE_ trace2 003error '\''hello world'\'' '\''this is a test'\''
+		d0|main|start||_T_ABS_|||_EXE_ trace2 003error '\''hello world'\'' '\''this is a test'\''
 		d0|main|cmd_name|||||trace2 (trace2)
 		d0|main|error|||||hello world
 		d0|main|error|||||this is a test
@@ -128,15 +132,15 @@ test_expect_success 'perf stream, child processes' '
 	perl "$TEST_DIRECTORY/t0211/scrub_perf.perl" <trace.perf >actual &&
 	cat >expect <<-EOF &&
 		d0|main|version|||||$V
-		d0|main|start|||||_EXE_ trace2 004child test-tool trace2 004child test-tool trace2 001return 0
+		d0|main|start||_T_ABS_|||_EXE_ trace2 004child test-tool trace2 004child test-tool trace2 001return 0
 		d0|main|cmd_name|||||trace2 (trace2)
 		d0|main|child_start||_T_ABS_|||[ch0] class:? argv: test-tool trace2 004child test-tool trace2 001return 0
 		d1|main|version|||||$V
-		d1|main|start|||||_EXE_ trace2 004child test-tool trace2 001return 0
+		d1|main|start||_T_ABS_|||_EXE_ trace2 004child test-tool trace2 001return 0
 		d1|main|cmd_name|||||trace2 (trace2/trace2)
 		d1|main|child_start||_T_ABS_|||[ch0] class:? argv: test-tool trace2 001return 0
 		d2|main|version|||||$V
-		d2|main|start|||||_EXE_ trace2 001return 0
+		d2|main|start||_T_ABS_|||_EXE_ trace2 001return 0
 		d2|main|cmd_name|||||trace2 (trace2/trace2/trace2)
 		d2|main|exit||_T_ABS_|||code:0
 		d2|main|atexit||_T_ABS_|||code:0
@@ -144,6 +148,33 @@ test_expect_success 'perf stream, child processes' '
 		d1|main|exit||_T_ABS_|||code:0
 		d1|main|atexit||_T_ABS_|||code:0
 		d0|main|child_exit||_T_ABS_|_T_REL_||[ch0] pid:_PID_ code:0
+		d0|main|exit||_T_ABS_|||code:0
+		d0|main|atexit||_T_ABS_|||code:0
+	EOF
+	test_cmp expect actual
+'
+
+# Now test using system config by using a mocked up config file
+# rather than inheriting "/etc/gitconfig".  Here we do not use
+# GIT_TR2* environment variables.
+
+unset GIT_TR2_PERF_BRIEF
+
+MOCK=./mock_system_config
+
+test_expect_success 'setup mocked /etc/gitconfig' '
+	git config --file $MOCK trace2.perfTarget "$(pwd)/trace.perf" &&
+	git config --file $MOCK trace2.perfBrief 1
+'
+
+test_expect_success 'using mock, perf stream, return code 0' '
+	test_when_finished "rm trace.perf actual expect" &&
+	GIT_TEST_TR2_SYSTEM_CONFIG="$MOCK" test-tool trace2 001return 0 &&
+	perl "$TEST_DIRECTORY/t0211/scrub_perf.perl" <trace.perf >actual &&
+	cat >expect <<-EOF &&
+		d0|main|version|||||$V
+		d0|main|start||_T_ABS_|||_EXE_ trace2 001return 0
+		d0|main|cmd_name|||||trace2 (trace2)
 		d0|main|exit||_T_ABS_|||code:0
 		d0|main|atexit||_T_ABS_|||code:0
 	EOF

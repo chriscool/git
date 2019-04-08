@@ -60,7 +60,7 @@ git version 2.20.1.155.g426c96fcdb
 ------------
 $ cat ~/log.perf
 12:28:42.620675 common-main.c:38                  | d0 | main                     | version      |     |           |           |            | 2.20.1.155.g426c96fcdb
-12:28:42.621001 common-main.c:39                  | d0 | main                     | start        |     |           |           |            | git version
+12:28:42.621001 common-main.c:39                  | d0 | main                     | start        |     |  0.001173 |           |            | git version
 12:28:42.621111 git.c:432                         | d0 | main                     | cmd_name     |     |           |           |            | version (version)
 12:28:42.621225 git.c:662                         | d0 | main                     | exit         |     |  0.001227 |           |            | code:0
 12:28:42.621259 trace2/tr2_tgt_perf.c:211         | d0 | main                     | atexit       |     |  0.001265 |           |            | code:0
@@ -78,11 +78,11 @@ git version 2.20.1.155.g426c96fcdb
 +
 ------------
 $ cat ~/log.event
-{"event":"version","sid":"1547659722619736-11614","thread":"main","time":"2019-01-16 17:28:42.620713","file":"common-main.c","line":38,"evt":"1","exe":"2.20.1.155.g426c96fcdb"}
-{"event":"start","sid":"1547659722619736-11614","thread":"main","time":"2019-01-16 17:28:42.621027","file":"common-main.c","line":39,"argv":["git","version"]}
-{"event":"cmd_name","sid":"1547659722619736-11614","thread":"main","time":"2019-01-16 17:28:42.621122","file":"git.c","line":432,"name":"version","hierarchy":"version"}
-{"event":"exit","sid":"1547659722619736-11614","thread":"main","time":"2019-01-16 17:28:42.621236","file":"git.c","line":662,"t_abs":0.001227,"code":0}
-{"event":"atexit","sid":"1547659722619736-11614","thread":"main","time":"2019-01-16 17:28:42.621268","file":"trace2/tr2_tgt_event.c","line":163,"t_abs":0.001265,"code":0}
+{"event":"version","sid":"20190329-144314-319944-9b68c35f-012232","thread":"main","time":"2019-01-16T17:28:42.620713Z","file":"common-main.c","line":38,"evt":"1","exe":"2.20.1.155.g426c96fcdb"}
+{"event":"start","sid":"20190329-144314-319944-9b68c35f-012232","thread":"main","time":"2019-01-16T17:28:42.621027Z","file":"common-main.c","line":39,"t_abs":0.001173,"argv":["git","version"]}
+{"event":"cmd_name","sid":"20190329-144314-319944-9b68c35f-012232","thread":"main","time":"2019-01-16T17:28:42.621122Z","file":"git.c","line":432,"name":"version","hierarchy":"version"}
+{"event":"exit","sid":"20190329-144314-319944-9b68c35f-012232","thread":"main","time":"2019-01-16T17:28:42.621236Z","file":"git.c","line":662,"t_abs":0.001227,"code":0}
+{"event":"atexit","sid":"20190329-144314-319944-9b68c35f-012232","thread":"main","time":"2019-01-16T17:28:42.621268Z","file":"trace2/tr2_tgt_event.c","line":163,"t_abs":0.001265,"code":0}
 ------------
 
 == Enabling a Target
@@ -121,6 +121,37 @@ values are recognized.
 +
 Socket type can be either `stream` or `dgram`.  If the socket type is
 omitted, Git will try both.
+
+== Trace2 Settings in System Config
+
+Trace2 also reads configuration information from the system config.
+This is intended to help adminstrators to gather system-wide Git
+performance data.
+
+Trace2 only reads the system configuration, it does not read global,
+local, worktree, or `-c` config settings.
+
+Trace2 will try to load the following system configuration settings
+and then read the corresponding environment variables at startup.
+
+....
+---------------------------------------------------
+trace2.normalTarget          GIT_TR2
+trace2.normalBrief           GIT_TR2_BRIEF
+
+trace2.perfTarget            GIT_TR2_PERF
+trace2.perfBrief             GIT_TR2_PERF_BRIEF
+
+trace2.eventTarget           GIT_TR2_EVENT
+trace2.eventBrief            GIT_TR2_EVENT_BRIEF
+trace2.eventNesting          GIT_TR2_EVENT_NESTING
+
+trace2.configParams          GIT_TR2_CONFIG_PARAMS
+
+trace2.destinationDebug      GIT_TR2_DST_DEBUG
+---------------------------------------------------
+....
+
 
 == Trace2 API
 
@@ -165,17 +196,23 @@ purposes.
 
 These are concerned with the lifetime of the overall git process.
 
+`void trace2_initialize_clock()`::
+
+	Initialize the Trace2 start clock and nothing else.  This should
+	be called at the very top of main() to capture the process start
+	time and reduce startup order dependencies.
+
 `void trace2_initialize()`::
 
 	Determines if any Trace2 Targets should be enabled and
-	initializes the Trace2 facility.  This includes starting the
-	elapsed time clocks and thread local storage (TLS).
+	initializes the Trace2 facility.  This includes setting up the
+	Trace2 thread local storage (TLS).
 +
 This function emits a "version" message containing the version of git
 and the Trace2 protocol.
 +
 This function should be called from `main()` as early as possible in
-the life of the process.
+the life of the process after essential process initialization.
 
 `int trace2_is_enabled()`::
 
@@ -539,9 +576,9 @@ The following key/value pairs are common to all events:
 ------------
 {
 	"event":"version",
-	"sid":"1547659722619736-11614",
+	"sid":"20190329-144314-319944-9b68c35f-012232",
 	"thread":"main",
-	"time":"2019-01-16 17:28:42.620713",
+	"time":"2019-01-16T17:28:42.620713Z",
 	"file":"common-main.c",
 	"line":38,
 	...
@@ -600,6 +637,7 @@ from all events and the `time` field is only present on the "start" and
 {
 	"event":"start",
 	...
+	"t_abs":0.001227, # elapsed time in seconds
 	"argv":["git","version"]
 }
 ------------
@@ -1117,7 +1155,7 @@ $ git status
 
 $ cat ~/log.perf
 d0 | main                     | version      |     |           |           |            | 2.20.1.160.g5676107ecd.dirty
-d0 | main                     | start        |     |           |           |            | git status
+d0 | main                     | start        |     |  0.001173 |           |            | git status
 d0 | main                     | def_repo     | r1  |           |           |            | worktree:/Users/jeffhost/work/gfw
 d0 | main                     | cmd_name     |     |           |           |            | status (status)
 ...
@@ -1162,7 +1200,7 @@ $ git status
 ...
 $ cat ~/log.perf
 d0 | main                     | version      |     |           |           |            | 2.20.1.162.gb4ccea44db.dirty
-d0 | main                     | start        |     |           |           |            | git status
+d0 | main                     | start        |     |  0.001173 |           |            | git status
 d0 | main                     | def_repo     | r1  |           |           |            | worktree:/Users/jeffhost/work/gfw
 d0 | main                     | cmd_name     |     |           |           |            | status (status)
 ...
@@ -1218,7 +1256,7 @@ $ git status
 ...
 $ cat ~/log.perf
 d0 | main                     | version      |     |           |           |            | 2.20.1.156.gf9916ae094.dirty
-d0 | main                     | start        |     |           |           |            | git status
+d0 | main                     | start        |     |  0.001173 |           |            | git status
 d0 | main                     | def_repo     | r1  |           |           |            | worktree:/Users/jeffhost/work/gfw
 d0 | main                     | cmd_name     |     |           |           |            | status (status)
 d0 | main                     | region_enter | r1  |  0.001791 |           | index      | label:do_read_index .git/index
