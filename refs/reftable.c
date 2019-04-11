@@ -292,7 +292,7 @@ int reftable_add_ref_record(unsigned char *ref_records,
 	if (value_type && !refvalue)
 		BUG("couldn't find value for ref '%s'", refname);
 
-	/* 16 * 3 as there are 3 varints */
+	/* 16 * 3 as there are 3 varints in the record */
 	max_full_length = 16 * 3 + suffix_length + max_value_length;
 
 	/* Give up adding a ref record if there might not be enough space */
@@ -462,20 +462,23 @@ int reftable_add_index_record(unsigned char *index_records,
 	unsigned char *pos = index_records;
 	const char *refname = update_array->updates[i]->refname;
 
+	if (i == 0 && !restart)
+		BUG("first ref record is always a restart");
+
 	if (i != 0)
 		prefix_length = find_prefix(update_array->updates[i - 1]->refname, refname);
 
 	suffix_length = strlen(refname) - prefix_length;
 	suffix_and_type = suffix_length << 3 | 0;
 
-	/* 16 * 3 as there are 3 varints */
+	/* 16 * 3 as there are 3 varints in the record */
 	max_full_length = 16 * 3 + suffix_length;
 
 	/* Give up adding an index record if there might not be enough space */
 	if (max_full_length > max_size)
 		return 0;
 
-	/* Actually add the ref record */
+	/* Actually add the index record */
 	pos += encode_varint(prefix_length, pos);
 	pos += encode_varint(suffix_and_type, pos);
 	pos += encode_data(refname + prefix_length, suffix_length, pos);
