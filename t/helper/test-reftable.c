@@ -8,8 +8,8 @@
 /*
  * Put each ref into `updates`.
  */
-int get_all_refs(const char *refname, const struct object_id *oid,
-		   int flags, void *cb_data)
+static int get_all_refs(const char *refname, const struct object_id *oid,
+			int flags, void *cb_data)
 {
 	struct ref_update *update;
 	struct ref_update_array *update_array = (struct ref_update_array *)cb_data;
@@ -55,8 +55,6 @@ static int cmd_write_file(const char **argv)
 
 	res = reftable_write_reftable_blocks(fd, block_size, path, &update_array, padding);
 
-	/* TODO: write other blocks */
-
 	close(fd);
 
 	return res;
@@ -84,8 +82,6 @@ static int cmd_read_file(const char **argv)
 	}
 
 	res = reftable_read_reftable_blocks(fd, block_size, path, &update_array);
-
-	/* TODO: read other blocks */
 
 	close(fd);
 
