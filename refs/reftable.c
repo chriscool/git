@@ -589,6 +589,8 @@ static int reftable_add_index_block(unsigned char *index_records,
 	return i;
 }
 
+#ifdef DEBUG
+
 /*
  * Add an object record to `object_records`.
  *
@@ -641,36 +643,57 @@ static int reftable_add_object_record(unsigned char *object_records,
 	return pos - object_records;
 }
 
+#endif
+
 int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path,
 				   struct ref_update_array *update_array,
 				   int padding)
 {
-	unsigned char *ref_records;
+	unsigned char *records;
 	unsigned int ref_written = 0;
 	struct reftable_header header;
 	uint64_t min_update_index = 0;
 	uint64_t max_update_index = 0;
+	struct ref_update_array index_update_array = REF_UPDATE_ARRAY_INIT;
 
 	/* Create ref header */
 	reftable_header_init(&header, block_size,
 			     min_update_index, max_update_index);
 
-	/* Add ref records blocks */
+	/* Add ref blocks */
 
-	ref_records = xcalloc(1, block_size);
+	records = xcalloc(1, block_size);
 
 	while (ref_written < update_array->nr) {
-		ref_written = reftable_add_ref_block(ref_records,
+		ref_written = reftable_add_ref_block(records,
 						     ref_written == 0 ? &header : NULL,
 						     block_size,
 						     padding,
 						     update_array,
 						     ref_written);
-		if (reftable_write_data(fd, ref_records, block_size))
+		if (reftable_write_data(fd, records, block_size))
+			die_errno("couldn't write to '%s'", path);
+
+		/* TODO: add items in index_update_array */
+	}
+
+	/* Add index blocks */
+
+	memset(records, 0, block_size);
+	ref_written = 0;
+
+	while (ref_written < index_update_array.nr) {
+		ref_written = reftable_add_index_block(records,
+						       block_size,
+						       &index_update_array,
+						       ref_written);
+		if (reftable_write_data(fd, records, block_size))
 			die_errno("couldn't write to '%s'", path);
 	}
 
-	free(ref_records);
+	/* TODO: add other blocks */
+
+	free(records);
 
 	return 0;
 }
@@ -787,15 +810,17 @@ static uint32_t get_current_restart_offset(uint32_t block_start_len, uint32_t *r
 					   int *restart_index, uint16_t restart_count)
 {
 	while (*restart_index < restart_count && restart_offsets[*restart_index] < block_start_len)
-		*restart_index++;
+		(*restart_index)++;
 
 	if (*restart_index >= restart_count || restart_offsets[*restart_index] > block_start_len)
 		return 0;
 
 	/* restart_offsets[*restart_index] == block_start_len */
-	*restart_index++;
+	(*restart_index)++;
 	return block_start_len;
 }
+
+#ifdef DEBUG
 
 static void print_restart_offsets(uint32_t *restart_offsets, uint16_t restart_count)
 {
@@ -806,6 +831,8 @@ static void print_restart_offsets(uint32_t *restart_offsets, uint16_t restart_co
 		fprintf(stderr, "restart[%d]=%d\n", i, restart_offsets[i]);
 	fprintf(stderr, "done\n");
 }
+
+#endif
 
 /*
  * Read a ref block from `ref_records`.
@@ -887,34 +914,6 @@ static int reftable_read_ref_block(unsigned char *ref_records,
 	free(restart_offsets);
 
 	return update_array->nr;
-}
-
-int reftable_read_reftable_blocks(int fd, uint32_t block_size, const char *path,
-				  struct ref_update_array *update_array)
-{
-	unsigned int ref_read = 0;
-	struct reftable_header header;
-	unsigned char *ref_records = xcalloc(1, block_size);
-	int padding = 1; /* TODO: move this up the call chain */
-	off_t offset = 0;
-
-	if (reftable_read_data(fd, ref_records, block_size, offset))
-		die_errno("couldn't read from '%s'", path);
-
-	/* TODO: find how many blocks we should read */
-
-	while (1) {
-		ref_read = reftable_read_ref_block(ref_records,
-						   ref_read == 0 ? &header : NULL,
-						   block_size,
-						   padding,
-						   update_array);
-		offset += block_size;
-		if (reftable_read_data(fd, ref_records, block_size, offset))
-			break;
-	}
-
-	return 0;
 }
 
 /*
@@ -1067,3 +1066,45 @@ static int reftable_read_index_block(unsigned char *index_records,
 
 	return update_array->nr;
 }
+
+int reftable_read_reftable_blocks(int fd, uint32_t block_size, const char *path,
+				  struct ref_update_array *update_array)
+{
+	unsigned int ref_read = 0;
+	struct reftable_header header;
+	unsigned char *records = xcalloc(1, block_size);
+	int padding = 1; /* TODO: move this up the call chain */
+	off_t offset = 0;
+	struct ref_update_array index_update_array = REF_UPDATE_ARRAY_INIT;
+
+	if (reftable_read_data(fd, records, block_size, offset))
+		die_errno("couldn't read first block from '%s'", path);
+
+	while (1) {
+		ref_read = reftable_read_ref_block(records,
+						   ref_read == 0 ? &header : NULL,
+						   block_size,
+						   padding,
+						   update_array);
+		offset += block_size;
+		if (reftable_read_data(fd, records, block_size, offset))
+			break;
+		if (records[0] != 'r')
+			break;
+	}
+
+	while (records[0] == 'i') {
+		ref_read = reftable_read_index_block(records,
+						     block_size,
+						     padding,
+						     &index_update_array);
+		offset += block_size;
+		if (reftable_read_data(fd, records, block_size, offset))
+			break;
+	}
+
+	/* TODO: read other blocks */
+
+	return 0;
+}
+
