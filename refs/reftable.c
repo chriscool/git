@@ -368,7 +368,7 @@ static int reftable_add_ref_block(unsigned char *ref_records,
 	unsigned char *block_len_pos;
 
 	if (block_size < 2000)
-		BUG("too small reftable block size '%d'", block_size);
+		BUG("too small reftable ref block size '%d'", block_size);
 
 	/*
 	 * For now let's allocate ref_restarts.
@@ -527,7 +527,7 @@ static int reftable_add_index_block(unsigned char *index_records,
 	unsigned char *block_len_pos;
 
 	if (block_size < 2000)
-		BUG("too small reftable index size '%d'", block_size);
+		BUG("too small reftable index block size '%d'", block_size);
 
 	/*
 	 * For now let's allocate index_restarts.
