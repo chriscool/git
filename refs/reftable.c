@@ -612,7 +612,7 @@ static int reftable_add_index_block(unsigned char *index_records,
 static int reftable_add_object_record(unsigned char *object_records,
 				      uintmax_t max_size,
 				      int i,
-				      const char **refnames,
+				      struct ref_update_array *update_array,
 				      uintmax_t block_pos)
 {
 	uintmax_t prefix_length = 0;
@@ -641,6 +641,99 @@ static int reftable_add_object_record(unsigned char *object_records,
 	pos += encode_varint(block_pos, pos);
 
 	return pos - object_records;
+}
+
+/*
+ * Add an object block to `object_records`.
+ *
+ * The refs added to the block are taken from `update_array`.
+ *
+ * Return the index of the first ref in `update_array` that could NOT
+ * be added into the object block. (If it is equal to the number of
+ * refs in `update_array`, then it means all the refs have been
+ * added.)
+ *
+ * Object block format:
+ *
+ *   'o'
+ *   uint24( block_len )
+ *   object_record+
+ *   uint24( restart_offset )+
+ *   uint16( restart_count )
+ *
+ *   padding?
+ *
+ */
+static int reftable_add_object_block(unsigned char *object_records,
+				     uint32_t block_size,
+				     struct ref_update_array *update_array,
+				     int start_index)
+{
+	uint32_t block_start_len = 0, block_end_len = 0;
+	int i, restart_count = 0;
+	char *object_restarts;
+	unsigned char *block_len_pos;
+
+	if (block_size < 2000)
+		BUG("too small reftable object block size '%d'", block_size);
+
+	/*
+	 * For now let's allocate object_restarts.
+	 * TODO: reuse a block for object_restarts, and/or:
+	 * TODO: optimize size allocated for object_restarts
+	 */
+	object_restarts = xcalloc(1, block_size);
+
+	/* Add 'o' */
+	block_start_len += encode_data("o", 1, object_records + block_start_len);
+
+	/* We don't know the block_len, so we postpone adding uint24( block_len ) */
+	block_len_pos = object_records + block_start_len;
+	block_start_len += 3;
+
+	/* Add first restart offset */
+	block_end_len += encode_uint24nl(block_start_len, object_restarts + block_end_len);
+	restart_count++;
+
+	for (i = start_index; i < update_array->nr; i++) {
+		int restart = ((i % reftable_restart_gap) == 0);
+
+		int max_size = block_size - (block_start_len + block_end_len + 2);
+		uintmax_t block_pos = get_block_pos(update_array->updates[i]);
+		int record_len = reftable_add_object_record(object_records, max_size, i,
+							    update_array, block_pos);
+
+		if (record_len < 1)
+			break;
+
+		/* Add the record */
+		block_start_len += record_len;
+
+		/*
+		 * Add a restart after reftable_restart_gap ref
+		 * records if there is some space left in the block.
+		 */
+		if (restart && block_size - (block_start_len + block_end_len + 2) > 3) {
+			block_end_len += encode_uint24nl(block_start_len, object_restarts + block_end_len);
+			restart_count++;
+		}
+	}
+
+	/* Add restart count */
+	block_end_len += encode_uint16nl(restart_count, object_restarts + block_end_len);
+
+	/* Copy restarts into the records block */
+	block_start_len += encode_data(object_restarts, block_end_len, object_records + block_start_len);
+
+	free(object_restarts);
+
+	/* Write block_len at the beginning of the block */
+	encode_uint24nl(block_start_len, block_len_pos);
+
+	/* Add padding */
+	encode_padding(block_size - block_start_len, object_records + block_start_len);
+
+	return i;
 }
 
 #endif
