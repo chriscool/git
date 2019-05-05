@@ -738,10 +738,11 @@ static int reftable_add_object_block(unsigned char *object_records,
 
 #endif
 
-static int reftable_write_index_block_level(int fd, uint32_t block_size, const char *path,
-					    unsigned char *records,
-					    struct ref_update_array *update_array,
-					    int padding)
+static void reftable_write_index_block_level(int fd, uint32_t block_size, const char *path,
+					     unsigned char *records,
+					     struct ref_update_array *update_array,
+					     struct ref_update_array *next_update_array,
+					     int padding)
 {
 	unsigned int ref_written = 0;
 
@@ -749,17 +750,31 @@ static int reftable_write_index_block_level(int fd, uint32_t block_size, const c
 		memset(records, 0, block_size);
 
 		while (ref_written < update_array->nr) {
+			int old_ref_written = ref_written;
 			ref_written = reftable_add_index_block(records,
 							       block_size,
 							       update_array,
 							       ref_written);
 			if (reftable_write_data(fd, records, block_size))
 				die_errno("couldn't write to '%s'", path);
+
+			if (ref_written <= old_ref_written) {
+				/* TODO: better handle case when no ref can be written */
+				BUG("Could not write ref '%s' into a full index block",
+				    update_array->updates[ref_written]->refname);
+			}
+
+			/* Add last ref update into next level update array */
+			if (ref_written > 0) {
+				struct ref_update *update = xmalloc(sizeof(*update));
+				memcpy(update, update_array->updates[ref_written - 1], sizeof(*update));
+				ref_update_array_append(next_update_array, update);
+			}
 		}
 	}
-
-	return ref_written;
 }
+
+#define MAX_INDEX_BLOCK_LEVEL 5
 
 int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path,
 				   struct ref_update_array *update_array,
@@ -770,7 +785,12 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 	struct reftable_header header;
 	uint64_t min_update_index = 0;
 	uint64_t max_update_index = 0;
-	struct ref_update_array index_update_array = REF_UPDATE_ARRAY_INIT;
+	int i;
+	uintmax_t max_level_nr;
+	struct ref_update_array index_level_update_array[MAX_INDEX_BLOCK_LEVEL];
+
+	for (i = 0; i < MAX_INDEX_BLOCK_LEVEL; i++)
+		index_level_update_array[i] = (struct ref_update_array) REF_UPDATE_ARRAY_INIT;
 
 	/* Create ref header */
 	reftable_header_init(&header, block_size,
@@ -797,24 +817,35 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 				update_array->updates[ref_written]->refname);
 		}
 
-		/* Add last ref update into index_update_array */
+		/* Add last ref update into 1st index_level_update_array */
 		if (ref_written > 0) {
 			struct ref_update *update = xmalloc(sizeof(*update));
 			memcpy(update, update_array->updates[ref_written - 1], sizeof(*update));
-			ref_update_array_append(&index_update_array, update);
+			ref_update_array_append(&index_level_update_array[0], update);
 		}
 	}
 
-	/* Add first level index blocks */
+	/* Add index blocks */
 
-	reftable_write_index_block_level(fd, block_size, path, records,
-					 &index_update_array, padding);
+	for (i = 0; i < (MAX_INDEX_BLOCK_LEVEL - 1); i++) {
+		reftable_write_index_block_level(fd, block_size, path, records,
+						 &index_level_update_array[i],
+						 &index_level_update_array[i + 1],
+						 padding);
+	}
+
+	/* Make sure there is no need to have another index block level */
+	max_level_nr = index_level_update_array[MAX_INDEX_BLOCK_LEVEL - 1].nr;
+	if ((padding && max_level_nr >= 4) || (!padding && max_level_nr > 1))
+		BUG("It seems that a 5st level index block is needed (nr=%"PRIuMAX")",
+		    max_level_nr);
 
 	/* TODO: add other blocks */
 
 	free(records);
 
-	ref_update_array_clear(&index_update_array);
+	for (i = 0; i < MAX_INDEX_BLOCK_LEVEL; i++)
+		ref_update_array_clear(&index_level_update_array[i]);
 
 	return 0;
 }
