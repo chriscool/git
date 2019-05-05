@@ -738,6 +738,29 @@ static int reftable_add_object_block(unsigned char *object_records,
 
 #endif
 
+static int reftable_write_index_block_level(int fd, uint32_t block_size, const char *path,
+					    unsigned char *records,
+					    struct ref_update_array *update_array,
+					    int padding)
+{
+	unsigned int ref_written = 0;
+
+	if ((padding && update_array->nr >= 4) || (!padding && update_array->nr > 1)) {
+		memset(records, 0, block_size);
+
+		while (ref_written < update_array->nr) {
+			ref_written = reftable_add_index_block(records,
+							       block_size,
+							       update_array,
+							       ref_written);
+			if (reftable_write_data(fd, records, block_size))
+				die_errno("couldn't write to '%s'", path);
+		}
+	}
+
+	return ref_written;
+}
+
 int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path,
 				   struct ref_update_array *update_array,
 				   int padding)
@@ -784,19 +807,8 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 
 	/* Add first level index blocks */
 
-	if ((padding && index_update_array.nr >= 4) || (!padding && index_update_array.nr > 1)) {
-		memset(records, 0, block_size);
-		ref_written = 0;
-
-		while (ref_written < index_update_array.nr) {
-			ref_written = reftable_add_index_block(records,
-							       block_size,
-							       &index_update_array,
-							       ref_written);
-			if (reftable_write_data(fd, records, block_size))
-				die_errno("couldn't write to '%s'", path);
-		}
-	}
+	reftable_write_index_block_level(fd, block_size, path, records,
+					 &index_update_array, padding);
 
 	/* TODO: add other blocks */
 
