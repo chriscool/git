@@ -758,6 +758,7 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 	records = xcalloc(1, block_size);
 
 	while (ref_written < update_array->nr) {
+		unsigned int old_ref_written = ref_written;
 		ref_written = reftable_add_ref_block(records,
 						     ref_written == 0 ? &header : NULL,
 						     block_size,
@@ -767,26 +768,41 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 		if (reftable_write_data(fd, records, block_size))
 			die_errno("couldn't write to '%s'", path);
 
-		/* TODO: add items in index_update_array */
+		if (ref_written <= old_ref_written) {
+			/* TODO: better handle case when no ref can be written */
+			BUG("Could not write ref '%s' into a full ref block",
+				update_array->updates[ref_written]->refname);
+		}
+
+		/* Add last ref update into index_update_array */
+		if (ref_written > 0) {
+			struct ref_update *update = xmalloc(sizeof(*update));
+			memcpy(update, update_array->updates[ref_written - 1], sizeof(*update));
+			ref_update_array_append(&index_update_array, update);
+		}
 	}
 
-	/* Add index blocks */
+	/* Add first level index blocks */
 
-	memset(records, 0, block_size);
-	ref_written = 0;
+	if ((padding && index_update_array.nr >= 4) || (!padding && index_update_array.nr > 1)) {
+		memset(records, 0, block_size);
+		ref_written = 0;
 
-	while (ref_written < index_update_array.nr) {
-		ref_written = reftable_add_index_block(records,
-						       block_size,
-						       &index_update_array,
-						       ref_written);
-		if (reftable_write_data(fd, records, block_size))
-			die_errno("couldn't write to '%s'", path);
+		while (ref_written < index_update_array.nr) {
+			ref_written = reftable_add_index_block(records,
+							       block_size,
+							       &index_update_array,
+							       ref_written);
+			if (reftable_write_data(fd, records, block_size))
+				die_errno("couldn't write to '%s'", path);
+		}
 	}
 
 	/* TODO: add other blocks */
 
 	free(records);
+
+	ref_update_array_clear(&index_update_array);
 
 	return 0;
 }
