@@ -613,7 +613,8 @@ static int reftable_add_object_record(unsigned char *object_records,
 				      uintmax_t max_size,
 				      int i,
 				      struct ref_update_array *update_array,
-				      uintmax_t block_pos)
+				      uintmax_t position_count,
+				      uint8_t obj_id_len)
 {
 	uintmax_t prefix_length = 0;
 	uintmax_t suffix_length;
