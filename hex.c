@@ -73,14 +73,14 @@ int parse_oid_hex(const char *hex, struct object_id *oid, const char **end)
 	return ret;
 }
 
-char *hash_to_hex_algop_r(char *buffer, const unsigned char *hash,
-			  const struct git_hash_algo *algop)
+char *hash_to_hex_size_r(char *buffer, const unsigned char *hash,
+			 const size_t size)
 {
 	static const char hex[] = "0123456789abcdef";
 	char *buf = buffer;
 	int i;
 
-	for (i = 0; i < algop->rawsz; i++) {
+	for (i = 0; i < size; i++) {
 		unsigned int val = *hash++;
 		*buf++ = hex[val >> 4];
 		*buf++ = hex[val & 0xf];
