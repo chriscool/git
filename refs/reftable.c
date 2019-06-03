@@ -612,6 +612,7 @@ static int reftable_add_index_block(unsigned char *index_records,
 static int reftable_add_object_record(unsigned char *object_records,
 				      uintmax_t max_size,
 				      int i,
+				      struct oid_array *oids,
 				      struct ref_update_array *update_array,
 				      uintmax_t position_count,
 				      uint8_t obj_id_len)
@@ -621,11 +622,20 @@ static int reftable_add_object_record(unsigned char *object_records,
 	uintmax_t suffix_and_type;
 	uintmax_t max_full_length;
 	unsigned char *pos = object_records;
+	char *cur_buf;
+	char *prev_buf;
 
-	if (i != 0)
-		prefix_length = find_prefix(refnames[i - 1], refnames[i]);
+	/* TODO: maybe alloc these in the caller */
+	cur_buf = malloc(obj_id_len + 1);
+	prev_buf = malloc(obj_id_len + 1);
 
-	suffix_length = strlen(refnames[i]) - prefix_length;
+	hash_to_hex_size_r(cur_buf, oids->oid[i].hash, obj_id_len);
+	if (i != 0) {
+		hash_to_hex_size_r(prev_buf, oids->oid[i - 1].hash, obj_id_len);
+		prefix_length = find_prefix(prev_buf, cur_buf);
+	}
+
+	suffix_length = obj_id_len - prefix_length;
 	suffix_and_type = suffix_length << 3 | 0;
 
 	/* 16 * 3 as there are 3 varints */
@@ -667,6 +677,7 @@ static int reftable_add_object_record(unsigned char *object_records,
  */
 static int reftable_add_object_block(unsigned char *object_records,
 				     uint32_t block_size,
+				     struct oid_array *oids,
 				     struct ref_update_array *update_array,
 				     int start_index)
 {
@@ -702,7 +713,7 @@ static int reftable_add_object_block(unsigned char *object_records,
 		int max_size = block_size - (block_start_len + block_end_len + 2);
 		uintmax_t block_pos = get_block_pos(update_array->updates[i]);
 		int record_len = reftable_add_object_record(object_records, max_size, i,
-							    update_array, block_pos);
+							    oids, update_array, block_pos);
 
 		if (record_len < 1)
 			break;
