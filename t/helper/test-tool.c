@@ -28,6 +28,7 @@ static struct test_cmd cmds[] = {
 	{ "genrandom", cmd__genrandom },
 	{ "genzeros", cmd__genzeros },
 	{ "hashmap", cmd__hashmap },
+	{ "hashmap2", cmd__hashmap2 },
 	{ "hash-speed", cmd__hash_speed },
 	{ "index-version", cmd__index_version },
 	{ "json-writer", cmd__json_writer },
