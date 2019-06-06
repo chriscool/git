@@ -34,6 +34,7 @@ int cmd__hashmap2(int argc, const char **argv)
 	while (strbuf_getline(&line, stdin) != EOF) {
 		char *cmd, *p1 = NULL, *p2 = NULL;
 		struct test_entry2 *entry;
+		struct object_id oid;
 
 		/* break line into command and up to two parameters */
 		cmd = strtok(line.buf, DELIM);
@@ -46,7 +47,6 @@ int cmd__hashmap2(int argc, const char **argv)
 			p2 = strtok(NULL, DELIM);
 
 		if (!strcmp("hash", cmd) && p1) {
-			struct object_id oid;
 
 			/* print hash of oid */
 			if (!get_oid(p1, &oid))
@@ -55,7 +55,6 @@ int cmd__hashmap2(int argc, const char **argv)
 				printf("Could not convert '%s' to an object id!", p1);
 
 		} else if (!strcmp("add", cmd) && p1 && p2) {
-			struct object_id oid;
 
 			if (get_oid(p1, &oid)) {
 				printf("Could not convert '%s' to an object id!", p1);
@@ -70,7 +69,6 @@ int cmd__hashmap2(int argc, const char **argv)
 			oidmap_put(&map, entry);
 
 		} else if (!strcmp("put", cmd) && p1 && p2) {
-			struct object_id oid;
 
 			if (get_oid(p1, &oid)) {
 				printf("Could not convert '%s' to an object id!", p1);
@@ -89,7 +87,6 @@ int cmd__hashmap2(int argc, const char **argv)
 			free(entry);
 
 		} else if (!strcmp("get", cmd) && p1) {
-			struct object_id oid;
 
 			if (get_oid(p1, &oid)) {
 				printf("Could not convert '%s' to an object id!", p1);
@@ -103,7 +100,6 @@ int cmd__hashmap2(int argc, const char **argv)
 			puts(entry ? entry->refname : "NULL");
 
 		} else if (!strcmp("remove", cmd) && p1) {
-			struct object_id oid;
 
 			if (get_oid(p1, &oid)) {
 				printf("Could not convert '%s' to an object id!", p1);
