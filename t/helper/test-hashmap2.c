@@ -100,12 +100,7 @@ int cmd__hashmap2(int argc, const char **argv)
 			entry = oidmap_get(&map, &oid);
 
 			/* print result */
-			if (!entry)
-				puts("NULL");
-			while (entry) {
-				puts(entry->refname);
-				entry = oidmap_get_next(&map, entry);
-			}
+			puts(entry ? entry->refname : "NULL");
 
 		} else if (!strcmp("remove", cmd) && p1) {
 			struct object_id oid;
@@ -115,12 +110,8 @@ int cmd__hashmap2(int argc, const char **argv)
 				continue;
 			}
 
-			/* setup static key */
-			struct oidmap_entry key;
-			oidmap_entry_init(&key, sha1hash(oid.hash));
-
 			/* remove entry from oidmap */
-			entry = oidmap_remove(&map, &key, &oid);
+			entry = oidmap_remove(&map, &oid);
 
 			/* print result and free entry*/
 			puts(entry ? entry->refname : "NULL");
@@ -131,7 +122,7 @@ int cmd__hashmap2(int argc, const char **argv)
 			struct oidmap_iter iter;
 			oidmap_iter_init(&map, &iter);
 			while ((entry = oidmap_iter_next(&iter)))
-				printf("%s %s\n", oid_to_hex(entry->oid), entry->refname);
+				printf("%s %s\n", oid_to_hex(&entry->entry.oid), entry->refname);
 
 		} else {
 
