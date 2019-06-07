@@ -54,12 +54,12 @@ int cmd__oidmap(int argc, const char **argv)
 			if (!get_oid(p1, &oid))
 				printf("%u\n", sha1hash(oid.hash));
 			else
-				printf("Could not convert '%s' to an object id!", p1);
+				printf("Could not convert '%s' to an object id!\n", p1);
 
 		} else if (!strcmp("add", cmd) && p1 && p2) {
 
 			if (get_oid(p1, &oid)) {
-				printf("Could not convert '%s' to an object id!", p1);
+				printf("Could not convert '%s' to an object id!\n", p1);
 				continue;
 			}
 
@@ -73,7 +73,7 @@ int cmd__oidmap(int argc, const char **argv)
 		} else if (!strcmp("put", cmd) && p1 && p2) {
 
 			if (get_oid(p1, &oid)) {
-				printf("Could not convert '%s' to an object id!", p1);
+				printf("Could not convert '%s' to an object id!\n", p1);
 				continue;
 			}
 
@@ -91,7 +91,7 @@ int cmd__oidmap(int argc, const char **argv)
 		} else if (!strcmp("get", cmd) && p1) {
 
 			if (get_oid(p1, &oid)) {
-				printf("Could not convert '%s' to an object id!", p1);
+				printf("Could not convert '%s' to an object id!\n", p1);
 				continue;
 			}
 
@@ -104,7 +104,7 @@ int cmd__oidmap(int argc, const char **argv)
 		} else if (!strcmp("remove", cmd) && p1) {
 
 			if (get_oid(p1, &oid)) {
-				printf("Could not convert '%s' to an object id!", p1);
+				printf("Could not convert '%s' to an object id!\n", p1);
 				continue;
 			}
 
