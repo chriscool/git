@@ -50,17 +50,15 @@ test_expect_success 'get' '
 test_oidmap "put one 1
 put two 2
 put three 3
-put four 4
 get two
 get four
 get notInMap
 get one" "NULL
 NULL
 NULL
-NULL
 2
-4
 NULL
+Unknown oid: notInMap
 1"
 
 '
