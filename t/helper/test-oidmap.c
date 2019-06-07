@@ -4,7 +4,7 @@
 #include "strbuf.h"
 
 /* key is an oid and value is a refname */
-struct test_entry2 {
+struct test_entry {
 	struct oidmap_entry entry;
 	char refname[FLEX_ARRAY];
 };
@@ -22,7 +22,7 @@ struct test_entry2 {
  * size -> tablesize numentries
  *
  */
-int cmd__hashmap2(int argc, const char **argv)
+int cmd__oidmap(int argc, const char **argv)
 {
 	struct strbuf line = STRBUF_INIT;
 	struct oidmap map = OIDMAP_INIT;
@@ -33,7 +33,7 @@ int cmd__hashmap2(int argc, const char **argv)
 	/* process commands from stdin */
 	while (strbuf_getline(&line, stdin) != EOF) {
 		char *cmd, *p1 = NULL, *p2 = NULL;
-		struct test_entry2 *entry;
+		struct test_entry *entry;
 		struct object_id oid;
 
 		/* break line into command and up to two parameters */
