@@ -25,8 +25,10 @@ test_expect_success 'put' '
 
 test_oidmap "put one 1
 put two 2
+put invalidOid 4
 put three 3" "NULL
 NULL
+Unknown oid: invalidOid
 NULL"
 
 '
@@ -36,10 +38,12 @@ test_expect_success 'replace' '
 test_oidmap "put one 1
 put two 2
 put three 3
+put invalidOid 4
 put two deux
 put one un" "NULL
 NULL
 NULL
+Unknown oid: invalidOid
 2
 1"
 
@@ -52,13 +56,13 @@ put two 2
 put three 3
 get two
 get four
-get notInMap
+get invalidOid
 get one" "NULL
 NULL
 NULL
 2
 NULL
-Unknown oid: notInMap
+Unknown oid: invalidOid
 1"
 
 '
