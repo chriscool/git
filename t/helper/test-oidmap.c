@@ -3,10 +3,10 @@
 #include "oidmap.h"
 #include "strbuf.h"
 
-/* key is an oid and value is a refname */
+/* key is an oid and value is a name (could be a refname for example) */
 struct test_entry {
 	struct oidmap_entry entry;
-	char refname[FLEX_ARRAY];
+	char name[FLEX_ARRAY];
 };
 
 #define DELIM " \t\r\n"
@@ -14,12 +14,11 @@ struct test_entry {
 /*
  * Read stdin line by line and print result of commands to stdout:
  *
- * hash key -> strhash(key) memhash(key) strihash(key) memihash(key)
- * put key value -> NULL / old value
- * get key -> NULL / value
- * remove key -> NULL / old value
- * iterate -> key1 value1\nkey2 value2\n...
- * size -> tablesize numentries
+ * hash oidkey -> sha1hash(oidkey)
+ * put oidkey namevalue -> NULL / old namevalue
+ * get oidkey -> NULL / namevalue
+ * remove oidkey -> NULL / old namevalue
+ * iterate -> oidkey1 namevalue1\noidkey2 namevalue2\n...
  *
  */
 int cmd__oidmap(int argc, const char **argv)
@@ -64,7 +63,7 @@ int cmd__oidmap(int argc, const char **argv)
 			}
 
 			/* create entry with oidkey from p1, value = p2 */
-			FLEX_ALLOC_STR(entry, refname, p2);
+			FLEX_ALLOC_STR(entry, name, p2);
 			oidcpy(&entry->entry.oid, &oid);
 
 			/* add to oidmap */
@@ -77,15 +76,15 @@ int cmd__oidmap(int argc, const char **argv)
 				continue;
 			}
 
-			/* create entry with oid_key = p1, refname_value = p2 */
-			FLEX_ALLOC_STR(entry, refname, p2);
+			/* create entry with oid_key = p1, name_value = p2 */
+			FLEX_ALLOC_STR(entry, name, p2);
 			oidcpy(&entry->entry.oid, &oid);
 
 			/* add / replace entry */
 			entry = oidmap_put(&map, entry);
 
 			/* print and free replaced entry, if any */
-			puts(entry ? entry->refname : "NULL");
+			puts(entry ? entry->name : "NULL");
 			free(entry);
 
 		} else if (!strcmp("get", cmd) && p1) {
@@ -99,7 +98,7 @@ int cmd__oidmap(int argc, const char **argv)
 			entry = oidmap_get(&map, &oid);
 
 			/* print result */
-			puts(entry ? entry->refname : "NULL");
+			puts(entry ? entry->name : "NULL");
 
 		} else if (!strcmp("remove", cmd) && p1) {
 
@@ -112,7 +111,7 @@ int cmd__oidmap(int argc, const char **argv)
 			entry = oidmap_remove(&map, &oid);
 
 			/* print result and free entry*/
-			puts(entry ? entry->refname : "NULL");
+			puts(entry ? entry->name : "NULL");
 			free(entry);
 
 		} else if (!strcmp("iterate", cmd)) {
@@ -120,7 +119,7 @@ int cmd__oidmap(int argc, const char **argv)
 			struct oidmap_iter iter;
 			oidmap_iter_init(&map, &iter);
 			while ((entry = oidmap_iter_next(&iter)))
-				printf("%s %s\n", oid_to_hex(&entry->entry.oid), entry->refname);
+				printf("%s %s\n", oid_to_hex(&entry->entry.oid), entry->name);
 
 		} else {
 
