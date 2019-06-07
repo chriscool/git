@@ -21,6 +21,22 @@ test_expect_success 'setup' '
 
 '
 
+test_oidhash() {
+	git rev-parse "$1" | perl -ne 'print hex("$4$3$2$1") . "\n" if m/^(..)(..)(..)(..).*/;'
+}
+
+test_expect_success PERL 'hash' '
+
+test_oidmap "hash one
+hash two
+hash invalidOid
+hash three" "$(test_oidhash one)
+$(test_oidhash two)
+Unknown oid: invalidOid
+$(test_oidhash three)"
+
+'
+
 test_expect_success 'put' '
 
 test_oidmap "put one 1
