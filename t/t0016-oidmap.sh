@@ -7,7 +7,7 @@ test_description='test oidmap'
 
 test_oidmap() {
 	echo "$1" | test-tool oidmap $3 > actual &&
-	echo "$2" > expect &&
+	echo "$2" >expect &&
 	test_cmp expect actual
 }
 
