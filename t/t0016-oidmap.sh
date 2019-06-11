@@ -5,7 +5,7 @@ test_description='test oidmap'
 
 # This purposefully is very similar to t0011-hashmap.sh
 
-test_oidmap() {
+test_oidmap () {
 	echo "$1" | test-tool oidmap $3 >actual &&
 	echo "$2" >expect &&
 	test_cmp expect actual
@@ -21,7 +21,7 @@ test_expect_success 'setup' '
 
 '
 
-test_oidhash() {
+test_oidhash () {
 	git rev-parse "$1" | cut -c1-8
 }
 
