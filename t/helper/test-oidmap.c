@@ -51,7 +51,7 @@ int cmd__oidmap(int argc, const char **argv)
 
 			/* print hash of oid */
 			if (!get_oid(p1, &oid))
-				printf("%u\n", sha1hash(oid.hash));
+				printf("%x\n", ntohl(sha1hash(oid.hash)));
 			else
 				printf("Unknown oid: %s\n", p1);
 
