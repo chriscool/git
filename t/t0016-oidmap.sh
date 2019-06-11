@@ -22,10 +22,10 @@ test_expect_success 'setup' '
 '
 
 test_oidhash() {
-	git rev-parse "$1" | perl -ne 'print hex("$4$3$2$1") . "\n" if m/^(..)(..)(..)(..).*/;'
+	git rev-parse "$1" | cut -c1-8
 }
 
-test_expect_success PERL 'hash' '
+test_expect_success 'hash' '
 
 test_oidmap "hash one
 hash two
