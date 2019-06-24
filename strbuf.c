@@ -815,19 +815,27 @@ void strbuf_addstr_urlencode(struct strbuf *sb, const char *s,
 void strbuf_humanise_bytes(struct strbuf *buf, off_t bytes)
 {
 	if (bytes > 1 << 30) {
-		strbuf_addf(buf, "%u.%2.2u GiB",
+		strbuf_addf(buf, "%u.%2.2u ",
 			    (unsigned)(bytes >> 30),
 			    (unsigned)(bytes & ((1 << 30) - 1)) / 10737419);
+		/* TRANSLATORS: unit symbol for IEC 80000-13:2008 gibibyte */
+		strbuf_addstr(buf, _("GiB"));
 	} else if (bytes > 1 << 20) {
 		unsigned x = bytes + 5243;  /* for rounding */
-		strbuf_addf(buf, "%u.%2.2u MiB",
+		strbuf_addf(buf, "%u.%2.2u ",
 			    x >> 20, ((x & ((1 << 20) - 1)) * 100) >> 20);
+		/* TRANSLATORS: unit symbol for IEC 80000-13:2008 mebibyte */
+		strbuf_addstr(buf, _("MiB"));
 	} else if (bytes > 1 << 10) {
 		unsigned x = bytes + 5;  /* for rounding */
-		strbuf_addf(buf, "%u.%2.2u KiB",
+		strbuf_addf(buf, "%u.%2.2u ",
 			    x >> 10, ((x & ((1 << 10) - 1)) * 100) >> 10);
+		/* TRANSLATORS: unit symbol for IEC 80000-13:2008 kibibyte */
+		strbuf_addstr(buf, _("KiB"));
 	} else {
-		strbuf_addf(buf, "%u bytes", (unsigned)bytes);
+		strbuf_addf(buf, "%u ", (unsigned)bytes);
+		/* TRANSLATORS: unit symbol for IEC 80000-13:2008 byte */
+		strbuf_addstr(buf, _("B"));
 	}
 }
 

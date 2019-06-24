@@ -145,7 +145,9 @@ static void throughput_string(struct strbuf *buf, uint64_t total,
 	strbuf_humanise_bytes(buf, total);
 	strbuf_addstr(buf, " | ");
 	strbuf_humanise_bytes(buf, rate * 1024);
-	strbuf_addstr(buf, "/s");
+	strbuf_addstr(buf, "/");
+	/* TRANSLATORS: unit symbol for IEC 80000-13:2008 second */
+	strbuf_addstr(buf, _("s"));
 }
 
 void display_throughput(struct progress *progress, uint64_t total)
