@@ -1366,7 +1366,8 @@ static void fix_unresolved_deltas(struct hashfile *f)
 			oid_array_append(&to_fetch, &d->oid);
 		}
 		if (to_fetch.nr)
-			promisor_remote_get_direct(to_fetch.oid, to_fetch.nr);
+			promisor_remote_get_direct(the_repository,
+						   to_fetch.oid, to_fetch.nr);
 		oid_array_clear(&to_fetch);
 	}
 
