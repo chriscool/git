@@ -6531,7 +6531,8 @@ void diffcore_std(struct diff_options *options)
 			/*
 			 * NEEDSWORK: Consider deduplicating the OIDs sent.
 			 */
-			promisor_remote_get_direct(to_fetch.oid, to_fetch.nr);
+			promisor_remote_get_direct(options->repo,
+						   to_fetch.oid, to_fetch.nr);
 		oid_array_clear(&to_fetch);
 	}
 
