@@ -205,17 +205,13 @@ static int remove_fetched_oids(struct object_id **oids, int oid_nr, int to_free)
 	int *missing = xcalloc(oid_nr, sizeof(*missing));
 	struct object_id *old_oids = *oids;
 	struct object_id *new_oids;
-	int old_fetch_if_missing = fetch_if_missing;
-
-	fetch_if_missing = 0;
 
 	for (i = 0; i < oid_nr; i++)
-		if (oid_object_info_extended(the_repository, &old_oids[i], NULL, 0)) {
+		if (oid_object_info_extended(the_repository, &old_oids[i], NULL,
+					     OBJECT_INFO_SKIP_FETCH_OBJECT)) {
 			missing[i] = 1;
 			missing_nr++;
 		}
-
-	fetch_if_missing = old_fetch_if_missing;
 
 	if (missing_nr) {
 		int j = 0;
