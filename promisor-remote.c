@@ -199,7 +199,9 @@ int has_promisor_remote(void)
 	return !!promisor_remote_find(NULL);
 }
 
-static int remove_fetched_oids(struct object_id **oids, int oid_nr, int to_free)
+static int remove_fetched_oids(struct repository *repo,
+			       struct object_id **oids,
+			       int oid_nr, int to_free)
 {
 	int i, missing_nr = 0;
 	int *missing = xcalloc(oid_nr, sizeof(*missing));
@@ -207,7 +209,7 @@ static int remove_fetched_oids(struct object_id **oids, int oid_nr, int to_free)
 	struct object_id *new_oids;
 
 	for (i = 0; i < oid_nr; i++)
-		if (oid_object_info_extended(the_repository, &old_oids[i], NULL,
+		if (oid_object_info_extended(repo, &old_oids[i], NULL,
 					     OBJECT_INFO_SKIP_FETCH_OBJECT)) {
 			missing[i] = 1;
 			missing_nr++;
@@ -229,7 +231,9 @@ static int remove_fetched_oids(struct object_id **oids, int oid_nr, int to_free)
 	return missing_nr;
 }
 
-int promisor_remote_get_direct(const struct object_id *oids, int oid_nr)
+int promisor_remote_get_direct(struct repository *repo,
+			       const struct object_id *oids,
+			       int oid_nr)
 {
 	struct promisor_remote *r;
 	struct object_id *missing_oids = (struct object_id *)oids;
@@ -243,7 +247,8 @@ int promisor_remote_get_direct(const struct object_id *oids, int oid_nr)
 		if (fetch_objects(r->name, missing_oids, missing_nr) < 0) {
 			if (missing_nr == 1)
 				continue;
-			missing_nr = remove_fetched_oids(&missing_oids, missing_nr, to_free);
+			missing_nr = remove_fetched_oids(repo, &missing_oids,
+							 missing_nr, to_free);
 			if (missing_nr) {
 				to_free = 1;
 				continue;
