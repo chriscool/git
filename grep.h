@@ -32,6 +32,7 @@ typedef int pcre2_compile_context;
 typedef int pcre2_match_context;
 typedef int pcre2_jit_stack;
 #endif
+#include "kwset.h"
 #include "thread-utils.h"
 #include "userdiff.h"
 
@@ -96,6 +97,7 @@ struct grep_pat {
 	pcre2_match_context *pcre2_match_context;
 	pcre2_jit_stack *pcre2_jit_stack;
 	uint32_t pcre2_jit_on;
+	kwset_t kws;
 	unsigned fixed:1;
 	unsigned ignore_case:1;
 	unsigned word_regexp:1;
