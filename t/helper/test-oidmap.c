@@ -65,6 +65,23 @@ int cmd__oidmap(int argc, const char **argv)
 			puts(entry ? entry->name : "NULL");
 			free(entry);
 
+		} else if (!strcmp("add", cmd) && p1 && p2) {
+
+			if (get_oid(p1, &oid)) {
+				printf("Unknown oid: %s\n", p1);
+				continue;
+			}
+
+			/* create entry with oid_key = p1, name_value = p2 */
+			FLEX_ALLOC_STR(entry, name, p2);
+			oidcpy(&entry->entry.oid, &oid);
+
+			/* add entry */
+			oidmap_add(&map, entry);
+
+			/* print added entry */
+			puts(entry->name);
+
 		} else if (!strcmp("get", cmd) && p1) {
 
 			if (get_oid(p1, &oid)) {
