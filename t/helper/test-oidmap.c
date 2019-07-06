@@ -95,6 +95,23 @@ int cmd__oidmap(int argc, const char **argv)
 			/* print result */
 			puts(entry ? entry->name : "NULL");
 
+		} else if (!strcmp("get_all", cmd) && p1) {
+
+			if (get_oid(p1, &oid)) {
+				printf("Unknown oid: %s\n", p1);
+				continue;
+			}
+
+			/* lookup entry in oidmap */
+			entry = oidmap_get(&map, &oid);
+
+			/* print result */
+			puts(entry ? entry->name : "NULL");
+
+			if (entry)
+				while ((entry = oidmap_get_next(&map, entry)))
+					puts(entry ? entry->name : "NULL");
+
 		} else if (!strcmp("remove", cmd) && p1) {
 
 			if (get_oid(p1, &oid)) {
