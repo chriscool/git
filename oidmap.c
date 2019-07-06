@@ -32,6 +32,14 @@ void *oidmap_get(const struct oidmap *map, const struct object_id *key)
 	return hashmap_get_from_hash(&map->map, oidhash(key), key);
 }
 
+void *oidmap_get_next(const struct oidmap *map, const void *entry)
+{
+	if (!map->map.cmpfn)
+		return NULL;
+
+	return hashmap_get_next(&map->map, entry);
+}
+
 void *oidmap_remove(struct oidmap *map, const struct object_id *key)
 {
 	struct hashmap_entry entry;
