@@ -50,6 +50,12 @@ void *oidmap_get(const struct oidmap *map,
 		 const struct object_id *key);
 
 /*
+ * Returns the next equal oidmap entry, or NULL if not found. This can be
+ * used to iterate over duplicate entries (see `oidmap_add`).
+ */
+void *oidmap_get_next(const struct oidmap *map, const void *entry);
+
+/*
  * Adds an oidmap entry. This allows to add duplicate entries (i.e.
  * separate values with the same oid key).
  */
