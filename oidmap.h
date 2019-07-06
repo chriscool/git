@@ -50,6 +50,12 @@ void *oidmap_get(const struct oidmap *map,
 		 const struct object_id *key);
 
 /*
+ * Adds an oidmap entry. This allows to add duplicate entries (i.e.
+ * separate values with the same oid key).
+ */
+void oidmap_add(struct oidmap *map, void *entry);
+
+/*
  * Adds or replaces an oidmap entry.
  *
  * ((struct oidmap_entry *) entry)->internal_entry will be populated by this

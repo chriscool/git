@@ -43,6 +43,17 @@ void *oidmap_remove(struct oidmap *map, const struct object_id *key)
 	return hashmap_remove(&map->map, &entry, key);
 }
 
+void oidmap_add(struct oidmap *map, void *entry)
+{
+	struct oidmap_entry *to_put = entry;
+
+	if (!map->map.cmpfn)
+		oidmap_init(map, 0);
+
+	hashmap_entry_init(&to_put->internal_entry, oidhash(&to_put->oid));
+	hashmap_add(&map->map, to_put);
+}
+
 void *oidmap_put(struct oidmap *map, void *entry)
 {
 	struct oidmap_entry *to_put = entry;
@@ -53,3 +64,4 @@ void *oidmap_put(struct oidmap *map, void *entry)
 	hashmap_entry_init(&to_put->internal_entry, oidhash(&to_put->oid));
 	return hashmap_put(&map->map, to_put);
 }
+
