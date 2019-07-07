@@ -67,6 +67,32 @@ Unknown oid: invalidOid
 
 '
 
+test_expect_success 'add and get_all' '
+
+test_oidmap "add one 1
+add one un
+add two 2
+add two deux
+add three 3
+get_all two
+get_all four
+get_all invalidOid
+get_all three
+get_all one" "1
+un
+2
+deux
+3
+deux
+2
+NULL
+Unknown oid: invalidOid
+3
+un
+1"
+
+'
+
 test_expect_success 'remove' '
 
 test_oidmap "put one 1
