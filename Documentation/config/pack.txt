@@ -27,6 +27,10 @@ Note that changing the compression level will not automatically recompress
 all existing objects. You can force recompression by passing the -F option
 to linkgit:git-repack[1].
 
+pack.allowPackReuse::
+	When true, which is the default, Git will try to reuse parts
+	of existing packfiles when preparing new packfiles.
+
 pack.island::
 	An extended regular expression configuring a set of delta
 	islands. See "DELTA ISLANDS" in linkgit:git-pack-objects[1]
