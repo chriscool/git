@@ -785,6 +785,56 @@ static struct object_entry **compute_write_order(void)
 	return wo;
 }
 
+/*
+ * Record the offsets needed in our reused packfile chunks due to
+ * "gaps" where we omitted some objects.
+ */
+static struct reused_chunk {
+	off_t start;
+	off_t offset;
+} *reused_chunks;
+static int reused_chunks_nr;
+static int reused_chunks_alloc;
+
+static void record_reused_object(off_t where, off_t offset)
+{
+	if (reused_chunks_nr && reused_chunks[reused_chunks_nr-1].offset == offset)
+		return;
+
+	ALLOC_GROW(reused_chunks, reused_chunks_nr + 1,
+		   reused_chunks_alloc);
+	reused_chunks[reused_chunks_nr].start = where;
+	reused_chunks[reused_chunks_nr].offset = offset;
+	reused_chunks_nr++;
+}
+
+/*
+ * Binary search to find the chunk that "where" is in. Note
+ * that we're not looking for an exact match, just the first
+ * chunk that contains it (which implicitly ends at the start
+ * of the next chunk.
+ */
+static off_t find_reused_offset(off_t where)
+{
+	int lo = 0, hi = reused_chunks_nr;
+	while (lo < hi) {
+		int mi = lo + ((hi - lo) / 2);
+		if (where == reused_chunks[mi].start)
+			return reused_chunks[mi].offset;
+		if (where < reused_chunks[mi].start)
+			hi = mi;
+		else
+			lo = mi + 1;
+	}
+
+	/*
+	 * The first chunk starts at zero, so we can't have gone below
+	 * there.
+	 */
+	assert(lo);
+	return reused_chunks[lo-1].offset;
+}
+
 static off_t write_reused_pack(struct hashfile *f)
 {
 	unsigned char buffer[8192];
