@@ -4,6 +4,7 @@
 #include "refs/reftable.h"
 #include "refs/ref-update-array.h"
 #include "varint.h"
+#include "oidmap.h"
 
 #define REFTABLE_SIGNATURE 0x52454654  /* "REFT" */
 #define REFTABLE_VERSION 1
@@ -589,7 +590,59 @@ static int reftable_add_index_block(unsigned char *index_records,
 	return i;
 }
 
-#ifdef DEBUG
+/* oidmap entry to store oid positions */
+struct oid_pos_entry {
+	struct oidmap_entry entry;
+	uintmax_t position;
+};
+
+static int void_position_cmp(const void *a_, const void *b_)
+{
+	uintmax_t a = *((uintmax_t *)a_);
+	uintmax_t b = *((uintmax_t *)b_);
+
+	return (a < b) ? -1 : (a != b);
+}
+
+static uintmax_t *get_position_deltas(struct object_id *oid, struct oidmap *oidmap, uintmax_t *position_count)
+{
+	struct oid_pos_entry *entry = oidmap_get(oidmap, oid);
+	uintmax_t *position_deltas = NULL;
+	uintmax_t alloc = 0;
+
+	*position_count = 0;
+
+	if (entry) {
+		ALLOC_GROW(position_deltas, *position_count + 1, alloc);
+		position_deltas[*position_count] = entry->position;
+		(*position_count)++;
+
+		while ((entry = oidmap_get_next(oidmap, entry))) {
+			if (*position_count >= alloc)
+				ALLOC_GROW(position_deltas, *position_count + 1, alloc);
+			position_deltas[*position_count] = entry->position;
+			(*position_count)++;
+		}
+
+		if (*position_count > 1) {
+			uintmax_t last_position;
+			int i;
+
+			/* Sort position_deltas */
+			QSORT(position_deltas, *position_count, void_position_cmp);
+
+			/* Actually compute deltas */
+			last_position = position_deltas[0];
+			for (i = 1; i < *position_count; i++) {
+				uintmax_t cur_position = position_deltas[i];
+				position_deltas[i] -= last_position;
+				last_position = cur_position;
+			}
+		}
+	}
+
+	return position_deltas;
+}
 
 /*
  * Add an object record to `object_records`.
@@ -613,7 +666,7 @@ static int reftable_add_object_record(unsigned char *object_records,
 				      uintmax_t max_size,
 				      int i,
 				      struct oid_array *oids,
-				      struct ref_update_array *update_array,
+				      uintmax_t *position_deltas,
 				      uintmax_t position_count,
 				      uint8_t obj_id_len)
 {
@@ -621,6 +674,9 @@ static int reftable_add_object_record(unsigned char *object_records,
 	uintmax_t suffix_length;
 	uintmax_t suffix_and_type;
 	uintmax_t max_full_length;
+	uintmax_t cnt_large;
+	int has_cnt_large;
+	int cnt_3;
 	unsigned char *pos = object_records;
 	char *cur_buf;
 	char *prev_buf;
@@ -629,27 +685,43 @@ static int reftable_add_object_record(unsigned char *object_records,
 	cur_buf = malloc(obj_id_len + 1);
 	prev_buf = malloc(obj_id_len + 1);
 
+	/*
+	 * TODO: we should probably not encode oids as hexes, but
+	 * rather directly endcode the hashes
+	 */
 	hash_to_hex_size_r(cur_buf, oids->oid[i].hash, obj_id_len);
 	if (i != 0) {
 		hash_to_hex_size_r(prev_buf, oids->oid[i - 1].hash, obj_id_len);
 		prefix_length = find_prefix(prev_buf, cur_buf);
 	}
 
-	suffix_length = obj_id_len - prefix_length;
-	suffix_and_type = suffix_length << 3 | 0;
+	if (position_count > 7 || position_count == 0) {
+		cnt_3 = 0;
+		cnt_large = position_count;
+		has_cnt_large = 1;
+	} else {
+		cnt_3 = position_count;
+		has_cnt_large = 0;
+	}
 
-	/* 16 * 3 as there are 3 varints */
-	max_full_length = 16 * 3 + suffix_length;
+	suffix_length = obj_id_len - prefix_length;
+	suffix_and_type = suffix_length << 3 | cnt_3;
+
+	/* There are (has_cnt_large + position_count + 2) varints */
+	max_full_length = 16 * (has_cnt_large + position_count + 2) + suffix_length;
 
 	/* Give up adding an object record if there might not be enough space */
 	if (max_full_length > max_size)
 		return 0;
 
-	/* Actually add the ref record */
+	/* Actually add the object record */
 	pos += encode_varint(prefix_length, pos);
 	pos += encode_varint(suffix_and_type, pos);
-	pos += encode_data(refnames[i] + prefix_length, suffix_length, pos);
-	pos += encode_varint(block_pos, pos);
+	pos += encode_data(cur_buf + prefix_length, suffix_length, pos);
+	if (has_cnt_large)
+		pos += encode_varint(cnt_large, pos);
+	for (i = 0; i < position_count; i++)
+		pos += encode_varint(position_deltas[i], pos);
 
 	return pos - object_records;
 }
@@ -678,6 +750,7 @@ static int reftable_add_object_record(unsigned char *object_records,
 static int reftable_add_object_block(unsigned char *object_records,
 				     uint32_t block_size,
 				     struct oid_array *oids,
+				     struct oidmap *oidmap,
 				     struct ref_update_array *update_array,
 				     int start_index)
 {
@@ -685,6 +758,7 @@ static int reftable_add_object_block(unsigned char *object_records,
 	int i, restart_count = 0;
 	char *object_restarts;
 	unsigned char *block_len_pos;
+	int obj_id_len = 0; /* TODO: remove me */
 
 	if (block_size < 2000)
 		BUG("too small reftable object block size '%d'", block_size);
@@ -709,11 +783,16 @@ static int reftable_add_object_block(unsigned char *object_records,
 
 	for (i = start_index; i < update_array->nr; i++) {
 		int restart = ((i % reftable_restart_gap) == 0);
+		uintmax_t position_count;
+
+		/* TODO: reuse the same array for position_deltas */
+		uintmax_t *position_deltas = get_position_deltas(&oids->oid[i], oidmap, &position_count);
 
 		int max_size = block_size - (block_start_len + block_end_len + 2);
-		uintmax_t block_pos = get_block_pos(update_array->updates[i]);
 		int record_len = reftable_add_object_record(object_records, max_size, i,
-							    oids, update_array, block_pos);
+							    oids, position_deltas, position_count, obj_id_len);
+
+		free(position_deltas);
 
 		if (record_len < 1)
 			break;
@@ -747,8 +826,6 @@ static int reftable_add_object_block(unsigned char *object_records,
 
 	return i;
 }
-
-#endif
 
 static void reftable_write_index_block_level(int fd, uint32_t block_size, const char *path,
 					     unsigned char *records,
