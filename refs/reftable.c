@@ -859,36 +859,19 @@ static void reftable_write_index_block_level(int fd, uint32_t block_size, const 
 	}
 }
 
-#define MAX_INDEX_BLOCK_LEVEL 5
-
-int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path,
-				   struct ref_update_array *update_array,
-				   int padding)
+static void add_all_ref_blocks(int fd, unsigned char *records,
+			       struct reftable_header *header,
+			       struct ref_update_array *update_array,
+			       struct ref_update_array *index_level_update_array,
+			       const char *path,
+			       uint32_t block_size, int padding)
 {
-	unsigned char *records;
 	unsigned int ref_written = 0;
-	struct reftable_header header;
-	uint64_t min_update_index = 0;
-	uint64_t max_update_index = 0;
-	int i;
-	uintmax_t max_level_nr;
-	struct ref_update_array index_level_update_array[MAX_INDEX_BLOCK_LEVEL];
-
-	for (i = 0; i < MAX_INDEX_BLOCK_LEVEL; i++)
-		index_level_update_array[i] = (struct ref_update_array) REF_UPDATE_ARRAY_INIT;
-
-	/* Create ref header */
-	reftable_header_init(&header, block_size,
-			     min_update_index, max_update_index);
-
-	/* Add ref blocks */
-
-	records = xcalloc(1, block_size);
 
 	while (ref_written < update_array->nr) {
 		unsigned int old_ref_written = ref_written;
 		ref_written = reftable_add_ref_block(records,
-						     ref_written == 0 ? &header : NULL,
+						     ref_written == 0 ? header : NULL,
 						     block_size,
 						     padding,
 						     update_array,
@@ -909,6 +892,36 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 			ref_update_array_append(&index_level_update_array[0], update);
 		}
 	}
+}
+
+#define MAX_INDEX_BLOCK_LEVEL 5
+
+int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path,
+				   struct ref_update_array *update_array,
+				   int padding)
+{
+	unsigned char *records;
+	struct reftable_header header;
+	uint64_t min_update_index = 0;
+	uint64_t max_update_index = 0;
+	int i;
+	uintmax_t max_level_nr;
+	struct ref_update_array index_level_update_array[MAX_INDEX_BLOCK_LEVEL];
+
+	for (i = 0; i < MAX_INDEX_BLOCK_LEVEL; i++)
+		index_level_update_array[i] = (struct ref_update_array) REF_UPDATE_ARRAY_INIT;
+
+	/* Create ref header */
+	reftable_header_init(&header, block_size,
+			     min_update_index, max_update_index);
+
+	/* Add ref blocks */
+
+	records = xcalloc(1, block_size);
+
+	add_all_ref_blocks(fd, records, &header, update_array,
+			   index_level_update_array,
+			   path, block_size, padding);
 
 	/* Add index blocks */
 
@@ -924,6 +937,10 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 	if ((padding && max_level_nr >= 4) || (!padding && max_level_nr > 1))
 		BUG("It seems that a 5st level index block is needed (nr=%"PRIuMAX")",
 		    max_level_nr);
+
+	/* Add object blocks */
+
+	
 
 	/* TODO: add other blocks */
 
