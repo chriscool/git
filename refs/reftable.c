@@ -98,12 +98,21 @@ static void reftable_header_check(struct reftable_header *header)
 		BUG("invalid reftable version '%d' instead of '%d'", version, REFTABLE_VERSION);
 }
 
-static size_t find_prefix(const char *a, const char *b)
+static uintmax_t find_prefix(const char *a, const char *b)
 {
-	size_t i;
+	uintmax_t i;
 	for (i = 0; a[i] && b[i] && a[i] == b[i]; i++)
 		;
 	return i;
+}
+
+static uintmax_t find_oid_hash_prefix(struct object_id *a, struct object_id *b, uintmax_t obj_id_len)
+{
+	uintmax_t i;
+	for (i = 0; i < obj_id_len; i++)
+		if (a->hash[i] != b->hash[i])
+			return i;
+	return obj_id_len;
 }
 
 static size_t encode_data(const void *src, size_t n, void *buf)
@@ -678,22 +687,9 @@ static int reftable_add_object_record(unsigned char *object_records,
 	int has_cnt_large;
 	int cnt_3;
 	unsigned char *pos = object_records;
-	char *cur_buf;
-	char *prev_buf;
 
-	/* TODO: maybe alloc these in the caller */
-	cur_buf = malloc(obj_id_len + 1);
-	prev_buf = malloc(obj_id_len + 1);
-
-	/*
-	 * TODO: we should probably not encode oids as hexes, but
-	 * rather directly endcode the hashes
-	 */
-	hash_to_hex_size_r(cur_buf, oids->oid[i].hash, obj_id_len);
-	if (i != 0) {
-		hash_to_hex_size_r(prev_buf, oids->oid[i - 1].hash, obj_id_len);
-		prefix_length = find_prefix(prev_buf, cur_buf);
-	}
+	if (i != 0)
+		prefix_length = find_oid_hash_prefix(&oids->oid[i - 1], &oids->oid[i], obj_id_len);
 
 	if (position_count > 7 || position_count == 0) {
 		cnt_3 = 0;
@@ -717,7 +713,7 @@ static int reftable_add_object_record(unsigned char *object_records,
 	/* Actually add the object record */
 	pos += encode_varint(prefix_length, pos);
 	pos += encode_varint(suffix_and_type, pos);
-	pos += encode_data(cur_buf + prefix_length, suffix_length, pos);
+	pos += encode_data(oids->oid[i].hash + prefix_length, suffix_length, pos);
 	if (has_cnt_large)
 		pos += encode_varint(cnt_large, pos);
 	for (i = 0; i < position_count; i++)
