@@ -894,18 +894,6 @@ static void write_reused_pack_one(size_t pos, struct hashfile *out,
 
 			ofs_len = sizeof(ofs_header) - i;
 
-			if (0) {
-				off_t expected_size = cur - offset;
-
-				if (len + ofs_len < expected_size) {
-					unsigned max_pad = (len >= 4) ? 9 : 5;
-					header[len - 1] |= 0x80;
-					while (len < max_pad && len + ofs_len < expected_size)
-						header[len++] = 0x80;
-					header[len - 1] &= 0x7F;
-				}
-			}
-
 			hashwrite(out, header, len);
 			hashwrite(out, ofs_header + sizeof(ofs_header) - ofs_len, ofs_len);
 			copy_pack_data(out, reuse_packfile, w_curs, cur, next - cur);
