@@ -960,33 +960,32 @@ int reftable_write_reftable_blocks(int fd, uint32_t block_size, const char *path
 	struct oid_array oids = OID_ARRAY_INIT;
 	struct oidmap oidmap = OIDMAP_INIT;
 
+	/* Initialize memory and structs */
+
 	for (i = 0; i < MAX_INDEX_BLOCK_LEVEL; i++)
 		index_level_update_array[i] = (struct ref_update_array) REF_UPDATE_ARRAY_INIT;
 
-	/* Create ref header */
+	records = xcalloc(1, block_size);
+
 	reftable_header_init(&header, block_size,
 			     min_update_index, max_update_index);
 
-	/* Add ref blocks */
-
-	records = xcalloc(1, block_size);
+	/* Add blocks */
 
 	reftable_add_all_ref_blocks(fd, records, &header, update_array,
 				    index_level_update_array,
 				    path, block_size, padding);
 
-	/* Add index blocks */
-
 	ref_add_all_index_blocks(fd, records, path,
 				 index_level_update_array,
 				 block_size, padding);
-
-	/* Add object blocks */
 
 	reftable_add_all_object_blocks(fd, records, path, &oids, &oidmap,
 				       update_array, block_size, padding);
 
 	/* TODO: add other blocks */
+
+	/* Free memory and structs */
 
 	free(records);
 
