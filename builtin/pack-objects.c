@@ -3165,7 +3165,8 @@ static void loosen_unused_packed_objects(void)
  */
 static int pack_options_allow_reuse(void)
 {
-	return pack_to_stdout &&
+	return allow_pack_reuse &&
+	       pack_to_stdout &&
 	       !ignore_packed_keep_on_disk &&
 	       !ignore_packed_keep_in_core &&
 	       (!local || !have_non_local_packs) &&
@@ -3177,8 +3178,7 @@ static int get_object_list_from_bitmap(struct rev_info *revs)
 	if (!(bitmap_git = prepare_bitmap_walk(revs)))
 		return -1;
 
-	if (allow_pack_reuse &&
-	    pack_options_allow_reuse() &&
+	if (pack_options_allow_reuse() &&
 	    !reuse_partial_packfile_from_bitmap(
 			bitmap_git,
 			&reuse_packfile,
