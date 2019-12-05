@@ -12,6 +12,9 @@ else
 fi
 url=$2
 
+echo "line: GIT_DIR=$GIT_DIR" >>/tmp/t0420.txt
+echo "line: pwd=$(pwd)" >>/tmp/t0420.txt
+
 dir="$GIT_DIR/testgit/$alias"
 
 h_refspec="refs/heads/*:refs/testgit/$alias/heads/*"
@@ -86,6 +89,13 @@ do
 		fi
 
 		echo "feature done"
+		echo "line: git fast-export " >>/tmp/t0420.txt
+		echo "  "${h_refspec:+"--refspec=$h_refspec"} >>/tmp/t0420.txt
+		echo "  "${t_refspec:+"--refspec=$t_refspec"} >>/tmp/t0420.txt
+		echo "  "${testgitmarks:+"--import-marks=$testgitmarks"} >>/tmp/t0420.txt
+		echo "  "${testgitmarks:+"--export-marks=$testgitmarks"} >>/tmp/t0420.txt
+		echo "  "$refs >>/tmp/t0420.txt
+
 		git fast-export \
 			${h_refspec:+"--refspec=$h_refspec"} \
 			${t_refspec:+"--refspec=$t_refspec"} \
