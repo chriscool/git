@@ -49,7 +49,10 @@ test_expect_success 'fetching of missing objects from another promisor remote' '
 
 	git -C repo remote add server2 "testgit::${PWD}/server2" &&
 	git -C repo config remote.server2.promisor true &&
-	git -C repo cat-file -p "$HASH2"
+	git -C repo cat-file -p "$HASH2" &&
+
+	git -C repo fetch server2 &&
+	rm -rf repo/.git/objects/*
 '
 
 exit 1
@@ -58,9 +61,8 @@ exit 1
 test_expect_success 'fetching of missing objects from another promisor remote' '
 
  &&
-	git -C repo fetch server2 &&
-	rm -rf repo/.git/objects/* &&
-	git -C repo cat-file -p "$HASH2" &&
+	git -C repo cat-file -p "$HASH2"
+ &&
 
 	# Ensure that the .promisor file is written, and check that its
 	# associated packfile contains the object
