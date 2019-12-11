@@ -1,8 +1,15 @@
 #!/bin/sh
 
-test_description='partial clone'
+test_description='partial clone with http promisor remote'
 
 . ./test-lib.sh
+
+. "$TEST_DIRECTORY"/lib-httpd.sh
+
+start_httpd apache-e-odb.conf
+
+# helper scripts must see this
+export HTTPD_URL
 
 PATH="$TEST_DIRECTORY/t0430:$PATH"
 
