@@ -786,6 +786,24 @@ static struct object_entry **compute_write_order(void)
 	return wo;
 }
 
+/*
+ * A reused set of objects. All objects in a chunk have the same
+ * relative position in the original packfile and the generated
+ * packfile.
+ */
+
+static struct reused_chunk {
+	/* The offset of the first object of this chunk in the original
+	 * packfile. */
+	off_t original;
+	/* The offset of the first object of this chunk in the generated
+	 * packfile minus "original". */
+	off_t difference;
+} *reused_chunks;
+static int reused_chunks_nr;
+static int reused_chunks_alloc;
+
+
 static off_t write_reused_pack(struct hashfile *f)
 {
 	unsigned char buffer[8192];
