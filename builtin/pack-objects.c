@@ -1127,6 +1127,10 @@ static int have_duplicate_entry(const struct object_id *oid,
 {
 	struct object_entry *entry;
 
+	if (reuse_packfile_bitmap &&
+	    bitmap_walk_contains(bitmap_git, reuse_packfile_bitmap, oid))
+		return 1;
+
 	entry = packlist_find(&to_pack, oid);
 	if (!entry)
 		return 0;
