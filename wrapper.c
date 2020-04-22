@@ -3,6 +3,7 @@
  */
 #include "cache.h"
 #include "config.h"
+#include "pkt-line.h"
 
 static int memory_limit_check(size_t size, int gentle)
 {
@@ -291,7 +292,8 @@ ssize_t read_in_full(int fd, void *buf, size_t count)
 	return total;
 }
 
-ssize_t write_in_full(int fd, const void *buf, size_t count)
+ssize_t write_in_full_read_err(int fd, const void *buf, size_t count,
+			       struct packet_reader *reader)
 {
 	const char *p = buf;
 	ssize_t total = 0;
@@ -300,7 +302,8 @@ ssize_t write_in_full(int fd, const void *buf, size_t count)
 		ssize_t written = xwrite(fd, p, count);
 		if (written < 0)
 			return -1;
-		if (!written) {
+		if (!written &&
+		    (!reader || packet_reader_read(reader) == PACKET_READ_EOF)) {
 			errno = ENOSPC;
 			return -1;
 		}

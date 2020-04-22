@@ -1808,9 +1808,17 @@ int copy_file_with_time(const char *dst, const char *src, int mode);
 void write_or_die(int fd, const void *buf, size_t count);
 void fsync_or_die(int fd, const char *);
 
+struct packet_reader;
+
 ssize_t read_in_full(int fd, void *buf, size_t count);
-ssize_t write_in_full(int fd, const void *buf, size_t count);
+ssize_t write_in_full_read_err(int fd, const void *buf, size_t count,
+			       struct packet_reader *reader);
 ssize_t pread_in_full(int fd, void *buf, size_t count, off_t offset);
+
+static inline ssize_t write_in_full(int fd, const void *buf, size_t count)
+{
+	return write_in_full_read_err(fd, buf, count, NULL);
+}
 
 static inline ssize_t write_str_in_full(int fd, const char *str)
 {

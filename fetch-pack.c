@@ -185,13 +185,14 @@ static enum ack_type get_ack(struct packet_reader *reader,
 }
 
 static void send_request(struct fetch_pack_args *args,
-			 int fd, struct strbuf *buf)
+			 int fd, struct strbuf *buf,
+			 struct packet_reader *reader)
 {
 	if (args->stateless_rpc) {
 		send_sideband(fd, -1, buf->buf, buf->len, LARGE_PACKET_MAX);
 		packet_flush(fd);
 	} else {
-		if (write_in_full(fd, buf->buf, buf->len) < 0)
+		if (write_in_full_read_err(fd, buf->buf, buf->len, reader) < 0)
 			die_errno(_("unable to write to remote"));
 	}
 }
@@ -349,7 +350,7 @@ static int find_common(struct fetch_negotiator *negotiator,
 		const char *arg;
 		struct object_id oid;
 
-		send_request(args, fd[1], &req_buf);
+		send_request(args, fd[1], &req_buf, &reader);
 		while (packet_reader_read(&reader) == PACKET_READ_NORMAL) {
 			if (skip_prefix(reader.line, "shallow ", &arg)) {
 				if (get_oid_hex(arg, &oid))
@@ -372,7 +373,7 @@ static int find_common(struct fetch_negotiator *negotiator,
 			die(_("expected shallow/unshallow, got %s"), reader.line);
 		}
 	} else if (!args->stateless_rpc)
-		send_request(args, fd[1], &req_buf);
+		send_request(args, fd[1], &req_buf, &reader);
 
 	if (!args->stateless_rpc) {
 		/* If we aren't using the stateless-rpc interface
@@ -395,7 +396,7 @@ static int find_common(struct fetch_negotiator *negotiator,
 			int ack;
 
 			packet_buf_flush(&req_buf);
-			send_request(args, fd[1], &req_buf);
+			send_request(args, fd[1], &req_buf, &reader);
 			strbuf_setlen(&req_buf, state_len);
 			flushes++;
 			flush_at = next_flush(args->stateless_rpc, count);
@@ -470,7 +471,7 @@ done:
 	trace2_region_leave("fetch-pack", "negotiation_v0_v1", the_repository);
 	if (!got_ready || !no_done) {
 		packet_buf_write(&req_buf, "done\n");
-		send_request(args, fd[1], &req_buf);
+		send_request(args, fd[1], &req_buf, &reader);
 	}
 	print_verbose(args, _("done"));
 	if (retval != 0) {
