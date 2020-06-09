@@ -115,6 +115,9 @@ struct rev_info {
 	 */
 	int rev_input_given;
 
+	/* for using ref-filter logic */
+	int use_ref_filter;
+
 	/*
 	 * Whether we read from stdin due to the --stdin option.
 	 */
