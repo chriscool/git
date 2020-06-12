@@ -13,7 +13,6 @@
 #include "gpg-interface.h"
 #include "trailer.h"
 
-static char *user_format;
 static struct cmt_fmt_map {
 	const char *name;
 	enum cmit_fmt format;
