@@ -7,6 +7,8 @@
 struct commit;
 struct strbuf;
 
+char *user_format;
+
 /* Commit formats */
 enum cmit_fmt {
 	CMIT_FMT_RAW,
