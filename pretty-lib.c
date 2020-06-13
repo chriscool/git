@@ -2,27 +2,22 @@
 #include "ref-filter.h"
 #include "pretty-lib.h"
 
-/**
- * Set value of `format->format` according to user_format 
- * 
- * TODO - Add support for more formatting options
-*/
-static size_t get_format_option(const char *placeholder, struct ref_format *format)
+static size_t convert_format(struct strbuf *sb, const char *start, void *data)
 {
-	switch (placeholder[0]) {	
+	/* TODO - Add support for more formatting options */
+	switch (*start) {
 	case 'H':
-		format->format = "%(objectname)";
+		strbuf_addstr(sb, "%(objectname)");
 		return 1;
 	case 'h':
-		format->format = "%(objectname:short)";
+		strbuf_addstr(sb, "%(objectname:short)");
 		return 1;
 	case 'T':
-		format->format = "%(tree)";
+		strbuf_addstr(sb, "%(tree)");
 		return 1;
 	default:
-		die(_("invalid formatting option"));
+		die(_("invalid formatting option '%c'"), *start);
 	}
-	return 0;
 }
 
 void ref_pretty_print_commit(struct pretty_print_context *pp,
@@ -30,36 +25,12 @@ void ref_pretty_print_commit(struct pretty_print_context *pp,
 			 struct strbuf *sb)
 {
 	struct ref_format format = REF_FORMAT_INIT;
+	struct strbuf sb_fmt = STRBUF_INIT;
 	const char *name = "refs";
-	const char *usr_fmt = user_format; 
 
 	if (pp->fmt == CMIT_FMT_USERFORMAT) {
-		/* for getting each formatting option */
-		for (;;) {
-			const char *percent;
-			size_t consumed;
-
-			percent = strchrnul(usr_fmt, '%');
-			strbuf_add(sb, usr_fmt, percent - usr_fmt);
-			if (!*percent)
-				break;
-			usr_fmt = percent + 1;
-
-			if (*usr_fmt == '%') {
-				strbuf_addch(sb, '%');
-				usr_fmt++;
-				continue;
-			}
-
-			consumed = get_format_option(usr_fmt, &format);
-			verify_ref_format(&format);
-			pretty_print_ref(name, &commit->object.oid, &format);
-			if (consumed)
-				usr_fmt += consumed;
-			else
-				strbuf_addch(sb, '%');
-		}
-		return;
+		strbuf_expand(&sb_fmt, user_format, convert_format, NULL);
+		format.format = sb_fmt.buf;
 	} else if (pp->fmt == CMIT_FMT_DEFAULT || pp->fmt == CMIT_FMT_MEDIUM) {
 		format.format = "Author: %(authorname) %(authoremail)\nDate:\t%(authordate)\n\n%(subject)\n\n%(body)";
 	} else if (pp->fmt == CMIT_FMT_ONELINE) {
@@ -74,4 +45,5 @@ void ref_pretty_print_commit(struct pretty_print_context *pp,
 
 	verify_ref_format(&format);
 	pretty_print_ref(name, &commit->object.oid, &format);
+	strbuf_release(&sb_fmt);
 }
