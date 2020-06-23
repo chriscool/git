@@ -270,6 +270,29 @@ static char *get_submodule_displaypath(const char *path, const char *prefix)
 	}
 }
 
+static int count_lines(const char *data, int size)
+{
+	int count, ch, completely_empty = 1, nl_just_seen = 0;
+	count = 0;
+	while (0 < size--) {
+		ch = *data++;
+		if (ch == '\n') {
+			count++;
+			nl_just_seen = 1;
+			completely_empty = 0;
+		}
+		else {
+			nl_just_seen = 0;
+			completely_empty = 0;
+		}
+	}
+	if (completely_empty)
+		return 0;
+	if (!nl_just_seen)
+		count++; /* no trailing newline */
+	return count;
+}
+
 static char *compute_rev_name(const char *sub_path, const char* object_id)
 {
 	struct strbuf sb = STRBUF_INIT;
@@ -2274,6 +2297,468 @@ static int module_set_url(int argc, const char **argv, const char *prefix)
 	return 0;
 }
 
+struct summary_cb {
+	int argc;
+	const char **argv;
+	const char *prefix;
+	unsigned int cached: 1;
+	unsigned int for_status: 1;
+	unsigned int quiet: 1;
+	unsigned int files: 1;
+	int summary_limit;
+};
+#define SUMMARY_CB_INIT { 0, NULL, NULL, 0, 0, 0, 0, 0 }
+
+struct module_cb {
+	unsigned int mod_src;
+	unsigned int mod_dst;
+	const struct object_id oid_src;
+	const struct object_id oid_dst;
+	char status;
+	const char *sm_path;
+};
+#define MODULE_CB_INIT { 0, 0, NULL, NULL, '\0', NULL }
+
+struct module_cb_list {
+	struct module_cb **entries;
+	int alloc, nr;
+};
+#define MODULE_CB_LIST_INIT { NULL, 0, 0 }
+
+// static void summary_submodule(const char *path, const struct object_id *ce_oid,
+// 			     unsigned int ce_flags, const char *prefix,
+// 			     unsigned int flags)
+// {
+
+// }
+
+// static void summary_submodule_cb(const struct cache_entry *list_item,
+// 				void *cb_data)
+// {
+// 	struct summary_cb *info = cb_data;
+// 	summary_submodule(list_item->name, &list_item->oid, list_item->ce_flags,
+// 			 info->prefix, info->flags);
+// }
+
+static enum {
+	DIFF_INDEX,
+	DIFF_FILES
+} diff_cmd = DIFF_INDEX;
+
+static int verify_submodule_object_name(const char *sm_path, const char *sha1)
+{
+	struct child_process cp_rev_parse = CHILD_PROCESS_INIT;
+
+	cp_rev_parse.git_cmd = 1;
+	cp_rev_parse.no_stdout = 1;
+	cp_rev_parse.dir = sm_path;
+	prepare_submodule_repo_env(&cp_rev_parse.env_array);
+	argv_array_pushl(&cp_rev_parse.args, "rev-parse", "-q",
+			 "--verify", NULL);
+	argv_array_pushf(&cp_rev_parse.args, "%s^0", sha1);
+
+	if (run_command(&cp_rev_parse))
+		return 1;
+
+	return 0;
+}
+
+static void print_summary(struct summary_cb *info, int errmsg, int total_commits,
+			  int missing_src, int missing_dst, const char *displaypath,
+			  int is_sm_git_dir, struct module_cb *p)
+{
+	if (p->status == 'T') {
+		if (S_ISGITLINK(p->mod_dst))
+			printf(_("* %s %s(blob)->%s(submodule)"),
+				 displaypath, find_unique_abbrev(p->oid_src.hash, 7),
+				 find_unique_abbrev(p->oid_dst.hash, 7));
+		else
+			printf(_("* %s %s(submodule)->%s(blob)"),
+				 displaypath, find_unique_abbrev(p->oid_src.hash, 7),
+				 find_unique_abbrev(p->oid_dst.hash, 7));
+	} else {
+			printf("* %s %s...%s", displaypath, find_unique_abbrev(p->oid_src.hash, 7),
+				 find_unique_abbrev(p->oid_dst.hash, 7));
+	}
+
+	if (total_commits < 0)
+		printf(":\n");
+	else
+		printf(" (%d):\n", total_commits);
+
+	if (errmsg) {
+		/*
+		 * Don't give error msg for modification whose dst is not
+		 * submodule, i.e. deleted or changed to blob
+		 */
+		if (S_ISGITLINK(p->mod_src)) {
+			if (missing_src && missing_dst) {
+				printf(_("  Warn: %s doesn't contain commits %s and %s\n"),
+				 displaypath, oid_to_hex(&p->oid_src), oid_to_hex(&p->oid_dst));
+			} else if (missing_src) {
+				printf(_("  Warn: %s doesn't contain commit %s\n"),
+				 displaypath, oid_to_hex(&p->oid_src));
+			} else {
+				printf(_("  Warn: %s doesn't contain commit %s\n"),
+				 displaypath, oid_to_hex(&p->oid_dst));
+			}
+		}
+	} else if (is_sm_git_dir) {
+		struct child_process cp_log = CHILD_PROCESS_INIT;
+
+		cp_log.git_cmd = 1;
+		cp_log.dir = p->sm_path;
+		prepare_submodule_repo_env(&cp_log.env_array);
+		argv_array_pushl(&cp_log.args, "log", NULL);
+
+		if (S_ISGITLINK(p->mod_src) && S_ISGITLINK(p->mod_dst)) {
+			if (info->summary_limit > 0)
+				argv_array_pushf(&cp_log.args, "-%d", info->summary_limit);
+
+			argv_array_pushl(&cp_log.args, "--pretty=  %m %s",
+					 "--first-parent", NULL);
+			argv_array_pushf(&cp_log.args, "%s...%s", oid_to_hex(&p->oid_src), oid_to_hex(&p->oid_dst));
+		} else if (S_ISGITLINK(p->mod_dst)) {
+			argv_array_pushl(&cp_log.args, "--pretty=  > %s",
+					 "-1", oid_to_hex(&p->oid_dst), NULL);
+		} else {
+			argv_array_pushl(&cp_log.args, "--pretty=  < %s",
+					 "-1", oid_to_hex(&p->oid_src), NULL);
+		}
+		run_command(&cp_log);
+	}
+	printf("\n");
+}
+
+static void generate_submodule_summary(struct summary_cb *info,
+				       struct module_cb *p)
+{
+	int missing_src = 0;
+	int missing_dst = 0;
+	char *displaypath;
+	int errmsg = 0;
+	int total_commits = -1;
+	char *sm_git_dir = xstrfmt("%s/.git", p->sm_path);
+	int is_sm_git_dir = 0;
+
+	if (!info->cached && !oidcmp(&p->oid_dst, &null_oid)) {
+		if (S_ISGITLINK(p->mod_dst)) {
+			/*
+			 * NEEDSWORK: avoid using separate process with
+			 * the help of the function head_ref_submodule()
+			 */
+			struct child_process cp_rev_parse = CHILD_PROCESS_INIT;
+			struct strbuf sb_rev_parse = STRBUF_INIT;
+
+			cp_rev_parse.git_cmd = 1;
+			cp_rev_parse.no_stderr = 1;
+			cp_rev_parse.dir = p->sm_path;
+			prepare_submodule_repo_env(&cp_rev_parse.env_array);
+
+			argv_array_pushl(&cp_rev_parse.args,
+					 "rev-parse", "HEAD", NULL);
+			if (!capture_command(&cp_rev_parse, &sb_rev_parse, 0)) {
+				strbuf_strip_suffix(&sb_rev_parse, "\n");
+
+				get_oid_hex(sb_rev_parse.buf, &p->oid_dst);
+			}
+			strbuf_release(&sb_rev_parse);
+		} else if (S_ISLNK(p->mod_dst) || S_ISREG(p->mod_dst)) {
+			struct child_process cp_hash_object = CHILD_PROCESS_INIT;
+			struct strbuf sb_hash_object = STRBUF_INIT;
+
+			cp_hash_object.git_cmd = 1;
+			argv_array_pushl(&cp_hash_object.args,
+					 "hash-object", p->sm_path,
+					 NULL);
+			if (!capture_command(&cp_hash_object,
+					     &sb_hash_object, 0)) {
+				strbuf_strip_suffix(&sb_hash_object, "\n");
+
+				get_oid_hex(sb_hash_object.buf, &p->oid_dst);
+			}
+			strbuf_release(&sb_hash_object);
+		} else {
+			if (p->mod_dst)
+				die(_("unexpected mode %d\n"), p->mod_dst);
+		}
+	}
+
+	if (is_git_directory(sm_git_dir))
+		is_sm_git_dir = 1;
+
+	if (is_sm_git_dir && S_ISGITLINK(p->mod_src))
+		missing_src = verify_submodule_object_name(p->sm_path,
+							   oid_to_hex(&p->oid_src));
+
+	if (is_sm_git_dir && S_ISGITLINK(p->mod_dst))
+		missing_dst = verify_submodule_object_name(p->sm_path,
+							   oid_to_hex(&p->oid_dst));
+
+	displaypath = get_submodule_displaypath(p->sm_path, info->prefix);
+
+	if (!missing_dst && !missing_src) {
+		if (is_sm_git_dir) {
+			struct child_process cp_rev_list = CHILD_PROCESS_INIT;
+			struct strbuf sb_rev_list = STRBUF_INIT;
+			char *range;
+
+			if (S_ISGITLINK(p->mod_src) && S_ISGITLINK(p->mod_dst))
+				range = xstrfmt("%s...%s", oid_to_hex(&p->oid_src), oid_to_hex(&p->oid_dst));
+			else if (S_ISGITLINK(p->mod_src))
+				range = xstrdup(oid_to_hex(&p->oid_src));
+			else
+				range = xstrdup(oid_to_hex(&p->oid_dst));
+
+			cp_rev_list.git_cmd = 1;
+			cp_rev_list.dir = p->sm_path;
+			prepare_submodule_repo_env(&cp_rev_list.env_array);
+
+			argv_array_pushl(&cp_rev_list.args, "rev-list",
+					 "--first-parent", range, "--", NULL);
+			if (!capture_command(&cp_rev_list, &sb_rev_list, 0)) {
+				if (sb_rev_list.len)
+					total_commits = count_lines(sb_rev_list.buf,
+								    sb_rev_list.len);
+				else
+					total_commits = 0;
+			}
+
+			free(range);
+			strbuf_release(&sb_rev_list);
+		}
+	} else {
+		errmsg = 1;
+	}
+
+	print_summary(info, errmsg, total_commits, missing_src, missing_dst,
+		      displaypath, is_sm_git_dir, p);
+
+	free(displaypath);
+	free(sm_git_dir);
+}
+
+static void prepare_submodule_summary(struct summary_cb *info,
+				      struct module_cb_list *list)
+{
+	int i;
+	for (i = 0; i < list->nr; i++) {
+		struct module_cb *p = list->entries[i];
+		struct child_process cp_rev_parse = CHILD_PROCESS_INIT;
+
+		if (p->status == 'D' ||  p->status=='T') {
+			generate_submodule_summary(info, p);
+			continue;
+		}
+
+		if (info->for_status) {
+			char *config_key;
+			const char *ignore_config = "none";
+			const char *value;
+			const struct submodule *sub = submodule_from_path(the_repository, &null_oid, p->sm_path);
+
+			if (sub && p->status != 'A') {
+				config_key =  xstrfmt("submodule.%s.ignore", sub->name);
+				if(!git_config_get_string_const(config_key, &value))
+					ignore_config = value;
+				else if (sub->ignore)
+					ignore_config = sub->ignore;
+
+				free(config_key);
+				if (!strcmp(ignore_config, "all"))
+					continue;
+			}
+		}
+
+		/* Also show added or modified modules which are checked out */
+		cp_rev_parse.dir = p->sm_path;
+		cp_rev_parse.git_cmd = 1;
+		cp_rev_parse.no_stderr = 1;
+		cp_rev_parse.no_stdout = 1;
+
+		argv_array_pushl(&cp_rev_parse.args, "rev-parse",
+				 "--git-dir", NULL);
+
+		if (!run_command(&cp_rev_parse))
+			generate_submodule_summary(info, p);
+	}
+}
+
+static void submodule_summary_callback(struct diff_queue_struct *q,
+				       struct diff_options *options,
+				       void *data)
+{
+	int i;
+	struct module_cb_list *list = data;
+	for (i = 0; i < q->nr; i++) {
+		struct diff_filepair *p = q->queue[i];
+		struct module_cb *temp;
+
+		if (!S_ISGITLINK(p->one->mode) && !S_ISGITLINK(p->two->mode))
+			continue;
+		temp = (struct module_cb*)malloc(sizeof(struct module_cb));
+
+		temp->mod_src = p->one->mode;
+		temp->mod_dst = p->two->mode;
+		temp->oid_src = p->one->oid;
+		temp->oid_dst = p->two->oid;
+		temp->status = p->status;
+		temp->sm_path = xstrdup(p->one->path);
+
+		ALLOC_GROW(list->entries, list->nr + 1, list->alloc);
+		list->entries[list->nr++] = temp;
+	}
+}
+
+static int compute_summary_module_list(char *head, struct summary_cb *info)
+{
+	struct argv_array diff_cmd_args = ARGV_ARRAY_INIT;
+	struct rev_info rev;
+	struct module_cb_list list = MODULE_CB_LIST_INIT;
+
+	argv_array_push(&diff_cmd_args, diff_cmd ? "diff-files" : "diff-index");
+	if (info->cached)
+		argv_array_push(&diff_cmd_args, "--cached");
+	argv_array_pushl(&diff_cmd_args, "--ignore-submodules=dirty", "--raw", NULL);
+	if (head)
+		argv_array_push(&diff_cmd_args, head);
+	argv_array_push(&diff_cmd_args, "--");
+	if (info->argc)
+		argv_array_pushv(&diff_cmd_args, info->argv);
+	git_config(git_diff_basic_config, NULL);
+	init_revisions(&rev, info->prefix);
+	rev.abbrev = 0;
+	precompose_argv(diff_cmd_args.argc, diff_cmd_args.argv);
+	diff_cmd_args.argc = setup_revisions(diff_cmd_args.argc,
+						diff_cmd_args.argv, &rev, NULL);
+	rev.diffopt.output_format = DIFF_FORMAT_NO_OUTPUT | DIFF_FORMAT_CALLBACK;
+	rev.diffopt.format_callback = submodule_summary_callback;
+	rev.diffopt.format_callback_data = &list;
+
+	if (!info->cached) {
+		if (!diff_cmd)
+			setup_work_tree();
+		if (read_cache_preload(&rev.diffopt.pathspec) < 0) {
+			perror("read_cache_preload");
+			return -1;
+		}
+	} else if (read_cache() < 0) {
+		perror("read_cache");
+		return -1;
+	}
+
+	if (!diff_cmd)
+		run_diff_index(&rev, info->cached);
+	else
+		run_diff_files(&rev, 0);
+	prepare_submodule_summary(info, &list);
+	return 0;
+}
+
+static int module_summary(int argc, const char **argv, const char *prefix)
+{
+	struct summary_cb info = SUMMARY_CB_INIT;
+	// struct pathspec pathspec;
+	// struct module_list list = MODULE_LIST_INIT;
+	struct child_process cp = CHILD_PROCESS_INIT;
+	struct strbuf sb = STRBUF_INIT;
+	char * diff_cmd;
+	int quiet = 0;
+	int cached = 0;
+	int files = 0;
+	int summary_limit = 0;
+	int for_status = 0;
+	int ret;
+
+	struct option options[] = {
+		OPT__QUIET(&quiet, N_("Suppress output of displaying summary")),
+		OPT_BOOL(0, "cached", &cached, N_("desc.")),
+		OPT_BOOL(0, "files", &files, N_("desc.")),
+		OPT_BOOL(0, "for-status", &for_status, N_("desc.")),
+		OPT_INTEGER('n', "summary-limit", &info.summary_limit, N_("desc")),
+		OPT_END()
+	};
+
+	const char *const usage[] = {
+		N_("git submodule--helper [--quiet] summary [<options>] [--] [<path>…​]"),
+		NULL
+	};
+
+	argc = parse_options(argc, argv, prefix, options, usage, 0);
+
+	// if (module_list_compute(argc, argv, prefix, &pathspec, &list) < 0)
+	// 	return 1;
+
+	if (!summary_limit)
+		return 0;
+
+	// if (cached && files)
+	// 	die(_("--cached and --files are mutually exclusive"));
+
+	// if(quiet)
+	// 	info.quiet |= OPT_QUIET;
+	// if(cached)
+	// 	info.cached |= OPT_QUIET;
+
+	cp.git_cmd = 1;
+	argv_array_pushl(&cp.args, "rev-parse", "-q", "--verify",
+						"HEAD", argc ? argv[0]: "HEAD", NULL);
+
+	//git rev-parse successful. 'sb' holds the value of $head
+	if(!capture_command(&cp, &sb, 0)) {
+		strbuf_strip_suffix(&sb, "\n");
+		//this needs to be bettered
+		//I think this is the shifter most probably
+		if (argc) {
+			argv++;
+			argc--;
+		}
+	}
+	//this is the second check test -z "$1" || test "$1" = "HEAD"
+	else if (!argc || !strcmp(argv[0], "HEAD")) {
+		// struct child_process cp_in = CHILD_PROCESS_INIT;
+		// cp_in.git_cmd = 1;
+		// argv_array_pushl(cp.argv, "hash-object", "-w", "-t", "tree", "--stdin", "</dev/null");
+		// capture_command(&cp_in, &sb, 0);
+		/* before the first commit: compare with an empty tree */
+		struct stat st;
+		struct object_id oid;
+		if (fstat(0, &st) < 0 || index_fd(&the_index, &oid, 0, &st, 2, prefix, 3))
+			die("Unable to add %s to database", oid.hash);
+		strbuf_addstr(&sb, oid_to_hex(&oid));
+		//shifter
+		if (!argv[0]) {
+			argv++;
+			argc--;
+		}
+	}
+	//final test case
+	else {
+		strbuf_addstr(&sb, "HEAD");
+	}
+
+	if (files) {
+		if (cached)
+			die(_("The --cached option cannot be used with the --files option"));
+		diff_cmd++;
+	}
+
+	info.argc = argc;
+	info.argv = argv;
+	info.prefix = prefix;
+	info.cached = !!cached;
+	info.for_status = !!for_status;
+	info.quiet = quiet;
+	info.files = files;
+	info.summary_limit = summary_limit;
+
+	// for_each_listed_submodule(&list, summary_submodule_cb, &info);
+
+	ret = compute_summary_module_list(diff_cmd ? NULL : sb.buf, &info);
+	strbuf_release(&sb);
+	return ret;
+}
+
 #define SUPPORT_SUPER_PREFIX (1<<0)
 
 struct cmd_struct {
@@ -2305,6 +2790,7 @@ static struct cmd_struct commands[] = {
 	{"check-name", check_name, 0},
 	{"config", module_config, 0},
 	{"set-url", module_set_url, 0},
+	{"summary", module_summary, 0},
 };
 
 int cmd_submodule__helper(int argc, const char **argv, const char *prefix)
