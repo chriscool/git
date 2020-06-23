@@ -2312,8 +2312,8 @@ struct summary_cb {
 struct module_cb {
 	unsigned int mod_src;
 	unsigned int mod_dst;
-	const struct object_id oid_src;
-	const struct object_id oid_dst;
+	struct object_id oid_src;
+	struct object_id oid_dst;
 	char status;
 	const char *sm_path;
 };
@@ -2370,15 +2370,15 @@ static void print_summary(struct summary_cb *info, int errmsg, int total_commits
 	if (p->status == 'T') {
 		if (S_ISGITLINK(p->mod_dst))
 			printf(_("* %s %s(blob)->%s(submodule)"),
-				 displaypath, find_unique_abbrev(p->oid_src.hash, 7),
-				 find_unique_abbrev(p->oid_dst.hash, 7));
+				 displaypath, find_unique_abbrev(&p->oid_src, 7),
+				 find_unique_abbrev(&p->oid_dst, 7));
 		else
 			printf(_("* %s %s(submodule)->%s(blob)"),
-				 displaypath, find_unique_abbrev(p->oid_src.hash, 7),
-				 find_unique_abbrev(p->oid_dst.hash, 7));
+				 displaypath, find_unique_abbrev(&p->oid_src, 7),
+				 find_unique_abbrev(&p->oid_dst, 7));
 	} else {
-			printf("* %s %s...%s", displaypath, find_unique_abbrev(p->oid_src.hash, 7),
-				 find_unique_abbrev(p->oid_dst.hash, 7));
+			printf("* %s %s...%s", displaypath, find_unique_abbrev(&p->oid_src, 7),
+				 find_unique_abbrev(&p->oid_dst, 7));
 	}
 
 	if (total_commits < 0)
