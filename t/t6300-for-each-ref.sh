@@ -125,6 +125,7 @@ test_atom head contents:body ''
 test_atom head contents:signature ''
 test_atom head contents 'Initial
 '
+test_atom head contents:size '8'
 test_atom head HEAD '*'
 
 test_atom tag refname refs/tags/testtag
@@ -170,6 +171,7 @@ test_atom tag contents:body ''
 test_atom tag contents:signature ''
 test_atom tag contents 'Tagging at 1151968727
 '
+test_atom tag contents:size '22'
 test_atom tag HEAD ' '
 
 test_expect_success 'Check invalid atoms names are errors' '
@@ -580,6 +582,7 @@ test_atom refs/tags/subject-body contents 'the subject line
 first body line
 second body line
 '
+test_atom refs/tags/subject-body contents:size '51'
 
 test_expect_success 'create tag with multiline subject' '
 	cat >msg <<-\EOF &&
@@ -606,6 +609,7 @@ second subject line
 first body line
 second body line
 '
+test_atom refs/tags/multiline contents:size '73'
 
 test_expect_success GPG 'create signed tags' '
 	git tag -s -m "" signed-empty &&
@@ -622,6 +626,16 @@ sig='-----BEGIN PGP SIGNATURE-----
 -----END PGP SIGNATURE-----
 '
 
+# We cannot use test_atom to check contents:size of signed tags due to sanitize_pgp
+test_tag_contents_size_pgp () {
+	ref="$1"
+	test_expect_success $PREREQ "basic atom: $ref contents:size" "
+		git cat-file tag $ref | tail -n +6 | wc -c >expected &&
+		git for-each-ref --format='%(contents:size)' $ref >actual &&
+		test_cmp expected actual
+	"
+}
+
 PREREQ=GPG
 test_atom refs/tags/signed-empty subject ''
 test_atom refs/tags/signed-empty contents:subject ''
@@ -629,6 +643,7 @@ test_atom refs/tags/signed-empty body "$sig"
 test_atom refs/tags/signed-empty contents:body ''
 test_atom refs/tags/signed-empty contents:signature "$sig"
 test_atom refs/tags/signed-empty contents "$sig"
+test_tag_contents_size_pgp refs/tags/signed-empty
 
 test_atom refs/tags/signed-short subject 'subject line'
 test_atom refs/tags/signed-short contents:subject 'subject line'
@@ -637,6 +652,7 @@ test_atom refs/tags/signed-short contents:body ''
 test_atom refs/tags/signed-short contents:signature "$sig"
 test_atom refs/tags/signed-short contents "subject line
 $sig"
+test_tag_contents_size_pgp refs/tags/signed-short
 
 test_atom refs/tags/signed-long subject 'subject line'
 test_atom refs/tags/signed-long contents:subject 'subject line'
@@ -649,6 +665,7 @@ test_atom refs/tags/signed-long contents "subject line
 
 body contents
 $sig"
+test_tag_contents_size_pgp refs/tags/signed-long
 
 test_expect_success 'set up refs pointing to tree and blob' '
 	git update-ref refs/mytrees/first refs/heads/master^{tree} &&
@@ -664,6 +681,7 @@ test_atom refs/mytrees/first body ""
 test_atom refs/mytrees/first contents:body ""
 test_atom refs/mytrees/first contents:signature ""
 test_atom refs/mytrees/first contents ""
+test_atom refs/mytrees/first contents:size ""
 
 test_atom refs/myblobs/first subject ""
 test_atom refs/myblobs/first contents:subject ""
@@ -671,6 +689,7 @@ test_atom refs/myblobs/first body ""
 test_atom refs/myblobs/first contents:body ""
 test_atom refs/myblobs/first contents:signature ""
 test_atom refs/myblobs/first contents ""
+test_atom refs/myblobs/first contents:size ""
 
 test_expect_success 'set up multiple-sort tags' '
 	for when in 100000 200000
