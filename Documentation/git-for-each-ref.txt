@@ -236,6 +236,9 @@ The complete message (subject, body, trailers and signature) of a
 commit or tag object is `contents`. This field can also be used in the
 following ways:
 
+contents:size::
+	The size in bytes of the complete message.
+
 contents:subject::
 	The "subject" of the commit or tag message.  It's actually the
 	concatenation of all lines of the commit message up to the
