@@ -105,6 +105,7 @@ struct upload_pack_data {
 	unsigned use_include_tag : 1;
 	unsigned allow_filter : 1;
 	unsigned allow_filter_fallback : 1;
+	unsigned long tree_filter_max_depth;
 
 	unsigned done : 1;					/* v2 only */
 	unsigned allow_ref_in_want : 1;				/* v2 only */
@@ -136,6 +137,7 @@ static void upload_pack_data_init(struct upload_pack_data *data)
 	data->extra_edge_obj = extra_edge_obj;
 	data->allowed_filters = allowed_filters;
 	data->allow_filter_fallback = 1;
+	data->tree_filter_max_depth = ULONG_MAX;
 	packet_writer_init(&data->writer, 1);
 
 	data->keepalive = 5;
@@ -996,8 +998,17 @@ static int allows_filter_choice(struct upload_pack_data *data,
 	const char *key = list_object_filter_config_name(opts->choice);
 	struct string_list_item *item = string_list_lookup(&data->allowed_filters,
 							   key);
+	int allowed = -1;
 	if (item)
-		return (intptr_t) item->util;
+		allowed = (intptr_t) item->util;
+
+	if (allowed != 0 &&
+	    opts->choice == LOFC_TREE_DEPTH &&
+	    opts->tree_exclude_depth > data->tree_filter_max_depth)
+		return 0;
+
+	if (allowed > -1)
+		return allowed;
 	return data->allow_filter_fallback;
 }
 
@@ -1023,11 +1034,22 @@ static void die_if_using_banned_filter(struct upload_pack_data *data)
 {
 	struct list_objects_filter_options *banned = banned_filter(data,
 								   &data->filter_options);
+	struct strbuf buf = STRBUF_INIT;
 	if (!banned)
 		return;
 
-	packet_writer_error(&data->writer, _("filter '%s' not supported\n"),
-			    list_object_filter_config_name(banned->choice));
+	strbuf_addf(&buf, _("filter '%s' not supported"),
+		    list_object_filter_config_name(banned->choice));
+	if (banned->choice == LOFC_TREE_DEPTH &&
+	    data->tree_filter_max_depth != ULONG_MAX)
+		strbuf_addf(&buf, _(" (maximum depth: %lu, but got: %lu)"),
+			    data->tree_filter_max_depth,
+			    banned->tree_exclude_depth);
+
+	packet_writer_error(&data->writer, "%s\n", buf.buf);
+
+	strbuf_release(&buf);
+
 	die(_("git upload-pack: banned object filter requested"));
 }
 
@@ -1241,6 +1263,10 @@ static void parse_object_filter_config(const char *var, const char *value,
 				(void *)(intptr_t)git_config_bool(var, value);
 		else
 			data->allow_filter_fallback = git_config_bool(var, value);
+	} else if (!strcmp(spec.buf, "tree") && !strcmp(key, "maxdepth")) {
+		string_list_insert(&data->allowed_filters, "tree")->util
+			= (void *) (intptr_t) 1;
+		data->tree_filter_max_depth = git_config_ulong(var, value);
 	}
 
 	strbuf_release(&spec);
