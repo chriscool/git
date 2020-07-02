@@ -235,6 +235,32 @@ test_expect_success 'implicitly construct combine: filter with repeated flags' '
 	test_cmp unique_types.expected unique_types.actual
 '
 
+test_expect_success 'upload-pack fails banned object filters' '
+	# Test case-insensitivity by intentional use of "blob:None" rather than
+	# "blob:none".
+	test_config -C srv.bare uploadpack.filter.blob:None.allow false &&
+	test_must_fail git clone --no-checkout --filter=blob:none \
+		"file://$(pwd)/srv.bare" pc3 2>err &&
+	test_i18ngrep "filter '\''blob:none'\'' not supported" err
+'
+
+test_expect_success 'upload-pack fails banned combine object filters' '
+	test_config -C srv.bare uploadpack.filter.allow false &&
+	test_config -C srv.bare uploadpack.filter.combine.allow true &&
+	test_config -C srv.bare uploadpack.filter.tree.allow true &&
+	test_config -C srv.bare uploadpack.filter.blob:none.allow false &&
+	test_must_fail git clone --no-checkout --filter=tree:1 \
+		--filter=blob:none "file://$(pwd)/srv.bare" pc3 2>err &&
+	test_i18ngrep "filter '\''blob:none'\'' not supported" err
+'
+
+test_expect_success 'upload-pack fails banned object filters with fallback' '
+	test_config -C srv.bare uploadpack.filter.allow false &&
+	test_must_fail git clone --no-checkout --filter=blob:none \
+		"file://$(pwd)/srv.bare" pc3 2>err &&
+	test_i18ngrep "filter '\''blob:none'\'' not supported" err
+'
+
 test_expect_success 'partial clone fetches blobs pointed to by refs even if normally filtered out' '
 	rm -rf src dst &&
 	git init src &&
