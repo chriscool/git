@@ -67,5 +67,13 @@ echo
 
 my_reset_rev "$rev"
 
-my_export_commits "$rev"
+my_export_commits "$rev" | head -n -1
 
+mark=1
+
+git diff-tree --format=format:'' --root "$rev" | while read src_mode dst_mode src dst op name
+do
+	test "$op" = "A" && op=M
+	echo "$op $dst_mode :$mark $name"
+done
+echo
