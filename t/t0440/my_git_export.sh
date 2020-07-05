@@ -48,13 +48,11 @@ my_reset_rev() {
 my_export_commits() {
 	for rev in "$@"
 	do
-		contents_size=$(git for-each-ref --format="%(contents)" "$rev" | wc -c)
-		contents_size=$((contents_size-1))
 		git for-each-ref --format="commit %(refname)
 mark :$(my_get_next_mark)
 author %(author)
 committer %(committer)
-data $contents_size
+data %(contents:size)
 %(contents)" "$rev"
 	done
 }
