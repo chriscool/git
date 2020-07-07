@@ -650,6 +650,28 @@ test_atom refs/tags/signed-long contents "subject line
 body contents
 $sig"
 
+test_expect_success 'set up refs pointing to tree and blob' '
+	git update-ref refs/mytrees/first refs/heads/master^{tree} &&
+	git ls-tree refs/mytrees/first one >one_info &&
+	test $(cut -d" " -f2 one_info) = "blob" &&
+	blob_hash=$(cut "-d	" -f1 one_info | cut -d" " -f3) &&
+	git update-ref refs/myblobs/first "$blob_hash"
+'
+
+test_atom refs/mytrees/first subject ""
+test_atom refs/mytrees/first contents:subject ""
+test_atom refs/mytrees/first body ""
+test_atom refs/mytrees/first contents:body ""
+test_atom refs/mytrees/first contents:signature ""
+test_atom refs/mytrees/first contents ""
+
+test_atom refs/myblobs/first subject ""
+test_atom refs/myblobs/first contents:subject ""
+test_atom refs/myblobs/first body ""
+test_atom refs/myblobs/first contents:body ""
+test_atom refs/myblobs/first contents:signature ""
+test_atom refs/myblobs/first contents ""
+
 test_expect_success 'set up multiple-sort tags' '
 	for when in 100000 200000
 	do
