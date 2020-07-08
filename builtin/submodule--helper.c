@@ -1151,32 +1151,28 @@ static void prepare_submodule_summary(struct summary_cb *info,
 	for (i = 0; i < list->nr; i++) {
 		struct module_cb *p = list->entries[i];
 		struct child_process cp_rev_parse = CHILD_PROCESS_INIT;
+		const struct submodule *sub;
 
 		if (p->status == 'D' || p->status == 'T') {
 			generate_submodule_summary(info, p);
 			continue;
 		}
 
-		if (info->for_status) {
-			char *config_key;
+		if (info->for_status && p->status != 'A' &&
+		    (sub = submodule_from_path(the_repository,
+					       &null_oid, p->sm_path))) {
 			const char *ignore_config = "none";
 			const char *value;
-			const struct submodule *sub = submodule_from_path(the_repository,
-									  &null_oid,
-									  p->sm_path);
+			char *config_key = xstrfmt("submodule.%s.ignore",
+						   sub->name);
+			if (!git_config_get_string_const(config_key, &value))
+				ignore_config = value;
+			else if (sub->ignore)
+				ignore_config = sub->ignore;
 
-			if (sub && p->status != 'A') {
-				config_key = xstrfmt("submodule.%s.ignore",
-						     sub->name);
-				if (!git_config_get_string_const(config_key, &value))
-					ignore_config = value;
-				else if (sub->ignore)
-					ignore_config = sub->ignore;
-
-				free(config_key);
-				if (!strcmp(ignore_config, "all"))
-					continue;
-			}
+			free(config_key);
+			if (!strcmp(ignore_config, "all"))
+				continue;
 		}
 
 		/* Also show added or modified modules which are checked out */
