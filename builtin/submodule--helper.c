@@ -1118,26 +1118,27 @@ static void generate_submodule_summary(struct summary_cb *info,
 		if (is_sm_git_dir) {
 			struct child_process cp_rev_list = CHILD_PROCESS_INIT;
 			struct strbuf sb_rev_list = STRBUF_INIT;
-			char *range;
 
+			argv_array_pushl(&cp_rev_list.args, "rev-list",
+					 "--first-parent", "--count", NULL);
 			if (S_ISGITLINK(p->mod_src) && S_ISGITLINK(p->mod_dst))
-				range = xstrfmt("%s...%s", oid_to_hex(&p->oid_src),
-						oid_to_hex(&p->oid_dst));
-			else if (S_ISGITLINK(p->mod_src))
-				range = xstrdup(oid_to_hex(&p->oid_src));
+				argv_array_pushf(&cp_rev_list.args, "%s...%s",
+						 oid_to_hex(&p->oid_src),
+						 oid_to_hex(&p->oid_dst));
 			else
-				range = xstrdup(oid_to_hex(&p->oid_dst));
+				argv_array_push(&cp_rev_list.args,
+						S_ISGITLINK(p->mod_src) ?
+						oid_to_hex(&p->oid_src) :
+						oid_to_hex(&p->oid_dst));
+			argv_array_push(&cp_rev_list.args, "--");
 
 			cp_rev_list.git_cmd = 1;
 			cp_rev_list.dir = p->sm_path;
 			prepare_submodule_repo_env(&cp_rev_list.env_array);
 
-			argv_array_pushl(&cp_rev_list.args, "rev-list",
-					 "--first-parent", "--count", range, "--", NULL);
 			if (!capture_command(&cp_rev_list, &sb_rev_list, 0))
 				total_commits = atoi(sb_rev_list.buf);
 
-			free(range);
 			strbuf_release(&sb_rev_list);
 		}
 	} else {
