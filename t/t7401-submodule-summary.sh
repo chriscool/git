@@ -283,13 +283,14 @@ EOF
 
 test_expect_success '--for-status' "
 	git submodule summary --for-status HEAD^ >actual &&
-	test_i18ncmp actual - <<EOF
+	cat >expected <<-EOF &&
 * sm1 $head6...0000000:
 
 * sm2 0000000...$head7 (2):
   > Add foo9
 
 EOF
+	test_i18ncmp actual expected
 "
 
 test_expect_success 'fail when using --files together with --cached' "
