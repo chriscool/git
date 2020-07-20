@@ -23,6 +23,7 @@ my_export_blob() {
 	size=$(git cat-file -s "$blob") || return
 	echo "data $size"
 	git cat-file -p "$blob" || return
+	echo
 }
 
 my_export_many_blob() {
@@ -62,8 +63,6 @@ my_init_marks
 rev=$(git symbolic-ref "$1")
 
 my_find_blobs "$rev" | my_export_many_blob
-
-echo
 
 my_reset_rev "$rev"
 
