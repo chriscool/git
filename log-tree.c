@@ -497,27 +497,37 @@ static void show_sig_lines(struct rev_info *opt, int status, const char *bol)
 	}
 }
 
-static void show_signature(struct rev_info *opt, struct commit *commit)
+static int parse_commit_signature(struct commit *commit,
+				  struct signature_check *sigc,
+				  int *status)
 {
 	struct strbuf payload = STRBUF_INIT;
 	struct strbuf signature = STRBUF_INIT;
+	int res = parse_signed_commit(commit, &payload, &signature) <= 0;
+
+	if (!res)
+		*status = check_signature(payload.buf, payload.len,
+					  signature.buf, signature.len,
+					  sigc);
+
+	strbuf_release(&payload);
+	strbuf_release(&signature);
+	return res;
+}
+
+static void show_signature(struct rev_info *opt, struct commit *commit)
+{
 	struct signature_check sigc = { 0 };
 	int status;
 
-	if (parse_signed_commit(commit, &payload, &signature) <= 0)
-		goto out;
+	if (parse_commit_signature(commit, &sigc, &status))
+		return;
 
-	status = check_signature(payload.buf, payload.len, signature.buf,
-				 signature.len, &sigc);
 	if (status && !sigc.gpg_output)
 		show_sig_lines(opt, status, "No signature\n");
 	else
 		show_sig_lines(opt, status, sigc.gpg_output);
 	signature_check_clear(&sigc);
-
- out:
-	strbuf_release(&payload);
-	strbuf_release(&signature);
 }
 
 static int which_parent(const struct object_id *oid, const struct commit *commit)
