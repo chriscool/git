@@ -1210,6 +1210,24 @@ static void grab_person(const char *who, struct atom_value *val, int deref, void
 	}
 }
 
+static int parse_commit_signature(struct commit *commit,
+				  struct signature_check *sigc,
+				  int *status)
+{
+	struct strbuf payload = STRBUF_INIT;
+	struct strbuf signature = STRBUF_INIT;
+	int res = parse_signed_commit(commit, &payload, &signature) <= 0;
+
+	if (!res)
+		*status = check_signature(payload.buf, payload.len,
+					  signature.buf, signature.len,
+					  sigc);
+
+	strbuf_release(&payload);
+	strbuf_release(&signature);
+	return res;
+}
+
 static void grab_signature(struct atom_value *val, int deref, struct object *obj)
 {
 	int i;
@@ -1219,8 +1237,6 @@ static void grab_signature(struct atom_value *val, int deref, struct object *obj
 		struct used_atom *atom = &used_atom[i];
 		const char *name = atom->name;
 		struct atom_value *v = &val[i];
-		struct strbuf payload = STRBUF_INIT;
-		struct strbuf signature = STRBUF_INIT;
 		struct signature_check sigc = { 0 };
 		int status;
 
@@ -1237,21 +1253,13 @@ static void grab_signature(struct atom_value *val, int deref, struct object *obj
 			strcmp(name, "signature:trustlevel"))
 			continue;
 
-		if (parse_signed_commit(commit, &payload, &signature) <= 0) {
-			strbuf_release(&payload);
-			strbuf_release(&signature);
+		if (parse_commit_signature(commit, &sigc, &status))
 			continue;
-		}
-
-		status = check_signature(payload.buf, payload.len, signature.buf,
-					signature.len, &sigc);
 
 		if (!status) {
 			v->s = xstrdup("No signature\n");
 			continue;
 		}
-		if (!sigc.result)
-			check_commit_signature(commit, &(sigc));
 
 		if (atom->u.signature.option == S_BARE)
 			v->s = xstrdup(sigc.gpg_output);
