@@ -2211,6 +2211,20 @@ int repo_config_get_pathname(struct repository *repo,
 	return ret;
 }
 
+int repo_config_get_expiry(struct repository *repo,
+			   const char *key, const char **output)
+{
+	int ret = repo_config_get_string_const(repo, key, output);
+	if (ret)
+		return ret;
+	if (strcmp(*output, "now")) {
+		timestamp_t now = approxidate("now");
+		if (approxidate(*output) >= now)
+			git_die_config(key, _("Invalid %s: '%s'"), key, *output);
+	}
+	return ret;
+}
+
 /* Functions used historically to read configuration from 'the_repository' */
 void git_config(config_fn_t fn, void *data)
 {
@@ -2274,15 +2288,7 @@ int git_config_get_pathname(const char *key, const char **dest)
 
 int git_config_get_expiry(const char *key, const char **output)
 {
-	int ret = git_config_get_string_const(key, output);
-	if (ret)
-		return ret;
-	if (strcmp(*output, "now")) {
-		timestamp_t now = approxidate("now");
-		if (approxidate(*output) >= now)
-			git_die_config(key, _("Invalid %s: '%s'"), key, *output);
-	}
-	return ret;
+	return repo_config_get_expiry(the_repository, key, output);
 }
 
 int git_config_get_expiry_in_days(const char *key, timestamp_t *expiry, timestamp_t now)
