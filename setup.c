@@ -490,6 +490,16 @@ static enum extension_result handle_extension(const char *var,
 {
 	if (!strcmp(ext, "noop-v1")) {
 		return EXTENSION_OK;
+	} else if (!strcmp(ext, "objectformat")) {
+		int format;
+
+		if (!value)
+			return config_error_nonbool(var);
+		format = hash_algo_by_name(value);
+		if (format == GIT_HASH_UNKNOWN)
+			return error("invalid value for 'extensions.objectformat'");
+		data->hash_algo = format;
+		return EXTENSION_OK;
 	}
 
 	return EXTENSION_UNKNOWN;
@@ -559,6 +569,9 @@ static int check_repository_format_gently(const char *gitdir, struct repository_
 	repository_format_precious_objects = candidate->precious_objects;
 	set_repository_format_partial_clone(candidate->partial_clone);
 	repository_format_worktree_config = candidate->worktree_config;
+	if (candidate->version < 1) {
+		candidate->hash_algo = GIT_HASH_SHA1;
+	}
 	string_list_clear(&candidate->unknown_extensions, 0);
 	string_list_clear(&candidate->v1_only_extensions, 0);
 

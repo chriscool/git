@@ -281,15 +281,16 @@ test_expect_success 'create bundle 1' '
 	cd "$D" &&
 	echo >file updated again by origin &&
 	git commit -a -m "tip" &&
-	git bundle create bundle1 master^..master
+	git bundle create --version=3 bundle1 master^..master
 '
 
 test_expect_success 'header of bundle looks right' '
 	head -n 4 "$D"/bundle1 &&
 	head -n 1 "$D"/bundle1 | grep "^#" &&
-	head -n 2 "$D"/bundle1 | grep "^-$OID_REGEX " &&
-	head -n 3 "$D"/bundle1 | grep "^$OID_REGEX " &&
-	head -n 4 "$D"/bundle1 | grep "^$"
+	head -n 2 "$D"/bundle1 | grep "^@object-format=" &&
+	head -n 3 "$D"/bundle1 | grep "^-$OID_REGEX " &&
+	head -n 4 "$D"/bundle1 | grep "^$OID_REGEX " &&
+	head -n 5 "$D"/bundle1 | grep "^$"
 '
 
 test_expect_success 'create bundle 2' '
