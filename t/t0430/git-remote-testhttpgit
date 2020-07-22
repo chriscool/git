@@ -1,7 +1,8 @@
 #!/bin/sh
+# Copyright (c) 2020 Christian Couder
 # Copyright (c) 2012 Felipe Contreras
 
-echo "line: START" >>/tmp/t0430.txt
+echo "START" >>/tmp/t0430.txt
 
 # The first argument can be a url when the fetch/push command was a url
 # instead of a configured remote. In this case, use a generic alias.
@@ -12,8 +13,8 @@ else
 fi
 url=$2
 
-echo "line: GIT_DIR=$GIT_DIR" >>/tmp/t0430.txt
-echo "line: pwd=$(pwd)" >>/tmp/t0430.txt
+echo "GIT_DIR=$GIT_DIR" >>/tmp/t0430.txt
+echo "pwd=$(pwd)" >>/tmp/t0430.txt
 
 dir="$GIT_DIR/testhttpgit/$alias"
 
@@ -28,10 +29,12 @@ fi
 
 GIT_DIR="$url/.git"
 export GIT_DIR
+echo "after export GIT_DIR=$GIT_DIR" >>/tmp/t0430.txt
 
 force=
 
 mkdir -p "$dir"
+echo "dir=$dir" >>/tmp/t0430.txt
 
 if test -z "$GIT_REMOTE_TESTHTTPGIT_NO_MARKS"
 then
