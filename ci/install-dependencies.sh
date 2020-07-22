@@ -36,6 +36,14 @@ linux-clang|linux-gcc)
 		tar --extract --gunzip --file "git-lfs-linux-amd64-$LINUX_GIT_LFS_VERSION.tar.gz"
 		cp git-lfs-$LINUX_GIT_LFS_VERSION/git-lfs .
 	popd
+
+	if test true = "$TRAVIS" &&
+	   pyenv_root=$(pyenv root)
+	then
+		# pyenv in Travis CI's current default (xenial) Linux
+		# image messes up PATH for 'git p4'.
+		sudo rm -rf "$pyenv_root"
+	fi
 	;;
 osx-clang|osx-gcc)
 	export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1
