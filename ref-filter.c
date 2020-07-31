@@ -919,21 +919,27 @@ int verify_ref_format(struct ref_format *format)
 	return 0;
 }
 
-static int grab_objectname(const char *name, const struct object_id *oid,
-			   struct atom_value *v, struct used_atom *atom)
+static const char *do_grab_oid(const char *field, const struct object_id *oid,
+			       struct used_atom *atom)
 {
-	if (starts_with(name, "objectname")) {
-		if (atom->u.objectname.option == O_SHORT) {
-			v->s = xstrdup(find_unique_abbrev(oid, DEFAULT_ABBREV));
-			return 1;
-		} else if (atom->u.objectname.option == O_FULL) {
-			v->s = xstrdup(oid_to_hex(oid));
-			return 1;
-		} else if (atom->u.objectname.option == O_LENGTH) {
-			v->s = xstrdup(find_unique_abbrev(oid, atom->u.objectname.length));
-			return 1;
-		} else
-			BUG("unknown %%(objectname) option");
+	switch (atom->u.objectname.option) {
+	case O_FULL:
+		return oid_to_hex(oid);
+	case O_LENGTH:
+		return find_unique_abbrev(oid, atom->u.objectname.length);
+	case O_SHORT:
+		return find_unique_abbrev(oid, DEFAULT_ABBREV);
+	default:
+		BUG("unknown %%(%s) option", field);
+	}
+}
+
+static int grab_oid(const char *name, const char *field, const struct object_id *oid,
+		    struct atom_value *v, struct used_atom *atom)
+{
+	if (starts_with(name, field)) {
+		v->s = xstrdup(do_grab_oid(field, oid, atom));
+		return 1;
 	}
 	return 0;
 }
@@ -961,7 +967,8 @@ static void grab_common_values(struct atom_value *val, int deref, struct expand_
 		} else if (!strcmp(name, "deltabase"))
 			v->s = xstrdup(oid_to_hex(&oi->delta_base_oid));
 		else if (deref)
-			grab_objectname(name, &oi->oid, v, &used_atom[i]);
+			grab_oid(name, "objectname", &oi->oid,
+				 v, &used_atom[i]);
 	}
 }
 
@@ -1000,17 +1007,9 @@ static void grab_commit_values(struct atom_value *val, int deref, struct object 
 			continue;
 		if (deref)
 			name++;
-		if (starts_with(name, "tree")) {
-			if (used_atom[i].u.objectname.option == O_SHORT)
-				v->s = xstrdup(find_unique_abbrev(get_commit_tree_oid(commit), DEFAULT_ABBREV));
-			else if (used_atom[i].u.objectname.option == O_FULL)
-				v->s = xstrdup(oid_to_hex(get_commit_tree_oid(commit)));
-			else if (used_atom[i].u.objectname.option == O_LENGTH)
-				v->s = xstrdup(find_unique_abbrev(get_commit_tree_oid(commit), used_atom[i].u.objectname.length));
-			else
-				BUG("unknown %%(tree) option");
-		}
-		else if (!strcmp(name, "numparent")) {
+		if (grab_oid(name, "tree", get_commit_tree_oid(commit), v, &used_atom[i]))
+			continue;
+		if (!strcmp(name, "numparent")) {
 			v->value = commit_list_count(commit->parents);
 			v->s = xstrfmt("%lu", (unsigned long)v->value);
 		}
@@ -1018,17 +1017,10 @@ static void grab_commit_values(struct atom_value *val, int deref, struct object 
 			struct commit_list *parents;
 			struct strbuf s = STRBUF_INIT;
 			for (parents = commit->parents; parents; parents = parents->next) {
-				struct commit *parent = parents->item;
+				struct object_id *oid = &parents->item->object.oid;
 				if (parents != commit->parents)
 					strbuf_addch(&s, ' ');
-				if (used_atom[i].u.objectname.option == O_SHORT)
-					strbuf_add_unique_abbrev(&s, &parent->object.oid, DEFAULT_ABBREV);
-				else if (used_atom[i].u.objectname.option == O_FULL)
-					strbuf_addstr(&s, oid_to_hex(&parent->object.oid));
-				else if (used_atom[i].u.objectname.option == O_LENGTH)
-					strbuf_add_unique_abbrev(&s, &parent->object.oid, used_atom[i].u.objectname.length);
-				else
-					BUG("unknown %%(parent) option");
+				strbuf_addstr(&s, do_grab_oid("parent", oid, &used_atom[i]));
 			}
 			v->s = strbuf_detach(&s, NULL);
 		}
@@ -1753,7 +1745,7 @@ static int populate_value(struct ref_array_item *ref, struct strbuf *err)
 				v->s = xstrdup(buf + 1);
 			}
 			continue;
-		} else if (!deref && grab_objectname(name, &ref->objectname, v, atom)) {
+		} else if (!deref && grab_oid(name, "objectname", &ref->objectname, v, atom)) {
 			continue;
 		} else if (!strcmp(name, "HEAD")) {
 			if (atom->u.head && !strcmp(ref->refname, atom->u.head))
