@@ -84,6 +84,8 @@ do
 			test "${line%% *}" != "import" && break
 		done
 
+		echo "refs: $refs" >>/tmp/t0430.txt
+		
 		if test -n "$gitmarks"
 		then
 			echo "feature import-marks=$gitmarks"
@@ -97,7 +99,8 @@ do
 		fi
 
 		echo "feature done"
-		echo "line: git fast-export " >>/tmp/t0430.txt
+
+		echo "git fast-export" >>/tmp/t0430.txt
 		echo "  "${h_refspec:+"--refspec=$h_refspec"} >>/tmp/t0430.txt
 		echo "  "${t_refspec:+"--refspec=$t_refspec"} >>/tmp/t0430.txt
 		echo "  "${testhttpgitmarks:+"--import-marks=$testhttpgitmarks"} >>/tmp/t0430.txt
