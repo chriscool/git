@@ -1,0 +1,172 @@
+#!/bin/sh
+# Copyright (c) 2020 Christian Couder
+# Copyright (c) 2012 Felipe Contreras
+
+echo "START" >>/tmp/t0430.txt
+
+echo "arg 1: '$1'" >>/tmp/t0430.txt
+echo "arg 2: '$2'" >>/tmp/t0430.txt
+
+# The first argument can be a url when the fetch/push command was a url
+# instead of a configured remote. In this case, use a generic alias.
+if test "$1" = "testhttpgit::$2"; then
+	alias=_
+else
+	alias=$1
+fi
+url=$2
+
+echo "alias=$alias" >>/tmp/t0430.txt
+echo "url=$url" >>/tmp/t0430.txt
+echo "GIT_DIR=$GIT_DIR" >>/tmp/t0430.txt
+echo "pwd=$(pwd)" >>/tmp/t0430.txt
+
+dir="$GIT_DIR/testhttpgit/$alias"
+
+h_refspec="refs/heads/*:refs/testhttpgit/$alias/heads/*"
+t_refspec="refs/tags/*:refs/testhttpgit/$alias/tags/*"
+
+if test -n "$GIT_REMOTE_TESTHTTPGIT_NOREFSPEC"
+then
+	h_refspec=""
+	t_refspec=""
+fi
+
+GIT_DIR="$url/.git"
+export GIT_DIR
+echo "after export GIT_DIR=$GIT_DIR" >>/tmp/t0430.txt
+
+force=
+
+mkdir -p "$dir"
+echo "dir=$dir" >>/tmp/t0430.txt
+
+if test -z "$GIT_REMOTE_TESTHTTPGIT_NO_MARKS"
+then
+	gitmarks="$dir/git.marks"
+	testhttpgitmarks="$dir/testhttpgit.marks"
+	test -e "$gitmarks" || >"$gitmarks"
+	test -e "$testhttpgitmarks" || >"$testhttpgitmarks"
+fi
+
+while read line
+do
+	echo "line: $line" >>/tmp/t0430.txt
+	case $line in
+	capabilities)
+		echo 'import'
+		echo 'export'
+		test -n "$h_refspec" && echo "refspec $h_refspec"
+		test -n "$t_refspec" && echo "refspec $t_refspec"
+		if test -n "$gitmarks"
+		then
+			echo "*import-marks $gitmarks"
+			echo "*export-marks $gitmarks"
+		fi
+		test -n "$GIT_REMOTE_TESTHTTPGIT_SIGNED_TAGS" && echo "signed-tags"
+		test -n "$GIT_REMOTE_TESTHTTPGIT_NO_PRIVATE_UPDATE" && echo "no-private-update"
+		echo 'option'
+		echo
+		;;
+	list)
+		git for-each-ref --format='? %(refname)' 'refs/heads/' 'refs/tags/'
+		head=$(git symbolic-ref HEAD)
+		echo "@$head HEAD"
+		echo
+		;;
+	import*)
+		# read all import lines
+		while true
+		do
+			ref="${line#* }"
+			refs="$refs $ref"
+			read line
+			test "${line%% *}" != "import" && break
+		done
+
+		if test -n "$gitmarks"
+		then
+			echo "feature import-marks=$gitmarks"
+			echo "feature export-marks=$gitmarks"
+		fi
+
+		if test -n "$GIT_REMOTE_TESTHTTPGIT_FAILURE"
+		then
+			echo "feature done"
+			exit 1
+		fi
+
+		echo "feature done"
+		echo "line: git fast-export " >>/tmp/t0430.txt
+		echo "  "${h_refspec:+"--refspec=$h_refspec"} >>/tmp/t0430.txt
+		echo "  "${t_refspec:+"--refspec=$t_refspec"} >>/tmp/t0430.txt
+		echo "  "${testhttpgitmarks:+"--import-marks=$testhttpgitmarks"} >>/tmp/t0430.txt
+		echo "  "${testhttpgitmarks:+"--export-marks=$testhttpgitmarks"} >>/tmp/t0430.txt
+		echo "  "$refs >>/tmp/t0430.txt
+
+		git fast-export \
+			${h_refspec:+"--refspec=$h_refspec"} \
+			${t_refspec:+"--refspec=$t_refspec"} \
+			${testhttpgitmarks:+"--import-marks=$testhttpgitmarks"} \
+			${testhttpgitmarks:+"--export-marks=$testhttpgitmarks"} \
+			$refs
+		echo "done"
+		;;
+	export)
+		if test -n "$GIT_REMOTE_TESTHTTPGIT_FAILURE"
+		then
+			# consume input so fast-export doesn't get SIGPIPE;
+			# git would also notice that case, but we want
+			# to make sure we are exercising the later
+			# error checks
+			while read line; do
+				test "done" = "$line" && break
+			done
+			exit 1
+		fi
+
+		before=$(git for-each-ref --format=' %(refname) %(objectname) ')
+
+		git fast-import \
+			${force:+--force} \
+			${testhttpgitmarks:+"--import-marks=$testhttpgitmarks"} \
+			${testhttpgitmarks:+"--export-marks=$testhttpgitmarks"} \
+			--quiet
+
+		# figure out which refs were updated
+		git for-each-ref --format='%(refname) %(objectname)' |
+		while read ref a
+		do
+			case "$before" in
+			*" $ref $a "*)
+				continue ;;	# unchanged
+			esac
+			if test -z "$GIT_REMOTE_TESTHTTPGIT_PUSH_ERROR"
+			then
+				echo "ok $ref"
+			else
+				echo "error $ref $GIT_REMOTE_TESTHTTPGIT_PUSH_ERROR"
+			fi
+		done
+
+		echo
+		;;
+	option\ *)
+		read cmd opt val <<-EOF
+		$line
+		EOF
+		case $opt in
+		force)
+			test $val = "true" && force="true" || force=
+			echo "ok"
+			;;
+		*)
+			echo "unsupported"
+			;;
+		esac
+		;;
+	'')
+		exit
+		;;
+	esac
+done
