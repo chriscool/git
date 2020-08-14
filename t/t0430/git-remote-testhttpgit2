@@ -1,0 +1,5 @@
+#!/bin/sh
+
+workdir="/home/ubuntu/git/git_gitlab/git/t/t0430"
+
+"$workdir"/git-remote-testhttpgit1 | tee /tmp/t0430-out.txt
