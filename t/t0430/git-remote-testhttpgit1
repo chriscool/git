@@ -41,6 +41,29 @@ force=
 mkdir -p "$dir"
 echo "dir=$dir" >>/tmp/t0430.txt
 
+mark_count_tmp=$(mktemp -t git-remote-http-mark-count_XXXXXX) || die "Failed to create temp file"
+
+init_mark_count() {
+	echo "1" >"$mark_count_tmp"
+}
+
+get_mark_count() {
+	mark=$(cat "$mark_count_tmp")
+	echo "$mark"
+	mark=$((mark+1))
+	echo "$mark" >"$mark_count_tmp"	
+}
+
+export_blob_from file() {
+	file="$1"
+	echo "blob"
+	echo "mark :$(get_mark_count)"
+	size=$(wc -c <"$file") || return
+	echo "data $size"
+	cat "$file" || return
+	echo
+}
+
 if test -z "$GIT_REMOTE_TESTHTTPGIT_NO_MARKS"
 then
 	gitmarks="$dir/git.marks"
@@ -100,19 +123,17 @@ do
 
 		echo "feature done"
 
-		echo "git fast-export" >>/tmp/t0430.txt
-		echo "  "${h_refspec:+"--refspec=$h_refspec"} >>/tmp/t0430.txt
-		echo "  "${t_refspec:+"--refspec=$t_refspec"} >>/tmp/t0430.txt
-		echo "  "${testhttpgitmarks:+"--import-marks=$testhttpgitmarks"} >>/tmp/t0430.txt
-		echo "  "${testhttpgitmarks:+"--export-marks=$testhttpgitmarks"} >>/tmp/t0430.txt
-		echo "  "$refs >>/tmp/t0430.txt
+		tmpdir=$(mktemp -d -t git-remote-http-import_XXXXXX) || die "Failed to create temp directory"
 
-		git fast-export \
-			${h_refspec:+"--refspec=$h_refspec"} \
-			${t_refspec:+"--refspec=$t_refspec"} \
-			${testhttpgitmarks:+"--import-marks=$testhttpgitmarks"} \
-			${testhttpgitmarks:+"--export-marks=$testhttpgitmarks"} \
-			$refs
+		for ref in $refs
+		do
+			get_url="$HTTPD_URL/list/?sha1=$ref"
+			curl -o "$tmpdir/$ref" "$get_url" ||
+				die "curl '$get_url' failed"
+			export_blob_from file "$tmpdir/$ref" ||
+				die "failed to export blob from '$tmpdir/$ref'"
+		done
+
 		echo "done"
 		;;
 	export)
