@@ -74,7 +74,13 @@ test_expect_success 'fetching of missing objects from another promisor remote' '
 	git clone "file://$(pwd)/server" server2 &&
 	test_commit -C server2 bar &&
 	git -C server2 repack -a -d --write-bitmap-index &&
-	HASH2=$(git -C server2 rev-parse bar) &&
+	HASH2=$(git -C server2 rev-parse bar:bar.t) &&
+
+	HASH2_SIZE=$(git -C server2 cat-file -s "$HASH2") &&
+	UPLOAD_URL="$HTTPD_URL/upload/?sha1=$HASH2&size=$HASH2_SIZE&type=blob" &&
+	git -C server2 cat-file blob "$HASH2" >object &&
+	curl --data-binary @- --include "$UPLOAD_URL" <object >out_upload &&
+	echo "upload ok" &&
 
 	git -C repo remote add server2 "testhttpgit::${PWD}/server2" &&
 	git -C repo config remote.server2.promisor true &&
