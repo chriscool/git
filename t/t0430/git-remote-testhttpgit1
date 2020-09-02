@@ -61,14 +61,6 @@ export_blob_from_file() {
 	echo
 }
 
-if test -z "$GIT_REMOTE_TESTHTTPGIT_NO_MARKS"
-then
-	gitmarks="$dir/git.marks"
-	testhttpgitmarks="$dir/testhttpgit.marks"
-	test -e "$gitmarks" || >"$gitmarks"
-	test -e "$testhttpgitmarks" || >"$testhttpgitmarks"
-fi
-
 while read line
 do
 	echo "line: $line" >>/tmp/t0430.txt
@@ -78,11 +70,6 @@ do
 		echo 'export'
 		test -n "$h_refspec" && echo "refspec $h_refspec"
 		test -n "$t_refspec" && echo "refspec $t_refspec"
-		if test -n "$gitmarks"
-		then
-			echo "*import-marks $gitmarks"
-			echo "*export-marks $gitmarks"
-		fi
 		test -n "$GIT_REMOTE_TESTHTTPGIT_SIGNED_TAGS" && echo "signed-tags"
 		test -n "$GIT_REMOTE_TESTHTTPGIT_NO_PRIVATE_UPDATE" && echo "no-private-update"
 		echo 'option'
@@ -105,12 +92,6 @@ do
 		done
 
 		echo "refs: $refs" >>/tmp/t0430.txt
-		
-		if test -n "$gitmarks"
-		then
-			echo "feature import-marks=$gitmarks"
-			echo "feature export-marks=$gitmarks"
-		fi
 
 		if test -n "$GIT_REMOTE_TESTHTTPGIT_FAILURE"
 		then
