@@ -32,6 +32,11 @@ then
 	t_refspec=""
 fi
 
+die () {
+	echo >&2 "fatal: $*"
+	exit 1
+}
+
 GIT_DIR="$url/.git"
 export GIT_DIR
 echo "after export GIT_DIR=$GIT_DIR" >>/tmp/t0430.txt
@@ -106,6 +111,7 @@ do
 		for ref in $refs
 		do
 			get_url="$HTTPD_URL/list/?sha1=$ref"
+			echo "curl url: $get_url" >>/tmp/t0430.txt
 			curl -o "$tmpdir/$ref" "$get_url" ||
 				die "curl '$get_url' failed"
 			export_blob_from_file "$tmpdir/$ref" ||
