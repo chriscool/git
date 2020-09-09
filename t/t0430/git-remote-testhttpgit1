@@ -112,7 +112,7 @@ do
 		do
 			get_url="$HTTPD_URL/list/?sha1=$ref"
 			echo "curl url: $get_url" >>/tmp/t0430.txt
-			curl -o "$tmpdir/$ref" "$get_url" ||
+			curl -s -o "$tmpdir/$ref" "$get_url" ||
 				die "curl '$get_url' failed"
 			export_blob_from_file "$tmpdir/$ref" ||
 				die "failed to export blob from '$tmpdir/$ref'"
