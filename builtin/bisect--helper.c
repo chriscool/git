@@ -486,12 +486,16 @@ static int bisect_start(struct bisect_terms *terms, const char **argv, int argc)
 			return error(_("unrecognized option: '%s'"), arg);
 		} else {
 			char *commit_id = xstrfmt("%s^{commit}", arg);
-			if (get_oid(commit_id, &oid) && has_double_dash)
-				die(_("'%s' does not appear to be a valid "
-				      "revision"), arg);
-
-			string_list_append(&revs, oid_to_hex(&oid));
+			int res = get_oid(commit_id, &oid);
 			free(commit_id);
+			if (res) {
+				if (has_double_dash)
+					die(_("'%s' does not appear to be a valid "
+					      "revision"), arg);
+				break;
+			} else {
+				string_list_append(&revs, oid_to_hex(&oid));
+			}
 		}
 	}
 	pathspec_pos = i;
