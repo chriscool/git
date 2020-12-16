@@ -11,6 +11,18 @@ test_description='git rebase interactive amend'
 
 EMPTY=""
 
+test_commit_message () {
+	rev="$1"  # commit or tag we want to test
+	str="$2"  # test against a string, or
+	file="$3" # test against the content of a file
+	git show --no-patch --pretty=format:%B >actual-message &&
+	test -n "$str" && {
+		printf "%s\n" "$str" >tmp-expected-message
+		file="tmp-expected-message"
+	}
+	test_cmp "$file" actual-message
+}
+
 test_expect_success 'setup' '
 	cat >message <<-EOF &&
 		amend! B
@@ -25,7 +37,7 @@ test_expect_success 'setup' '
 
 	test_commit A A &&
 	test_commit B B &&
-	git log -1 --pretty=format:"%al %an %aE" >expected-author &&  
+	git log -1 --pretty=format:"%al %an %aE" >expected-author &&
 	ORIG_AUTHOR_NAME="$GIT_AUTHOR_NAME" &&
 	ORIG_AUTHOR_EMAIL="$GIT_AUTHOR_EMAIL" &&
 	GIT_AUTHOR_NAME="Amend Author" &&
@@ -81,7 +93,7 @@ test_expect_success 'setup' '
 	GIT_AUTHOR_NAME="Rebase Author" &&
 	GIT_AUTHOR_EMAIL="rebase.author@example.com" &&
 	GIT_COMMITTER_NAME="Rebase Committer" &&
-	GIT_COMMITTER_EMAIL="rebase.committer@example.com" 
+	GIT_COMMITTER_EMAIL="rebase.committer@example.com"
 '
 
 test_expect_success 'simple amend works' '
@@ -90,7 +102,7 @@ test_expect_success 'simple amend works' '
 	FAKE_LINES="1 amend 2" git rebase -i B &&
 	test_cmp_rev HEAD^ B &&
 	test_cmp_rev HEAD^{tree} A2^{tree} &&
-	test "$(git log -n1 --format=%B HEAD)" = A2 
+	test_commit_message HEAD "A2"
 '
 
 test_expect_success 'amend removes amend! from message' '
@@ -99,10 +111,9 @@ test_expect_success 'amend removes amend! from message' '
 	FAKE_LINES="1 amend 2" git rebase -i A &&
 	test_cmp_rev HEAD^ A &&
 	test_cmp_rev HEAD^{tree} A1^{tree} &&
-	git log -1 --pretty=format:"%B" >actual-message &&
-	test_cmp expected-message actual-message &&
+	test_commit_message HEAD "" expected-message &&
 	git log -1 --pretty=format:"%al %an %aE" >actual-author &&
-	test_cmp expected-author actual-author 
+	test_cmp expected-author actual-author
 '
 
 test_expect_success 'amend with conflicts gives correct message' '
@@ -115,10 +126,9 @@ test_expect_success 'amend with conflicts gives correct message' '
 	test_cmp_rev HEAD^ conflicts &&
 	test_cmp_rev HEAD^{tree} A1^{tree} &&
 	test_write_lines "" edited >>expected-message &&
-	git log -1 --pretty=format:%B >actual-message &&
-	test_cmp expected-message actual-message &&
-	git log -1 --pretty=format:"%al %an %aE" >actual-author && 
-	test_cmp expected-author actual-author 
+	test_commit_message HEAD "" expected-message &&
+	git log -1 --pretty=format:"%al %an %aE" >actual-author &&
+	test_cmp expected-author actual-author
 '
 
 test_expect_success 'skipping amend after fixup gives correct message' '
@@ -127,7 +137,7 @@ test_expect_success 'skipping amend after fixup gives correct message' '
 	test_must_fail env FAKE_LINES="1 fixup 2 amend 4" git rebase -i A &&
 	git reset --hard &&
 	FAKE_COMMIT_AMEND=edited git rebase --continue &&
-	test "$(git log -n1 --format=%B HEAD)" = B 
+	test_commit_message HEAD "B"
 '
 
 test_expect_success 'sequence of fixup, amend & squash --signoff works' '
@@ -144,12 +154,11 @@ test_expect_success 'sequence of fixup, amend & squash --signoff works' '
 
 test_expect_success 'first amend commented out in sequence fixup amend amend' '
 	test_when_finished "test_might_fail git rebase --abort" &&
-	git checkout branch && git checkout --detach branch~2 && 
-	git log -1 --format=%b >expected-commit-message && 
-	FAKE_LINES="1 fixup 2 amend 3 amend 4" git rebase -i A && 
-	git log -1 --format=%B >actual-commit-message &&
+	git checkout branch && git checkout --detach branch~2 &&
+	git log -1 --pretty=format:%b >expected-message &&
+	FAKE_LINES="1 fixup 2 amend 3 amend 4" git rebase -i A &&
 	test_cmp_rev HEAD^ A &&
-	test_cmp expected-commit-message actual-commit-message	
+	test_commit_message HEAD "" expected-message
 '
 
 test_done
