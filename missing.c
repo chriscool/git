@@ -35,3 +35,19 @@ int parse_missing_action_value_for_packing(const char *value)
 		return -2 - res;
 	}
 }
+
+const char *missing_action_to_string(enum missing_action action)
+{
+	switch (action) {
+	case MA_ERROR:
+		return "error";
+	case MA_ALLOW_ANY:
+		return "allow-any";
+	case MA_PRINT:
+		return "print";
+	case MA_ALLOW_PROMISOR:
+		return "allow-promisor";
+	default:
+		BUG("invalid missing action %d", action);
+	}
+}
