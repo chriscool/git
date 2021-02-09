@@ -22,4 +22,7 @@ int parse_missing_action_value(const char *value);
  */
 int parse_missing_action_value_for_packing(const char *value);
 
+/* Return a short string literal describing the action. */
+const char *missing_action_to_string(enum missing_action action);
+
 #endif /* MISSING_H */
