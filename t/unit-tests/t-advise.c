@@ -35,15 +35,12 @@ static void check_advise_if_enabled(const char *argv, const char *conf_val, cons
 	check_str(actual.buf, expect);
 	strbuf_release(&actual);
 
-	// Delete the output.txt file after the check is done
 	if (!check(remove(out_file) == 0))
 		test_msg("Error deleting %s", out_file);
 }
 
 int cmd_main(int argc, const char **argv) {
-	setenv("GIT_DISCOVERY_ACROSS_FILESYSTEM", "1", 1);
 	setenv("TERM", "dumb", 1);
-	setup_git_directory();
 
 	TEST(check_advise_if_enabled(advice_msg, NULL, expect_advice_msg),
 		"advice should be printed when config variable is unset");
