@@ -14,4 +14,12 @@ enum missing_action {
 */
 int parse_missing_action_value(const char *value);
 
+/*
+  Return a 'res' with the following meaning:
+    0 <= res : an MA_FOO value that is OK for packing
+    -1 = res : parse_missing_action_value() failed
+    -1 > res : (2 - res) is an MA_FOO value which is unsuitable for packing
+ */
+int parse_missing_action_value_for_packing(const char *value);
+
 #endif /* MISSING_H */
