@@ -14,4 +14,7 @@ const char *git_user_agent_sanitized(void);
 */
 int get_uname_info(struct strbuf *buf);
 
+const char *os_version(void);
+const char *os_version_sanitized(void);
+
 #endif /* VERSION_H */

@@ -61,3 +61,32 @@ int get_uname_info(struct strbuf *buf)
 		    uname_info.machine);
 	return 0;
 }
+
+const char *os_version(void)
+{
+	static const char *os = NULL;
+
+	if (!os) {
+		struct strbuf buf = STRBUF_INIT;
+
+		get_uname_info(&buf);
+		os = strbuf_detach(&buf, NULL);
+	}
+
+	return os;
+}
+
+const char *os_version_sanitized(void)
+{
+	static const char *os_sanitized = NULL;
+
+	if (!os_sanitized) {
+		struct strbuf buf = STRBUF_INIT;
+
+		strbuf_addstr(&buf, os_version());
+		strbuf_sanitize(&buf);
+		os_sanitized = strbuf_detach(&buf, NULL);
+	}
+
+	return os_sanitized;
+}

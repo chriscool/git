@@ -124,9 +124,12 @@ test_expect_success 'git receive-pack --advertise-refs: v1' '
 '
 
 test_expect_success 'git upload-pack --advertise-refs: v2' '
+	# Octal intervals \001-\040 and \177-\377
+	# corresponds to decimal intervals 1-32 and 127-255
 	cat >expect <<-EOF &&
 	version 2
 	agent=FAKE
+	os-version=$(uname -srvm | tr -d "\n" | tr "[\001-\040][\177-\377]" ".")
 	ls-refs=unborn
 	fetch=shallow wait-for-done
 	server-option
