@@ -315,6 +315,65 @@ static int allow_unsanitized(char ch)
 }
 
 /*
+ * A valid extra field "foo" should correspond to a
+ * "remote.<name>.foo" config variable, so, like config variables
+ * keys, it should start with an alphabetic character and otherwise
+ * each character should satisfy is_config_key_char().
+ */
+static int valid_extra_field(struct string_list_item *item, void *cb_data)
+{
+	const char *field = item->string;
+	const char *config_key = (const char *)cb_data;
+
+	for (size_t i = 0; field[i]; i++)
+		if (i ? !is_config_key_char(field[i]) : !isalpha(field[i])) {
+			warning(_("invalid field '%s' in '%s' config"), field, config_key);
+			return 0;
+		}
+	return 1;
+}
+
+static char *fields_from_config(struct string_list *fields_list, const char *config_key)
+{
+	char *extras = NULL;
+
+	if (!git_config_get_string(config_key, &extras) && *extras) {
+		string_list_split_in_place(fields_list, extras, ", ", -1);
+		filter_string_list(fields_list, 0, valid_extra_field, (void *)config_key);
+	}
+
+	return extras;
+}
+
+static struct string_list *extra_fields_sent(void)
+{
+	static struct string_list fields_list = STRING_LIST_INIT_NODUP;
+	static int initialized = 0;
+
+	if (!initialized) {
+		fields_from_config(&fields_list, "promisor.sendExtraFields");
+		initialized = 1;
+	}
+
+	return &fields_list;
+}
+
+static void append_extra_fields(struct string_list *fields,
+				struct string_list *extra_fields,
+				const char *name)
+{
+	struct string_list_item *item;
+
+	for_each_string_list_item(item, extra_fields) {
+		char *key = xstrfmt("remote.%s.%s", name, item->string);
+		const char *val;
+		if (!git_config_get_string_tmp(key, &val) && *val)
+			string_list_append(fields, item->string)->util = (char *)val;
+		free(key);
+	}
+}
+
+/*
  * Linked list for promisor remotes.
  *
  * 'fields' should not be sorted, as we will rely on the order we put
@@ -342,7 +401,8 @@ static void free_info_list(struct promisor_info *p)
  * remotes. For each promisor remote, some of its fields, starting
  * with "name" and "url", are put in the 'fields' string_list.
  */
-static struct promisor_info *promisor_info_list(struct repository *repo)
+static struct promisor_info *promisor_info_list(struct repository *repo,
+						struct string_list *extra_fields)
 {
 	struct promisor_info *infos = NULL;
 	struct promisor_info **last_info = &infos;
@@ -362,6 +422,9 @@ static struct promisor_info *promisor_info_list(struct repository *repo)
 
 			string_list_append(&new_info->fields, "name")->util = (char *)r->name;
 			string_list_append(&new_info->fields, "url")->util = (char *)url;
+
+			if (extra_fields)
+				append_extra_fields(&new_info->fields, extra_fields, r->name);
 
 			*last_info = new_info;
 			last_info = &new_info->next;
@@ -385,7 +448,7 @@ char *promisor_remote_info(struct repository *repo)
 	if (!advertise_promisors)
 		return NULL;
 
-	info_list = promisor_info_list(repo);
+	info_list = promisor_info_list(repo, extra_fields_sent());
 
 	if (!info_list)
 		return NULL;
@@ -502,7 +565,7 @@ static void filter_promisor_remote(struct repository *repo,
 		return;
 
 	if (accept != ACCEPT_ALL)
-		info_list = promisor_info_list(repo);
+		info_list = promisor_info_list(repo, NULL);
 
 	/* Parse remote info received */
 
@@ -519,13 +582,9 @@ static void filter_promisor_remote(struct repository *repo,
 		elems = strbuf_split(remotes[i], ',');
 
 		for (size_t j = 0; elems[j]; j++) {
-			int res;
 			strbuf_strip_suffix(elems[j], ",");
-			res = skip_prefix(elems[j]->buf, "name=", &remote_name) ||
+			if (!skip_prefix(elems[j]->buf, "name=", &remote_name))
 				skip_prefix(elems[j]->buf, "url=", &remote_url);
-			if (!res)
-				warning(_("unknown element '%s' from remote info"),
-					elems[j]->buf);
 		}
 
 		if (remote_name)
