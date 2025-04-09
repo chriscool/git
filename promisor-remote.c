@@ -314,10 +314,37 @@ static int allow_unsanitized(char ch)
 	return ch > 32 && ch < 127;
 }
 
-static void promisor_info_vecs(struct repository *repo,
-			       struct strvec *names,
-			       struct strvec *urls)
+/*
+ * Linked list for promisor remotes involved in the "promisor-remote"
+ * protocol capability.
+ *
+ * Except for "next" and "name", each <member> in this struct and its
+ * <value> should correspond to a "remote.<name>.<member>" config
+ * variable set to <value> where "<name>" is a promisor remote name.
+ */
+struct promisor_info {
+	struct promisor_info *next;
+	const char *name;
+	const char *url;
+};
+
+static void promisor_info_list_free(struct promisor_info *p)
 {
+	struct promisor_info *next;
+
+	for (; p; p = next) {
+		next = p->next;
+		free((char *)p->name);
+		free((char *)p->url);
+		free(p);
+	}
+}
+
+/* Prepare a 'struct promisor_info' linked list with config information. */
+static struct promisor_info *promisor_config_info_list(struct repository *repo)
+{
+	struct promisor_info *infos = NULL;
+	struct promisor_info **last_info = &infos;
 	struct promisor_remote *r;
 
 	promisor_remote_init(repo);
@@ -328,57 +355,65 @@ static void promisor_info_vecs(struct repository *repo,
 
 		/* Only add remotes with a non empty URL */
 		if (!git_config_get_string_tmp(url_key, &url) && *url) {
-			strvec_push(names, r->name);
-			strvec_push(urls, url);
+			struct promisor_info *new_info = xcalloc(1, sizeof(*new_info));
+
+			new_info->name = xstrdup(r->name);
+			new_info->url = xstrdup(url);
+
+			*last_info = new_info;
+			last_info = &new_info->next;
 		}
 
 		free(url_key);
 	}
+
+	return infos;
 }
 
 char *promisor_remote_info(struct repository *repo)
 {
 	struct strbuf sb = STRBUF_INIT;
 	int advertise_promisors = 0;
-	struct strvec names = STRVEC_INIT;
-	struct strvec urls = STRVEC_INIT;
+	struct promisor_info *config_info;
+	struct promisor_info *p;
 
 	git_config_get_bool("promisor.advertise", &advertise_promisors);
 
 	if (!advertise_promisors)
 		return NULL;
 
-	promisor_info_vecs(repo, &names, &urls);
+	config_info = promisor_config_info_list(repo);
 
-	if (!names.nr)
+	if (!config_info)
 		return NULL;
 
-	for (size_t i = 0; i < names.nr; i++) {
-		if (i)
+	for (p = config_info; p; p = p->next) {
+		if (p != config_info)
 			strbuf_addch(&sb, ';');
+
 		strbuf_addstr(&sb, "name=");
-		strbuf_addstr_urlencode(&sb, names.v[i], allow_unsanitized);
+		strbuf_addstr_urlencode(&sb, p->name, allow_unsanitized);
 		strbuf_addstr(&sb, ",url=");
-		strbuf_addstr_urlencode(&sb, urls.v[i], allow_unsanitized);
+		strbuf_addstr_urlencode(&sb, p->url, allow_unsanitized);
 	}
 
-	strvec_clear(&names);
-	strvec_clear(&urls);
+	promisor_info_list_free(config_info);
 
 	return strbuf_detach(&sb, NULL);
 }
 
 /*
- * Find first index of 'nicks' where there is 'nick'. 'nick' is
- * compared case sensitively to the strings in 'nicks'. If not found
- * 'nicks->nr' is returned.
+ * Find first element of 'p' where the 'name' member is 'nick'. 'nick'
+ * is compared case sensitively to the strings in 'p'. If not found
+ * NULL is returned.
  */
-static size_t remote_nick_find(struct strvec *nicks, const char *nick)
+static struct promisor_info *remote_nick_find(struct promisor_info *p, const char *nick)
 {
-	for (size_t i = 0; i < nicks->nr; i++)
-		if (!strcmp(nicks->v[i], nick))
-			return i;
-	return nicks->nr;
+	for (; p; p = p->next) {
+		if (!strcmp(p->name, nick))
+			return p;
+	}
+	return NULL;
 }
 
 enum accept_promisor {
@@ -390,16 +425,16 @@ enum accept_promisor {
 
 static int should_accept_remote(enum accept_promisor accept,
 				const char *remote_name, const char *remote_url,
-				struct strvec *names, struct strvec *urls)
+				struct promisor_info *config_info)
 {
-	size_t i;
+	struct promisor_info *p;
 
 	if (accept == ACCEPT_ALL)
 		return 1;
 
-	i = remote_nick_find(names, remote_name);
+	p = remote_nick_find(config_info, remote_name);
 
-	if (i >= names->nr)
+	if (!p)
 		/* We don't know about that remote */
 		return 0;
 
@@ -414,11 +449,15 @@ static int should_accept_remote(enum accept_promisor accept,
 		return 0;
 	}
 
-	if (!strcmp(urls->v[i], remote_url))
+	if (!p->url)
+		BUG("Bad config_info (invalid URL) for remote '%s'.\n",
+		    remote_name);
+
+	if (!strcmp(p->url, remote_url))
 		return 1;
 
 	warning(_("known remote named '%s' but with URL '%s' instead of '%s'"),
-		remote_name, urls->v[i], remote_url);
+		remote_name, p->url, remote_url);
 
 	return 0;
 }
@@ -430,8 +469,7 @@ static void filter_promisor_remote(struct repository *repo,
 	struct strbuf **remotes;
 	const char *accept_str;
 	enum accept_promisor accept = ACCEPT_NONE;
-	struct strvec names = STRVEC_INIT;
-	struct strvec urls = STRVEC_INIT;
+	struct promisor_info *config_info = NULL;
 
 	if (!git_config_get_string_tmp("promisor.acceptfromserver", &accept_str)) {
 		if (!*accept_str || !strcasecmp("None", accept_str))
@@ -451,7 +489,7 @@ static void filter_promisor_remote(struct repository *repo,
 		return;
 
 	if (accept != ACCEPT_ALL)
-		promisor_info_vecs(repo, &names, &urls);
+		config_info = promisor_config_info_list(repo);
 
 	/* Parse remote info received */
 
@@ -482,7 +520,7 @@ static void filter_promisor_remote(struct repository *repo,
 		if (remote_url)
 			decoded_url = url_percent_decode(remote_url);
 
-		if (decoded_name && should_accept_remote(accept, decoded_name, decoded_url, &names, &urls))
+		if (decoded_name && should_accept_remote(accept, decoded_name, decoded_url, config_info))
 			strvec_push(accepted, decoded_name);
 
 		strbuf_list_free(elems);
@@ -490,8 +528,7 @@ static void filter_promisor_remote(struct repository *repo,
 		free(decoded_url);
 	}
 
-	strvec_clear(&names);
-	strvec_clear(&urls);
+	promisor_info_list_free(config_info);
 	strbuf_list_free(remotes);
 }
 
