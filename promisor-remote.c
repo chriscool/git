@@ -314,10 +314,51 @@ static int allow_unsanitized(char ch)
 	return ch > 32 && ch < 127;
 }
 
-static void promisor_info_vecs(struct repository *repo,
-			       struct strvec *names,
-			       struct strvec *urls)
+/*
+ * Linked list for promisor remotes involved in the "promisor-remote"
+ * protocol capability.
+ *
+ * 'fields' contains a defined set of field name/value pairs for
+ * each promisor remote. Field names are stored in the 'string'
+ * member, and values in the 'util' member.
+ *
+ * Currently supported field names:
+ * - "name": The name of the promisor remote.
+ * - "url": The URL of the promisor remote.
+ *
+ * Except for "name", each "<field_name>/<field_value>" pair should
+ * correspond to a "remote.<name>.<field_name>" config variable set to
+ * <field_value> where "<name>" is a promisor remote name.
+ *
+ * 'fields' should not be sorted, as we will rely on the order we put
+ * things into it. So, for example, 'string_list_append()' should be
+ * used instead of 'string_list_insert()'.
+ */
+struct promisor_info {
+	struct promisor_info *next;
+	struct string_list fields;
+};
+
+static void promisor_info_list_free(struct promisor_info *p)
 {
+	struct promisor_info *next;
+
+	for (; p; p = next) {
+		next = p->next;
+		string_list_clear(&p->fields, 0);
+		free(p);
+	}
+}
+
+/*
+ * Prepare a 'struct promisor_info' linked list of promisor
+ * remotes. For each promisor remote, some of its fields, starting
+ * with "name" and "url", are put in the 'fields' string_list.
+ */
+static struct promisor_info *promisor_info_list(struct repository *repo)
+{
+	struct promisor_info *infos = NULL;
+	struct promisor_info **last_info = &infos;
 	struct promisor_remote *r;
 
 	promisor_remote_init(repo);
@@ -328,57 +369,78 @@ static void promisor_info_vecs(struct repository *repo,
 
 		/* Only add remotes with a non empty URL */
 		if (!git_config_get_string_tmp(url_key, &url) && *url) {
-			strvec_push(names, r->name);
-			strvec_push(urls, url);
+			struct promisor_info *new_info = xcalloc(1, sizeof(*new_info));
+
+			string_list_init_dup(&new_info->fields);
+			new_info->fields.cmp = strcasecmp;
+
+			string_list_append(&new_info->fields, "name")->util = (char *)r->name;
+			string_list_append(&new_info->fields, "url")->util = (char *)url;
+
+			*last_info = new_info;
+			last_info = &new_info->next;
 		}
 
 		free(url_key);
 	}
+
+	return infos;
 }
 
 char *promisor_remote_info(struct repository *repo)
 {
 	struct strbuf sb = STRBUF_INIT;
 	int advertise_promisors = 0;
-	struct strvec names = STRVEC_INIT;
-	struct strvec urls = STRVEC_INIT;
+	struct promisor_info *info_list;
+	struct promisor_info *r;
 
 	git_config_get_bool("promisor.advertise", &advertise_promisors);
 
 	if (!advertise_promisors)
 		return NULL;
 
-	promisor_info_vecs(repo, &names, &urls);
+	info_list = promisor_info_list(repo);
 
-	if (!names.nr)
+	if (!info_list)
 		return NULL;
 
-	for (size_t i = 0; i < names.nr; i++) {
-		if (i)
+	for (r = info_list; r; r = r->next) {
+		struct string_list_item *item;
+		int first = 1;
+
+		if (r != info_list)
 			strbuf_addch(&sb, ';');
-		strbuf_addstr(&sb, "name=");
-		strbuf_addstr_urlencode(&sb, names.v[i], allow_unsanitized);
-		strbuf_addstr(&sb, ",url=");
-		strbuf_addstr_urlencode(&sb, urls.v[i], allow_unsanitized);
+
+		for_each_string_list_item(item, &r->fields) {
+			if (first)
+				first = 0;
+			else
+				strbuf_addch(&sb, ',');
+			strbuf_addf(&sb, "%s=", item->string);
+			strbuf_addstr_urlencode(&sb, (char *)item->util, allow_unsanitized);
+		}
 	}
 
-	strvec_clear(&names);
-	strvec_clear(&urls);
+	promisor_info_list_free(info_list);
 
 	return strbuf_detach(&sb, NULL);
 }
 
 /*
- * Find first index of 'nicks' where there is 'nick'. 'nick' is
- * compared case sensitively to the strings in 'nicks'. If not found
- * 'nicks->nr' is returned.
+ * Find first element of 'p' where the 'name' field is 'nick'. 'nick'
+ * is compared case sensitively to the strings in 'p'. If not found
+ * NULL is returned.
  */
-static size_t remote_nick_find(struct strvec *nicks, const char *nick)
+static struct promisor_info *remote_nick_find(struct promisor_info *p, const char *nick)
 {
-	for (size_t i = 0; i < nicks->nr; i++)
-		if (!strcmp(nicks->v[i], nick))
-			return i;
-	return nicks->nr;
+	for (; p; p = p->next) {
+		if (strcmp(p->fields.items[0].string, "name"))
+			BUG("First field of promisor info should be 'name', but was '%s'.",
+			    p->fields.items[0].string);
+		if (!strcmp(p->fields.items[0].util, nick))
+			return p;
+	}
+	return NULL;
 }
 
 enum accept_promisor {
@@ -390,16 +452,17 @@ enum accept_promisor {
 
 static int should_accept_remote(enum accept_promisor accept,
 				const char *remote_name, const char *remote_url,
-				struct strvec *names, struct strvec *urls)
+				struct promisor_info *info_list)
 {
-	size_t i;
+	struct promisor_info *p;
+	const char *local_url;
 
 	if (accept == ACCEPT_ALL)
 		return 1;
 
-	i = remote_nick_find(names, remote_name);
+	p = remote_nick_find(info_list, remote_name);
 
-	if (i >= names->nr)
+	if (!p)
 		/* We don't know about that remote */
 		return 0;
 
@@ -414,11 +477,18 @@ static int should_accept_remote(enum accept_promisor accept,
 		return 0;
 	}
 
-	if (!strcmp(urls->v[i], remote_url))
+	if (strcmp(p->fields.items[1].string, "url"))
+		BUG("Bad info_list for remote '%s'.\n"
+		    "Second field of promisor info should be 'url', but was '%s'.",
+		    remote_name, p->fields.items[1].string);
+
+	local_url = p->fields.items[1].util;
+
+	if (!strcmp(local_url, remote_url))
 		return 1;
 
 	warning(_("known remote named '%s' but with URL '%s' instead of '%s'"),
-		remote_name, urls->v[i], remote_url);
+		remote_name, local_url, remote_url);
 
 	return 0;
 }
@@ -430,8 +500,7 @@ static void filter_promisor_remote(struct repository *repo,
 	struct strbuf **remotes;
 	const char *accept_str;
 	enum accept_promisor accept = ACCEPT_NONE;
-	struct strvec names = STRVEC_INIT;
-	struct strvec urls = STRVEC_INIT;
+	struct promisor_info *info_list = NULL;
 
 	if (!git_config_get_string_tmp("promisor.acceptfromserver", &accept_str)) {
 		if (!*accept_str || !strcasecmp("None", accept_str))
@@ -451,7 +520,7 @@ static void filter_promisor_remote(struct repository *repo,
 		return;
 
 	if (accept != ACCEPT_ALL)
-		promisor_info_vecs(repo, &names, &urls);
+		info_list = promisor_info_list(repo);
 
 	/* Parse remote info received */
 
@@ -482,7 +551,7 @@ static void filter_promisor_remote(struct repository *repo,
 		if (remote_url)
 			decoded_url = url_percent_decode(remote_url);
 
-		if (decoded_name && should_accept_remote(accept, decoded_name, decoded_url, &names, &urls))
+		if (decoded_name && should_accept_remote(accept, decoded_name, decoded_url, info_list))
 			strvec_push(accepted, decoded_name);
 
 		strbuf_list_free(elems);
@@ -490,8 +559,7 @@ static void filter_promisor_remote(struct repository *repo,
 		free(decoded_url);
 	}
 
-	strvec_clear(&names);
-	strvec_clear(&urls);
+	promisor_info_list_free(info_list);
 	strbuf_list_free(remotes);
 }
 
