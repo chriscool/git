@@ -9,6 +9,24 @@ promisor.advertise::
 	"false", which means the "promisor-remote" capability is not
 	advertised.
 
+promisor.sendFields::
+	A comma or space separated list of additional remote related
+	fields that a server will send while advertising its promisor
+	remotes using the "promisor-remote" capability, see
+	linkgit:gitprotocol-v2[5]. Currently, only the
+	"partialCloneFilter" and "token" fields are supported. The
+	"partialCloneFilter" field contains the partial clone filter
+	used for the remote, and the "token" field contains an
+	authentication token for the remote.
++
+When a field is part of this list and a corresponding
+"remote.foo.<field>" config variable is set on the server to a
+non-empty value, then the field and its value will be sent when
+advertising the promisor remote "foo". This list has no effect unless
+the "promisor.advertise" config variable is set to "true", and the
+"name" and "url" fields are always advertised regardless of this
+setting.
+
 promisor.acceptFromServer::
 	If set to "all", a client will accept all the promisor remotes
 	a server might advertise using the "promisor-remote"

@@ -315,6 +315,84 @@ static int allow_unsanitized(char ch)
 }
 
 /*
+ * List of field names allowed to be used in the "promisor-remote"
+ * protocol capability. Each field should correspond to a configurable
+ * property of a remote that can be relevant for the client.
+ */
+static const char *allowed_fields[] = {
+	"partialCloneFilter", /* Filter used for partial clone */
+	"token",              /* Authentication token for the remote */
+	NULL
+};
+
+/*
+ * Check if 'field' is in the list of allowed field names for the
+ * "promisor-remote" protocol capability.
+ */
+static int is_allowed_field(const char *field)
+{
+	const char **p;
+
+	for (p = allowed_fields; *p; p++)
+		if (!strcasecmp(*p, field))
+			return 1;
+	return 0;
+}
+
+static int valid_field(struct string_list_item *item, void *cb_data)
+{
+	const char *field = item->string;
+	const char *config_key = (const char *)cb_data;
+
+	if (!is_allowed_field(field)) {
+		warning(_("unsupported field '%s' in '%s' config"), field, config_key);
+		return 0;
+	}
+	return 1;
+}
+
+static char *fields_from_config(struct string_list *fields_list, const char *config_key)
+{
+	char *fields = NULL;
+
+	if (!git_config_get_string(config_key, &fields) && *fields) {
+		string_list_split_in_place(fields_list, fields, ", ", -1);
+		filter_string_list(fields_list, 0, valid_field, (void *)config_key);
+	}
+
+	return fields;
+}
+
+static struct string_list *fields_sent(void)
+{
+	static struct string_list fields_list = STRING_LIST_INIT_NODUP;
+	static int initialized = 0;
+
+	if (!initialized) {
+		fields_list.cmp = strcasecmp;
+		fields_from_config(&fields_list, "promisor.sendFields");
+		initialized = 1;
+	}
+
+	return &fields_list;
+}
+
+static void append_fields(struct string_list *fields,
+			  struct string_list *field_names,
+			  const char *name)
+{
+	struct string_list_item *item;
+
+	for_each_string_list_item(item, field_names) {
+		char *key = xstrfmt("remote.%s.%s", name, item->string);
+		const char *val;
+		if (!git_config_get_string_tmp(key, &val) && *val)
+			string_list_append(fields, item->string)->util = (char *)val;
+		free(key);
+	}
+}
+
+/*
  * Linked list for promisor remotes involved in the "promisor-remote"
  * protocol capability.
  *
@@ -323,8 +401,9 @@ static int allow_unsanitized(char ch)
  * member, and values in the 'util' member.
  *
  * Currently supported field names:
- * - "name": The name of the promisor remote.
- * - "url": The URL of the promisor remote.
+ * - "name": The name of the promisor remote,
+ * - "url": The URL of the promisor remote,
+ * - the fields in 'allowed_fields[]' above.
  *
  * Except for "name", each "<field_name>/<field_value>" pair should
  * correspond to a "remote.<name>.<field_name>" config variable set to
@@ -355,7 +434,8 @@ static void promisor_info_list_free(struct promisor_info *p)
  * remotes. For each promisor remote, some of its fields, starting
  * with "name" and "url", are put in the 'fields' string_list.
  */
-static struct promisor_info *promisor_info_list(struct repository *repo)
+static struct promisor_info *promisor_info_list(struct repository *repo,
+						struct string_list *field_names)
 {
 	struct promisor_info *infos = NULL;
 	struct promisor_info **last_info = &infos;
@@ -376,6 +456,9 @@ static struct promisor_info *promisor_info_list(struct repository *repo)
 
 			string_list_append(&new_info->fields, "name")->util = (char *)r->name;
 			string_list_append(&new_info->fields, "url")->util = (char *)url;
+
+			if (field_names)
+				append_fields(&new_info->fields, field_names, r->name);
 
 			*last_info = new_info;
 			last_info = &new_info->next;
@@ -399,7 +482,7 @@ char *promisor_remote_info(struct repository *repo)
 	if (!advertise_promisors)
 		return NULL;
 
-	info_list = promisor_info_list(repo);
+	info_list = promisor_info_list(repo, fields_sent());
 
 	if (!info_list)
 		return NULL;
@@ -520,7 +603,7 @@ static void filter_promisor_remote(struct repository *repo,
 		return;
 
 	if (accept != ACCEPT_ALL)
-		info_list = promisor_info_list(repo);
+		info_list = promisor_info_list(repo, NULL);
 
 	/* Parse remote info received */
 
@@ -537,13 +620,9 @@ static void filter_promisor_remote(struct repository *repo,
 		elems = strbuf_split(remotes[i], ',');
 
 		for (size_t j = 0; elems[j]; j++) {
-			int res;
 			strbuf_strip_suffix(elems[j], ",");
-			res = skip_prefix(elems[j]->buf, "name=", &remote_name) ||
+			if (!skip_prefix(elems[j]->buf, "name=", &remote_name))
 				skip_prefix(elems[j]->buf, "url=", &remote_url);
-			if (!res)
-				warning(_("unknown element '%s' from remote info"),
-					elems[j]->buf);
 		}
 
 		if (remote_name)
