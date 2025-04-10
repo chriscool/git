@@ -531,11 +531,6 @@ void git_config_push_env(const char *spec)
 	free(key);
 }
 
-static inline int iskeychar(int c)
-{
-	return isalnum(c) || c == '-';
-}
-
 /*
  * Auxiliary function to sanity-check and split the key into the section
  * identifier and variable name.
@@ -585,7 +580,7 @@ int git_config_parse_key(const char *key, char **store_key, size_t *baselen_)
 			dot = 1;
 		/* Leave the extended basename untouched.. */
 		if (!dot || i > baselen) {
-			if (!iskeychar(c) ||
+			if (!is_config_key_char(c) ||
 			    (i == baselen + 1 && !isalpha(c))) {
 				error(_("invalid key: %s"), key);
 				goto out_free_ret_1;
@@ -906,7 +901,7 @@ static int get_value(struct config_source *cs, struct key_value_info *kvi,
 		c = get_next_char(cs);
 		if (cs->eof)
 			break;
-		if (!iskeychar(c))
+		if (!is_config_key_char(c))
 			break;
 		strbuf_addch(name, tolower(c));
 	}
@@ -984,7 +979,7 @@ static int get_base_var(struct config_source *cs, struct strbuf *name)
 			return 0;
 		if (isspace(c))
 			return get_extended_base_var(cs, name, c);
-		if (!iskeychar(c) && c != '.')
+		if (!is_config_key_char(c) && c != '.')
 			return -1;
 		strbuf_addch(name, tolower(c));
 	}

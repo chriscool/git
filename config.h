@@ -340,6 +340,15 @@ int repo_config_set_worktree_gently(struct repository *, const char *, const cha
  */
 void repo_config_set(struct repository *, const char *, const char *);
 
+/**
+ * Is this char a valid char for the section or variable name part of
+ * a config key?
+ */
+static inline int is_config_key_char(int c)
+{
+	return isalnum(c) || c == '-';
+}
+
 int git_config_parse_key(const char *, char **, size_t *);
 
 /*
