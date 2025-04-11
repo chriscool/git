@@ -377,6 +377,20 @@ static struct string_list *fields_sent(void)
 	return &fields_list;
 }
 
+static struct string_list *fields_checked(void)
+{
+	static struct string_list fields_list = STRING_LIST_INIT_NODUP;
+	static int initialized = 0;
+
+	if (!initialized) {
+		fields_list.cmp = strcasecmp;
+		fields_from_config(&fields_list, "promisor.checkFields");
+		initialized = 1;
+	}
+
+	return &fields_list;
+}
+
 static void append_fields(struct string_list *fields,
 			  struct string_list *field_names,
 			  const char *name)
@@ -533,15 +547,65 @@ enum accept_promisor {
 	ACCEPT_ALL
 };
 
+static int check_field_one(struct string_list_item *item_value,
+			   struct promisor_info *p)
+{
+	struct string_list_item *item;
+
+	item = unsorted_string_list_lookup(&p->fields, item_value->string);
+	if (!item)
+		return 0;
+
+	return !strcmp(item->util, item_value->util);
+}
+
+
+static int check_field(struct string_list_item *item_value,
+		       struct promisor_info *p, int in_list)
+{
+	if (!in_list)
+		return check_field_one(item_value, p);
+
+	for (; p; p = p->next)
+		if (check_field_one(item_value, p))
+			return 1;
+
+	return 0;
+}
+
+static int check_all_fields(struct string_list* values,
+			    struct promisor_info *p,
+			    int in_list)
+{
+	struct string_list* fields = fields_checked();
+	struct string_list_item *item_checked;
+
+	string_list_sort(values);
+
+	for_each_string_list_item(item_checked, fields) {
+		struct string_list_item *item_value;
+
+		item_value = string_list_lookup(values, item_checked->string);
+		if (!item_value)
+			return 0;
+		if (!check_field(item_value, p, in_list))
+			return 0;
+	}
+
+	return 1;
+}
+
 static int should_accept_remote(enum accept_promisor accept,
-				const char *remote_name, const char *remote_url,
+				const char *remote_name,
+				const char *remote_url,
+				struct string_list* values,
 				struct promisor_info *info_list)
 {
 	struct promisor_info *p;
 	const char *local_url;
 
 	if (accept == ACCEPT_ALL)
-		return 1;
+		return check_all_fields(values, info_list, 1);
 
 	p = remote_nick_find(info_list, remote_name);
 
@@ -550,7 +614,7 @@ static int should_accept_remote(enum accept_promisor accept,
 		return 0;
 
 	if (accept == ACCEPT_KNOWN_NAME)
-		return 1;
+		return check_all_fields(values, p, 0);
 
 	if (accept != ACCEPT_KNOWN_URL)
 		BUG("Unhandled 'enum accept_promisor' value '%d'", accept);
@@ -568,7 +632,7 @@ static int should_accept_remote(enum accept_promisor accept,
 	local_url = p->fields.items[1].util;
 
 	if (!strcmp(local_url, remote_url))
-		return 1;
+		return check_all_fields(values, p, 0);
 
 	warning(_("known remote named '%s' but with URL '%s' instead of '%s'"),
 		remote_name, local_url, remote_url);
@@ -602,9 +666,6 @@ static void filter_promisor_remote(struct repository *repo,
 	if (accept == ACCEPT_NONE)
 		return;
 
-	if (accept != ACCEPT_ALL)
-		info_list = promisor_info_list(repo, NULL);
-
 	/* Parse remote info received */
 
 	remotes = strbuf_split_str(info, ';', 0);
@@ -615,14 +676,29 @@ static void filter_promisor_remote(struct repository *repo,
 		const char *remote_url = NULL;
 		char *decoded_name = NULL;
 		char *decoded_url = NULL;
+		struct string_list field_values = STRING_LIST_INIT_NODUP;
+
+		field_values.cmp = strcasecmp;
 
 		strbuf_strip_suffix(remotes[i], ";");
 		elems = strbuf_split(remotes[i], ',');
 
 		for (size_t j = 0; elems[j]; j++) {
+			char *p;
+
 			strbuf_strip_suffix(elems[j], ",");
-			if (!skip_prefix(elems[j]->buf, "name=", &remote_name))
-				skip_prefix(elems[j]->buf, "url=", &remote_url);
+			if (skip_prefix(elems[j]->buf, "name=", &remote_name) ||
+			    skip_prefix(elems[j]->buf, "url=", &remote_url))
+				continue;
+
+			p = strchr(elems[j]->buf, '=');
+			if (p) {
+				*p = '\0';
+				string_list_append(&field_values, elems[j]->buf)->util = p + 1;
+			} else {
+				warning(_("invalid element '%s' from remote info"),
+					elems[j]->buf);
+			}
 		}
 
 		if (remote_name)
@@ -630,9 +706,16 @@ static void filter_promisor_remote(struct repository *repo,
 		if (remote_url)
 			decoded_url = url_percent_decode(remote_url);
 
-		if (decoded_name && should_accept_remote(accept, decoded_name, decoded_url, info_list))
-			strvec_push(accepted, decoded_name);
+		if (decoded_name) {
+			if (!info_list)
+				info_list = promisor_info_list(repo, fields_checked());
 
+			if (should_accept_remote(accept, decoded_name, decoded_url,
+						 &field_values, info_list))
+				strvec_push(accepted, decoded_name);
+		}
+
+		string_list_clear(&field_values, 0);
 		strbuf_list_free(elems);
 		free(decoded_name);
 		free(decoded_url);

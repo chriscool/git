@@ -46,3 +46,28 @@ promisor.acceptFromServer::
 	lazily fetchable from this promisor remote from its responses
 	to "fetch" and "clone" requests from the client. Name and URL
 	comparisons are case sensitive. See linkgit:gitprotocol-v2[5].
+
+promisor.checkFields::
+	A comma or space separated list of additional remote related
+	fields that a client will check before accepting a promisor
+	remote. Currently, only the "partialCloneFilter" and "token"
+	fields are supported.
++
+When a field is part of this list and a corresponding
+"remote.foo.<field>" config variable is set locally for remote "foo",
+then the value of this config variable will be checked against the
+value of the same field passed by the server for the remote "foo". The
+remote "foo" will be rejected if the values don't match.
++
+For the "partialCloneFilter" field, this allows the client to ensure
+that the server's filter matches what it expects locally, preventing
+inconsistencies in filtering behavior. For the "token" field, this can
+be used to verify that authentication credentials match expected
+values.
++
+The fields should be passed by the server through the
+"promisor-remote" capability by using the `promisor.sendFields` config
+variable. The fields will be checked only if the
+`promisor.acceptFromServer` config variable is not set to "None".  If
+set to "None", this config variable will have no effect.  See
+linkgit:gitprotocol-v2[5].
