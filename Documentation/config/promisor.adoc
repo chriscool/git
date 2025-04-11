@@ -43,3 +43,20 @@ promisor.acceptFromServer::
 	lazily fetchable from this promisor remote from its responses
 	to "fetch" and "clone" requests from the client. Name and URL
 	comparisons are case sensitive. See linkgit:gitprotocol-v2[5].
+
+promisor.checkExtraFields::
+	A comma or space separated list of additional remote related
+	fields that a client will check before accepting a promisor
+	remote. When a field named "bar" is part of this list and a
+	corresponding "remote.foo.bar" config variable is set for
+	locally for remote "foo", then the value of the
+	"remote.foo.bar" config variable will be checked against the
+	value of the "bar" field passed by the server through the
+	"promisor-remote" capability for the remote "foo". The remote
+	"foo" will be rejected if the values don't match. The fields
+	should be passed by the server through the "promisor-remote"
+	capability by using the `promisor.sendExtraFields` config
+	variable, see above. The extra fields will be checked only if
+	the `promisor.acceptFromServer` config variable, see above, is
+	not set to "None". If is set to "None", this config variable
+	will have no effect. See linkgit:gitprotocol-v2[5].
