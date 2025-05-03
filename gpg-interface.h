@@ -42,6 +42,10 @@ struct signature_check {
 	char *key;
 	char *fingerprint;
 	char *primary_key_fingerprint;
+
+	/* hash algo for GPG/GPGSM, key type for SSH */
+	char *sig_algo;
+
 	enum signature_trust_level trust_level;
 };
 

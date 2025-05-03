@@ -153,6 +153,7 @@ void signature_check_clear(struct signature_check *sigc)
 	FREE_AND_NULL(sigc->key);
 	FREE_AND_NULL(sigc->fingerprint);
 	FREE_AND_NULL(sigc->primary_key_fingerprint);
+	FREE_AND_NULL(sigc->sig_algo);
 }
 
 /* An exclusive status -- only one of them can appear in output */
@@ -221,6 +222,65 @@ static int parse_gpg_trust_level(const char *level,
 	return 1;
 }
 
+/* See RFC 4880: OpenPGP Message Format, section 9.4. Hash Algorithms */
+static struct sigcheck_gpg_hash_algo {
+	const char *id;
+	const char *name;
+} sigcheck_gpg_hash_algo[] = {
+	{ "1", "md5" },       /* deprecated */
+	{ "2", "sha1" },      /* mandatory */
+	{ "3", "ripemd160" },
+	{ "8", "sha256" },
+	{ "9", "sha384" },
+	{ "10", "sha512" },
+	{ "11", "sha224" },
+};
+
+static const char *lookup_gpg_hash_algo(const char *algo_id)
+{
+	if (!algo_id)
+		return NULL;
+
+	for (size_t i = 0; i < ARRAY_SIZE(sigcheck_gpg_hash_algo); i++) {
+		if (!strcmp(sigcheck_gpg_hash_algo[i].id, algo_id))
+			return sigcheck_gpg_hash_algo[i].name;
+	}
+
+	return NULL;
+}
+
+static char *extract_gpg_hash_algo(const char *args_start,
+				   const char *line_end,
+				   int field_index)
+{
+	const char *p = args_start;
+	int current_field = 0;
+	char *result = NULL;
+
+	while (p < line_end && current_field < field_index) {
+		/* Skip to the end of the current field */
+		while (p < line_end && *p != ' ')
+			p++;
+		/* Skip spaces to get to the start of the next field */
+		while (p < line_end && *p == ' ') {
+			p++;
+			current_field++;
+		}
+	}
+
+	if (p < line_end && current_field == field_index) {
+		/* Found start of the target field */
+		const char *algo_id_end = strchrnul(p, ' ');
+		char *algo_id = xmemdupz(p, algo_id_end - p);
+		const char *hash_algo = lookup_gpg_hash_algo(algo_id);
+		if (hash_algo)
+			result = xstrdup(hash_algo);
+		free(algo_id);
+	}
+
+	return result;
+}
+
 static void parse_gpg_output(struct signature_check *sigc)
 {
 	const char *buf = sigc->gpg_status;
@@ -242,6 +302,18 @@ static void parse_gpg_output(struct signature_check *sigc)
 		/* Iterate over all search strings */
 		for (size_t i = 0; i < ARRAY_SIZE(sigcheck_gpg_status); i++) {
 			if (skip_prefix(line, sigcheck_gpg_status[i].check, &line)) {
+
+				/* Do we have hash algorithm? */
+				if (!sigc->sig_algo) {
+					const char *line_end = strchrnul(line, '\n');
+					if (!strcmp(sigcheck_gpg_status[i].check, "VALIDSIG "))
+						/* Hash algorithm is the 8th field in VALIDSIG */
+						sigc->sig_algo = extract_gpg_hash_algo(line, line_end, 7);
+					else if (!strcmp(sigcheck_gpg_status[i].check, "ERRSIG "))
+						/* Hash algorithm is the 3rd field in ERRSIG */
+						sigc->sig_algo = extract_gpg_hash_algo(line, line_end, 2);
+				}
+
 				/*
 				 * GOODSIG, BADSIG etc. can occur only once for
 				 * each signature.  Therefore, if we had more
@@ -323,6 +395,7 @@ static void parse_gpg_output(struct signature_check *sigc)
 			}
 		}
 	}
+
 	return;
 
 error:
@@ -332,6 +405,7 @@ error:
 	FREE_AND_NULL(sigc->fingerprint);
 	FREE_AND_NULL(sigc->signer);
 	FREE_AND_NULL(sigc->key);
+	FREE_AND_NULL(sigc->sig_algo);
 }
 
 static int verify_gpg_signed_buffer(struct signature_check *sigc,
