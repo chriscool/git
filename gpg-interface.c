@@ -456,11 +456,27 @@ static int verify_gpg_signed_buffer(struct signature_check *sigc,
 	return ret;
 }
 
+static char *extract_ssh_key_type(const char *type_start, const char *type_end)
+{
+	if (!type_end || type_end <= type_start)
+		return NULL;
+
+	/* Back up over any spaces before " key " */
+	while (type_end > type_start && *(type_end - 1) == ' ')
+		type_end--;
+
+	if (type_end <= type_start)
+		return NULL;
+
+	return xmemdupz(type_start, type_end - type_start);
+}
+
 static void parse_ssh_output(struct signature_check *sigc)
 {
 	const char *line, *principal, *search;
 	char *to_free;
 	char *key = NULL;
+	const char *after_last_with = NULL;
 
 	/*
 	 * ssh-keygen output should be:
@@ -485,8 +501,10 @@ static void parse_ssh_output(struct signature_check *sigc)
 		principal = line;
 		do {
 			search = strstr(line, " with ");
-			if (search)
+			if (search) {
 				line = search + 1;
+				after_last_with = search + 6;
+			}
 		} while (search != NULL);
 		if (line == principal)
 			goto cleanup;
@@ -499,6 +517,7 @@ static void parse_ssh_output(struct signature_check *sigc)
 		/* Valid signature, but key unknown */
 		sigc->result = 'G';
 		sigc->trust_level = TRUST_UNDEFINED;
+		after_last_with = line;
 	} else {
 		goto cleanup;
 	}
@@ -507,6 +526,9 @@ static void parse_ssh_output(struct signature_check *sigc)
 	if (key) {
 		sigc->fingerprint = xstrdup(key + 4);
 		sigc->key = xstrdup(sigc->fingerprint);
+
+		if (after_last_with)
+			sigc->sig_algo = extract_ssh_key_type(after_last_with, key);
 	} else {
 		/*
 		 * Output did not match what we expected
