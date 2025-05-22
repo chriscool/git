@@ -8,7 +8,7 @@ git-verify-commit - Check the signature of commits
 SYNOPSIS
 --------
 [verse]
-'git verify-commit' [-v | --verbose] [--raw] <commit>...
+'git verify-commit' [-v | --verbose] [--raw] [--summary] <commit>...
 
 DESCRIPTION
 -----------
@@ -37,6 +37,21 @@ OPTIONS
 	Print the raw signature verification status output to standard
 	error instead of the normal human-readable output. The format
 	of this output is specific to the signature format being used.
+
+--summary::
+	Print a one-line human-readable summary of the signature check
+	to standard output in the format: `STATUS FORMAT ALGORITHM`.
++
+STATUS is the result character (e.g., G, B, E, U, N, ...) shown by the
+"%G?" pretty format specifier. See the "Pretty Formats" section in
+linkgit:git-log[1].
++
+FORMAT indicates the signature format (`openpgp`, `x509`, or `ssh`) or
+`?` if unknown.
++
+ALGORITHM is the hash algorithm used for GPG/GPGSM signatures
+(e.g. `sha1`, `sha256`, ...), or the key type for SSH signatures
+(`RSA`, `ECDSA`, `ED25519`, ...), or `?` if unknown.
 
 -v::
 --verbose::
