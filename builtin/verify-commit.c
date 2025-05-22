@@ -14,7 +14,7 @@
 #include "gpg-interface.h"
 
 static const char * const verify_commit_usage[] = {
-		N_("git verify-commit [-v | --verbose] [--raw] <commit>..."),
+		N_("git verify-commit [-v | --verbose] [--raw] [--summary] <commit>..."),
 		NULL
 };
 
@@ -27,6 +27,7 @@ static int run_gpg_verify(struct commit *commit, unsigned flags)
 
 	ret = check_commit_signature(commit, &signature_check);
 	print_signature_buffer(&signature_check, flags);
+	print_signature_summary(&signature_check, flags);
 
 	signature_check_clear(&signature_check);
 	return ret;
@@ -60,6 +61,7 @@ int cmd_verify_commit(int argc,
 	const struct option verify_commit_options[] = {
 		OPT__VERBOSE(&verbose, N_("print commit contents")),
 		OPT_BIT(0, "raw", &flags, N_("print raw gpg status output"), GPG_VERIFY_RAW),
+		OPT_BIT(0, "summary", &flags, N_("print concise signature verification summary"), GPG_VERIFY_SUMMARY),
 		OPT_END()
 	};
 

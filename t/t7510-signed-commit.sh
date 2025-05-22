@@ -232,6 +232,30 @@ test_expect_success GPG2 'bare signature' '
 	test_cmp expect actual
 '
 
+test_expect_success GPG 'verify signatures with --summary' '
+	# GPG-signed commit
+	git verify-commit --summary sixth-signed >actual &&
+	test_grep "^G openpgp sha1" actual &&
+
+	# Non-signed commit
+	test_must_fail git verify-commit --summary seventh-unsigned >actual 2>&1 &&
+	test_grep "^N ? ?" actual &&
+
+	# Trusted signature with alternate key (hash used might depend on the OS)
+	git verify-commit --summary eighth-signed-alt >actual &&
+	test_grep -E "^G openpgp sha(256|512)" actual &&
+
+	# Bad signature
+	test_must_fail git verify-commit --summary $(cat forged1.commit) >actual 2>err &&
+	test_grep "^B openpgp ?" actual
+'
+
+test_expect_success GPG '--summary and --raw work together' '
+	git verify-commit --summary --raw sixth-signed >actual 2>err &&
+	test_grep "^G openpgp sha1" actual &&
+	test_grep "GOODSIG" err
+'
+
 test_expect_success GPG 'show good signature with custom format' '
 	cat >expect <<-\EOF &&
 	G

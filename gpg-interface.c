@@ -153,6 +153,7 @@ void signature_check_clear(struct signature_check *sigc)
 	FREE_AND_NULL(sigc->key);
 	FREE_AND_NULL(sigc->fingerprint);
 	FREE_AND_NULL(sigc->primary_key_fingerprint);
+	FREE_AND_NULL(sigc->format_name);
 	FREE_AND_NULL(sigc->sig_algo);
 }
 
@@ -756,6 +757,8 @@ int check_signature(struct signature_check *sigc,
 	if (!fmt)
 		die(_("bad/incompatible signature '%s'"), signature);
 
+	sigc->format_name = xstrdup(fmt->name);
+
 	if (parse_payload_metadata(sigc))
 		return 1;
 
@@ -780,6 +783,14 @@ void print_signature_buffer(const struct signature_check *sigc, unsigned flags)
 
 	if (output)
 		fputs(output, stderr);
+}
+
+void print_signature_summary(const struct signature_check *sigc, unsigned flags)
+{
+	if (flags & GPG_VERIFY_SUMMARY)
+		printf("%c %s %s\n", sigc->result,
+		       sigc->format_name ? sigc->format_name : "?",
+		       sigc->sig_algo ? sigc->sig_algo : "?");
 }
 
 size_t parse_signed_buffer(const char *buf, size_t size)

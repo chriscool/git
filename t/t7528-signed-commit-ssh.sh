@@ -277,6 +277,34 @@ test_expect_success GPGSSH 'detect fudged signature with NUL' '
 	! grep "${GPGSSH_GOOD_SIGNATURE_TRUSTED}" actual2
 '
 
+test_expect_success GPGSSH 'verify-commit --summary outputs format and key type for SSH signatures' '
+	test_config gpg.ssh.allowedSignersFile "${GPGSSH_ALLOWED_SIGNERS}" &&
+
+	# SSH-signed commit with ED25519 key
+	git verify-commit --summary sixth-signed >actual &&
+	test_grep "^G ssh ED25519" actual &&
+
+	# SSH-signed commit with ECDSA key
+	git verify-commit --summary thirteenth-signed-ecdsa >actual &&
+	test_grep "^G ssh ECDSA" actual &&
+
+	# Non-signed commit
+	test_must_fail git verify-commit --summary seventh-unsigned >actual 2>&1 &&
+	test_grep "^N ? ?" actual &&
+
+	# Bad signature
+	test_must_fail git verify-commit --summary $(cat forged1.commit) >actual 2>err &&
+	test_grep "^B ssh ?" actual
+'
+
+test_expect_success GPGSSH '--summary and --raw work together' '
+	test_config gpg.ssh.allowedSignersFile "${GPGSSH_ALLOWED_SIGNERS}" &&
+
+	git verify-commit --summary --raw sixth-signed >actual 2>err &&
+	test_grep "^G ssh ED25519" actual &&
+	test_grep "${GPGSSH_GOOD_SIGNATURE_TRUSTED}" err
+'
+
 test_expect_success GPGSSH 'amending already signed commit' '
 	test_config gpg.format ssh &&
 	test_config user.signingkey "${GPGSSH_KEY_PRIMARY}" &&

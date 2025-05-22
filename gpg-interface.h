@@ -6,6 +6,7 @@ struct strbuf;
 #define GPG_VERIFY_VERBOSE	(1<<0)
 #define GPG_VERIFY_RAW		(1<<1)
 #define GPG_VERIFY_OMIT_STATUS	(1<<2)
+#define GPG_VERIFY_SUMMARY	(1<<3)
 
 enum signature_trust_level {
 	TRUST_UNDEFINED,
@@ -42,6 +43,9 @@ struct signature_check {
 	char *key;
 	char *fingerprint;
 	char *primary_key_fingerprint;
+
+	/* "openpgp", "x509", "ssh" */
+	char *format_name;
 
 	/* hash algo for GPG/GPGSM, key type for SSH */
 	char *sig_algo;
@@ -95,5 +99,7 @@ int check_signature(struct signature_check *sigc,
 		    const char *signature, size_t slen);
 void print_signature_buffer(const struct signature_check *sigc,
 			    unsigned flags);
+void print_signature_summary(const struct signature_check *sigc,
+			     unsigned flags);
 
 #endif
