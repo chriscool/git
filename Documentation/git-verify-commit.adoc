@@ -3,7 +3,7 @@ git-verify-commit(1)
 
 NAME
 ----
-git-verify-commit - Check the GPG signature of commits
+git-verify-commit - Check the signature of commits
 
 SYNOPSIS
 --------
@@ -12,20 +12,46 @@ SYNOPSIS
 
 DESCRIPTION
 -----------
-Validates the GPG signature created by 'git commit -S'.
+Validates the cryptographic signature of commits. This is typically
+a GPG signature created by 'git commit -S', but other signature
+formats like SSH may also be verified depending on Git configuration
+(see linkgit:git-config[1] and the `gpg.format` option).
+
+By default, the command prints human-readable verification results to
+standard error.
+
+EXIT STATUS
+-----------
+If all the specified commits are successfully verified and their
+signatures are good and trusted according to the configured trust
+requirements, the command exits with 0.
+
+If any commit fails verification (e.g., due to a bad signature, a
+missing or untrusted key), if a specified object cannot be found or is
+not a commit object, or if another error occurs during verification,
+the command exits with a non-zero status.
 
 OPTIONS
 -------
 --raw::
-	Print the raw gpg status output to standard error instead of the normal
-	human-readable output.
+	Print the raw signature verification status output to standard
+	error instead of the normal human-readable output. The format
+	of this output is specific to the signature format being used.
 
 -v::
 --verbose::
 	Print the contents of the commit object before validating it.
 
 <commit>...::
-	SHA-1 identifiers of Git commit objects.
+	Commit objects to verify. Can be specified using any format
+	accepted by linkgit:git-rev-parse[1].
+
+SEE ALSO
+--------
+linkgit:git-commit[1],
+linkgit:git-config[1],
+linkgit:git-verify-tag[1],
+linkgit:git-log[1]
 
 GIT
 ---
