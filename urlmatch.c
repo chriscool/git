@@ -441,6 +441,11 @@ char *url_normalize(const char *url, struct url_info *out_info)
 	return url_normalize_1(url, out_info, false);
 }
 
+char *url_normalize_pattern(const char *url, struct url_info *out_info)
+{
+	return url_normalize_1(url, out_info, true);
+}
+
 char *url_parse(const char *url_orig, struct url_info *out_info)
 {
 	struct strbuf url;
