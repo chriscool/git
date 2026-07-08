@@ -35,9 +35,11 @@ enum allow_lazy_fetch parse_allow_lazy_fetch_env(void)
 		return LAZY_FETCH_ALL;
 	if (val > 0)
 		return LAZY_FETCH_NONE;
+	if (!strcasecmp(v, "fromAccepted"))
+		return LAZY_FETCH_ACCEPTED;
 
 	die(_("bad environment value '%s' for '%s'; "
-	      "only 'false/0' and 'true/1' are valid"),
+	      "only 'false/0', 'true/1' and 'fromAccepted' are valid"),
 	    v, NO_LAZY_FETCH_ENVIRONMENT);
 }
 
@@ -336,6 +338,16 @@ static bool lazy_fetch_objects(struct repository *repo,
 	if (try_promisor_remotes(repo, remaining_oids, remaining_nr,
 				 to_free, true))
 		return true;
+
+	if (lf == LAZY_FETCH_ACCEPTED) {
+		static int warning_shown;
+		if (!warning_shown) {
+			warning_shown = 1;
+			warning(_("lazy fetching from accepted promisor remotes only; "
+				  "some objects may not be available"));
+		}
+		return false;
+	}
 
 	return try_promisor_remotes(repo, remaining_oids, remaining_nr,
 				    to_free, false);

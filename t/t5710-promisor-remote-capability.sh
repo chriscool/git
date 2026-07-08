@@ -173,6 +173,55 @@ test_expect_success "clone with promisor.acceptfromserver set to 'None'" '
 	initialize_server 1 "$oid"
 '
 
+test_expect_success "clone with GIT_NO_LAZY_FETCH=fromAccepted and accepted promisor remote" '
+	git -C server config promisor.advertise true &&
+	test_when_finished "rm -rf client" &&
+
+	# Clone from server to create a client
+	GIT_NO_LAZY_FETCH=fromAccepted git clone -c remote.lop.promisor=true \
+		-c remote.lop.fetch="+refs/heads/*:refs/remotes/lop/*" \
+		-c remote.lop.url="$TRASH_DIRECTORY_URL/lop" \
+		-c promisor.acceptfromserver=All \
+		--no-local --filter="blob:limit=5k" server client &&
+
+	# Check that the largest object is still missing on the server
+	check_missing_objects server 1 "$oid"
+'
+
+test_expect_success "clone with GIT_NO_LAZY_FETCH=fromAccepted and no accepted promisor remote" '
+	git -C server config promisor.advertise true &&
+	test_when_finished "rm -rf client" &&
+
+	# Clone from server to create a client
+	# It should fail because the server cannot lazy fetch the missing blob
+	test_must_fail env GIT_NO_LAZY_FETCH=fromAccepted git clone -c remote.lop.promisor=true \
+		-c remote.lop.fetch="+refs/heads/*:refs/remotes/lop/*" \
+		-c remote.lop.url="$TRASH_DIRECTORY_URL/lop" \
+		-c promisor.acceptfromserver=None \
+		--no-local --filter="blob:limit=5k" server client 2>err &&
+
+	test_grep "lazy fetching from accepted promisor remotes only" err &&
+
+	# Check that the largest object is still missing on the server
+	check_missing_objects server 1 "$oid"
+'
+
+test_expect_success "clone failure with GIT_NO_LAZY_FETCH=bogus" '
+	git -C server config promisor.advertise true &&
+	test_when_finished "rm -rf client" &&
+
+	test_must_fail env GIT_NO_LAZY_FETCH=bogus git clone -c remote.lop.promisor=true \
+		-c remote.lop.fetch="+refs/heads/*:refs/remotes/lop/*" \
+		-c remote.lop.url="$TRASH_DIRECTORY_URL/lop" \
+		-c promisor.acceptfromserver=All \
+		--no-local --filter="blob:limit=5k" server client 2>err &&
+
+	test_grep "bad environment value" err &&
+
+	# Check that the largest object is still missing on the server
+	check_missing_objects server 1 "$oid"
+'
+
 test_expect_success "init + fetch with promisor.advertise set to 'true'" '
 	git -C server config promisor.advertise true &&
 	test_when_finished "rm -rf client" &&

@@ -947,9 +947,9 @@ for full details.
 	pathspecs as case-insensitive.
 
 `GIT_NO_LAZY_FETCH`::
-	Setting this Boolean environment variable to true tells Git
-	not to lazily fetch missing objects from the promisor remote
-	on demand.
+	Setting this environment variable controls whether Git is
+	allowed to lazily fetch missing objects from a promisor remote
+	on demand. See linkgit:git-upload-pack[1].
 
 `GIT_REFLOG_ACTION`::
 	When a ref is updated, reflog entries are created to keep

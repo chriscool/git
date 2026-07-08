@@ -71,6 +71,14 @@ This is implemented by having `upload-pack` internally set the
 (because you are fetching from a partial clone, and you are sure
 you trust it), you can explicitly set `GIT_NO_LAZY_FETCH` to
 `0`.
++
+`GIT_NO_LAZY_FETCH` can also be set to 'fromAccepted' which allows
+lazy fetching only from remotes that are advertised and accepted using
+the "promisor-remote" protocol v2 capability. See
+linkgit:gitprotocol-v2[5]. This is a bit safer than setting it to `0`,
+but note that the main security issue on the server side is making
+sure the served repo itself is also trusted. And the operator of the
+server should decide and mark that trust, not the client.
 
 SECURITY
 --------

@@ -28,6 +28,7 @@ int repo_has_promisor_remote(struct repository *r);
 /* Enum for lazy fetching parsing */
 enum allow_lazy_fetch {
 	LAZY_FETCH_NONE    = 0,  /* No lazy fetching */
+	LAZY_FETCH_ACCEPTED,     /* Lazy fetching only from accepted promisor remotes */
 	LAZY_FETCH_ALL           /* Lazy fetch from any promisor remotes */
 };
 
