@@ -21,6 +21,26 @@ struct promisor_remote_config {
 	struct promisor_remote **promisors_tail;
 };
 
+enum allow_lazy_fetch parse_allow_lazy_fetch_env(void)
+{
+	const char *v = getenv(NO_LAZY_FETCH_ENVIRONMENT);
+	int val;
+
+	if (!v)
+		return LAZY_FETCH_ALL;
+
+	val = git_parse_maybe_bool(v);
+
+	if (!val)
+		return LAZY_FETCH_ALL;
+	if (val > 0)
+		return LAZY_FETCH_NONE;
+
+	die(_("bad environment value '%s' for '%s'; "
+	      "only 'false/0' and 'true/1' are valid"),
+	    v, NO_LAZY_FETCH_ENVIRONMENT);
+}
+
 static int fetch_objects(struct repository *repo,
 			 const char *remote_name,
 			 const struct object_id *oids,
@@ -299,7 +319,9 @@ static bool lazy_fetch_objects(struct repository *repo,
 			       int *remaining_nr,
 			       int *to_free)
 {
-	if (git_env_bool(NO_LAZY_FETCH_ENVIRONMENT, 0)) {
+	enum allow_lazy_fetch lf = parse_allow_lazy_fetch_env();
+
+	if (lf == LAZY_FETCH_NONE) {
 		static int warning_shown;
 		if (!warning_shown) {
 			warning_shown = 1;

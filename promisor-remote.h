@@ -25,6 +25,19 @@ void promisor_remote_clear(struct promisor_remote_config *config);
 struct promisor_remote *repo_promisor_remote_find(struct repository *r, const char *remote_name);
 int repo_has_promisor_remote(struct repository *r);
 
+/* Enum for lazy fetching parsing */
+enum allow_lazy_fetch {
+	LAZY_FETCH_NONE    = 0,  /* No lazy fetching */
+	LAZY_FETCH_ALL           /* Lazy fetch from any promisor remotes */
+};
+
+/*
+ * Parse the NO_LAZY_FETCH_ENVIRONMENT env variable into an
+ * `enum allow_lazy_fetch`.
+ * If parsing fails, then die().
+ */
+enum allow_lazy_fetch parse_allow_lazy_fetch_env(void);
+
 /*
  * Fetches all requested objects from all promisor remotes, trying them one at
  * a time until all objects are fetched.

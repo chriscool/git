@@ -24,6 +24,7 @@
 #include "trace.h"
 #include "trace2.h"
 #include "worktree.h"
+#include "promisor-remote.h"
 
 enum allowed_bare_repo {
 	ALLOWED_BARE_REPO_EXPLICIT = 0,
@@ -1051,6 +1052,7 @@ static void setup_git_env_internal(struct repository *repo,
 	const char *replace_ref_base;
 	struct set_gitdir_args args = { NULL };
 	struct strvec to_free = STRVEC_INIT;
+	enum allow_lazy_fetch lf;
 
 	args.commondir = getenv_safe(&to_free, GIT_COMMON_DIR_ENVIRONMENT);
 	args.graft_file = getenv_safe(&to_free, GRAFT_ENVIRONMENT);
@@ -1072,7 +1074,8 @@ static void setup_git_env_internal(struct repository *repo,
 	if (shallow_file)
 		set_alternate_shallow_file(repo, shallow_file, 0);
 
-	if (git_env_bool(NO_LAZY_FETCH_ENVIRONMENT, 0))
+	lf = parse_allow_lazy_fetch_env();
+	if (lf == LAZY_FETCH_NONE)
 		fetch_if_missing = 0;
 }
 
