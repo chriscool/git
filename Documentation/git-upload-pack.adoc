@@ -79,6 +79,11 @@ linkgit:gitprotocol-v2[5]. This is a bit safer than setting it to `0`,
 but note that the main security issue on the server side is making
 sure the served repo itself is also trusted. And the operator of the
 server should decide and mark that trust, not the client.
++
+Instead of setting `GIT_NO_LAZY_FETCH` to 'fromAccepted' in the
+environment, a server operator can allow this on a per-repository basis
+by listing trusted repositories in the `uploadpack.lazyFetchTrusted`
+configuration variable. See linkgit:git-config[1].
 
 SECURITY
 --------

@@ -42,10 +42,13 @@ int cmd_upload_pack(int argc,
 		OPT_END()
 	};
 	unsigned enter_repo_flags = ENTER_REPO_ANY_OWNER_OK;
+	bool no_lazy_fetch_set;
 
 	packet_trace_identity("upload-pack");
 	disable_replace_refs();
 	save_commit_buffer = 0;
+
+	no_lazy_fetch_set = !!getenv(NO_LAZY_FETCH_ENVIRONMENT);
 	xsetenv(NO_LAZY_FETCH_ENVIRONMENT, "1", 0);
 
 	argc = parse_options(argc, argv, prefix, options, upload_pack_usage, 0);
@@ -64,6 +67,15 @@ int cmd_upload_pack(int argc,
 
 	switch (determine_protocol_version_server()) {
 	case protocol_v2:
+		/*
+		 * Relax the GIT_NO_LAZY_FETCH=1 default if the served
+		 * repo is in the "uploadpack.lazyFetchTrusted"
+		 * protected allowlist and GIT_NO_LAZY_FETCH was not
+		 * already set explicitly.
+		 */
+		if (!no_lazy_fetch_set &&
+		    upload_pack_lazy_fetch_trusted(the_repository))
+			xsetenv(NO_LAZY_FETCH_ENVIRONMENT, "fromAccepted", 1);
 		if (advertise_refs)
 			protocol_v2_advertise_capabilities(the_repository);
 		else
