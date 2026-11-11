@@ -10,7 +10,7 @@
 struct inmemory_object {
 	enum object_type type;
 	const void *buf;
-	unsigned long size;
+	size_t size;
 };
 
 static const struct inmemory_object *find_cached_object(struct odb_source_inmemory *source,
