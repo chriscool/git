@@ -669,10 +669,6 @@ static int xdl_do_merge(xdfenv_t *xe1, xdchange_t *xscr1,
 						    ancestor_name,
 						    favor, changes, NULL, style,
 						    marker_size);
-		if (size > LONG_MAX) {
-			xdl_cleanup_merge(changes);
-			return -1;
-		}
 		result->ptr = xdl_malloc(size);
 		if (!result->ptr) {
 			xdl_cleanup_merge(changes);

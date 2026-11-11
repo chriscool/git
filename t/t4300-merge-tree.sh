@@ -430,15 +430,13 @@ test_expect_success EXPENSIVE 'setup: base commit with attributes' '
 	git commit -a -m side2
 '
 
-# We have LONG_IS_64BIT as a prerequisite since we guard against downcasts
-# from 64-bit size_t to 32-bit long (for example on Windows)
-test_expect_success EXPENSIVE,SIZE_T_IS_64BIT,LONG_IS_64BIT 'no buffer overflow in merge-tree --write-tree' '
+test_expect_success EXPENSIVE,SIZE_T_IS_64BIT 'no buffer overflow in merge-tree --write-tree' '
 	test_expect_code 1 git merge-tree --write-tree side1 side2 >out &&
 	tree=$(head -n 1 out) &&
 	git cat-file -e "$tree^{tree}"
 '
 
-test_expect_success EXPENSIVE,SIZE_T_IS_64BIT,LONG_IS_64BIT 'conflicted paths are listed without buffer overflow' '
+test_expect_success EXPENSIVE,SIZE_T_IS_64BIT 'conflicted paths are listed without buffer overflow' '
 	test_expect_code 1 git merge-tree --write-tree --name-only \
 		side1 side2 >out &&
 	sed -n "2,\$p" out | sed "/^\$/,\$d" | sort -u >actual &&
@@ -447,13 +445,6 @@ test_expect_success EXPENSIVE,SIZE_T_IS_64BIT,LONG_IS_64BIT 'conflicted paths ar
 	other.txt
 	EOF
 	test_cmp expect actual
-'
-
-# Ensure we properly identify a downcast from 64-bit size_t to
-# 32-bit long on Windows
-test_expect_success EXPENSIVE,SIZE_T_IS_64BIT,!LONG_IS_64BIT 'merge-tree dies when merge buffer size does not fit long' '
-	test_must_fail git merge-tree --write-tree side1 side2 2>err &&
-	test_grep "failure to merge" err
 '
 
 test_expect_success EXPENSIVE,!SIZE_T_IS_64BIT 'merge-tree dies when merge buffer size overflows size_t' '
