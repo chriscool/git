@@ -310,7 +310,7 @@ static void check_notes_merge_worktree(struct notes_merge_options *o)
 }
 
 static void write_buf_to_worktree(const struct object_id *obj,
-				  const char *buf, unsigned long size)
+				  const char *buf, size_t size)
 {
 	int fd;
 	char *path = repo_git_path(the_repository, NOTES_MERGE_WORKTREE "/%s", oid_to_hex(obj));
