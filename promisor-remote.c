@@ -1310,8 +1310,13 @@ static void filter_promisor_remote(struct repository *repo,
 	struct store_info *store_info = NULL;
 	struct string_list_item *item;
 	bool reload_config = false;
-	enum accept_promisor accept = accept_from_server(repo);
+	enum accept_promisor accept;
 	struct string_list accept_urls = STRING_LIST_INIT_DUP;
+
+	if (!repo->gitdir)
+		return;
+
+	accept = accept_from_server(repo);
 
 	/* Load and validate the acceptFromServerUrl config */
 	load_accept_from_server_url(repo, &accept_urls);
