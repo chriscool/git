@@ -1379,6 +1379,17 @@ void promisor_remote_reply(struct repository *repo,
 {
 	struct string_list accepted_remotes = STRING_LIST_INIT_NODUP;
 
+	/*
+	 * We can be called outside a repository, for example by
+	 * "git ls-remote", which has no use for promisor remotes.
+	 * Not replying is fine then (see gitprotocol-v2(5)).
+	 */
+	if (!repo || !repo->gitdir) {
+		if (accepted_out)
+			*accepted_out = NULL;
+		return;
+	}
+
 	filter_promisor_remote(repo, &accepted_remotes, info);
 
 	if (accepted_out) {

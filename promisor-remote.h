@@ -60,10 +60,14 @@ char *promisor_remote_info(struct repository *repo);
 /*
  * Prepare a reply to a "promisor-remote" advertisement from a server.
  * Check the value of "promisor.acceptfromserver" and maybe the
- * configured promisor remotes, if any, to prepare the reply. If the
- * `accepted_out` argument is not NULL, it is set to either NULL or to
- * the names of the accepted promisor remotes separated by ';' if
- * any. See gitprotocol-v2(5).
+ * configured promisor remotes, if any, to prepare the reply.
+ *
+ * If the `accepted_out` argument is not NULL, it is set to either
+ * NULL or to the names of the accepted promisor remotes separated by
+ * ';' if any. See gitprotocol-v2(5).
+ *
+ * `repo` may be NULL, or not a real repository, and in that case
+ * nothing is accepted and `*accepted_out` is set to NULL.
  */
 void promisor_remote_reply(struct repository *repo,
 			   const char *info,

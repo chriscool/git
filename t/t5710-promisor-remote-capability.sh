@@ -813,6 +813,37 @@ test_expect_success "clone with invalid promisor.acceptFromServerUrl" '
 	initialize_server 1 "$oid"
 '
 
+test_expect_success "ls-remote without a repo doesn't auto-configure" '
+	git -C server config promisor.advertise true &&
+
+	nongit git -c promisor.acceptFromServerUrl="$ENCODED_TRASH_DIRECTORY_URL/*" \
+		ls-remote "$TRASH_DIRECTORY_URL/server" >out 2>&1 &&
+
+	# Refs are properly listed
+	test_grep "refs/heads/" out &&
+
+	# No remote is configured
+	test_grep ! "Auto-creating" out
+'
+
+test_expect_success "ls-remote without a repo doesn't store fields" '
+	git -C server config promisor.advertise true &&
+	test_config -C server promisor.sendFields token &&
+	test_config -C server remote.lop.token "fooBar" &&
+
+	nongit git -c promisor.acceptFromServer=All \
+		-c promisor.storeFields=token \
+		-c remote.lop.promisor=true \
+		-c remote.lop.url="$TRASH_DIRECTORY_URL/lop" \
+		ls-remote "$TRASH_DIRECTORY_URL/server" >out 2>&1 &&
+
+	# Refs are properly listed
+	test_grep "refs/heads/" out &&
+
+	# No field is stored
+	test_grep ! "Storing new token" out
+'
+
 test_expect_success "clone with promisor.sendFields" '
 	git -C server config promisor.advertise true &&
 	test_when_finished "rm -rf client" &&
