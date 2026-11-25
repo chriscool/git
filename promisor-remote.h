@@ -65,7 +65,9 @@ char *promisor_remote_info(struct repository *repo);
  * the names of the accepted promisor remotes separated by ';' if
  * any. See gitprotocol-v2(5).
  */
-void promisor_remote_reply(const char *info, char **accepted_out);
+void promisor_remote_reply(struct repository *repo,
+			   const char *info,
+			   char **accepted_out);
 
 /*
  * Set the 'accepted' flag for some promisor remotes. Useful on the

@@ -1373,11 +1373,13 @@ static void filter_promisor_remote(struct repository *repo,
 	}
 }
 
-void promisor_remote_reply(const char *info, char **accepted_out)
+void promisor_remote_reply(struct repository *repo,
+			   const char *info,
+			   char **accepted_out)
 {
 	struct string_list accepted_remotes = STRING_LIST_INIT_NODUP;
 
-	filter_promisor_remote(the_repository, &accepted_remotes, info);
+	filter_promisor_remote(repo, &accepted_remotes, info);
 
 	if (accepted_out) {
 		if (accepted_remotes.nr) {

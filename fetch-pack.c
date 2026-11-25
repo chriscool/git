@@ -1699,7 +1699,7 @@ static struct ref *do_fetch_pack_v2(struct fetch_pack_args *args,
 	fsck_options_init(&fsck_options, the_repository, FSCK_OPTIONS_MISSING_GITMODULES);
 
 	if (server_feature_v2("promisor-remote", &promisor_remote_config))
-		promisor_remote_reply(promisor_remote_config, NULL);
+		promisor_remote_reply(the_repository, promisor_remote_config, NULL);
 
 	if (args->filter_options.choice == LOFC_AUTO) {
 		struct strbuf errbuf = STRBUF_INIT;
